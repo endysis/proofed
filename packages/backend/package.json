@@ -1,0 +1,23 @@
+{
+  "name": "@proofed/backend",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc && cp package.json dist/",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.490.0",
+    "@aws-sdk/client-s3": "^3.490.0",
+    "@aws-sdk/lib-dynamodb": "^3.490.0",
+    "@aws-sdk/s3-request-presigner": "^3.490.0",
+    "ulid": "^2.3.0"
+  },
+  "devDependencies": {
+    "@proofed/shared": "*",
+    "@types/aws-lambda": "^8.10.131",
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.3"
+  }
+}
