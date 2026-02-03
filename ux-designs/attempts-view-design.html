@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>Bake Attempt Log - Proofed</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Noto+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "primary": "#e5344e",
+            "secondary": "#f4acb7",
+            "alabaster": "#d8e2dc",
+            "background-light": "#f8f6f6",
+            "background-dark": "#211113",
+          },
+          fontFamily: {
+            "display": ["Space Grotesk", "sans-serif"],
+            "body": ["Noto Sans", "sans-serif"]
+          },
+          borderRadius: {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "2xl": "1rem",
+            "full": "9999px"
+          },
+        },
+      },
+    }
+  </script>
+  <style>
+    body {
+      font-family: 'Space Grotesk', sans-serif;
+    }
+    .star-rating {
+      font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+    .star-empty {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+  </style>
+  <style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-[#171112] dark:text-white min-h-screen">
+<div class="relative flex h-auto min-h-screen w-full max-w-[480px] mx-auto flex-col bg-background-light dark:bg-background-dark overflow-x-hidden border-x border-gray-100 dark:border-gray-800">
+  <!-- TopAppBar Component -->
+  <div class="sticky top-0 z-10 flex items-center bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-md p-4 pb-2 justify-between border-b border-gray-100 dark:border-gray-800">
+    <div class="text-primary flex size-12 shrink-0 items-center justify-start cursor-pointer">
+      <span class="material-symbols-outlined text-2xl">close</span>
+    </div>
+    <h2 class="text-[#171112] dark:text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center font-display">Log Attempt</h2>
+    <div class="flex w-12 items-center justify-end cursor-pointer">
+      <p class="text-primary text-base font-bold leading-normal tracking-[0.015em] shrink-0 font-display">Save</p>
+    </div>
+  </div>
+  <div class="flex-1 overflow-y-auto">
+    <!-- SectionHeader: The Change -->
+    <div class="pt-4">
+      <h3 class="text-[#171112] dark:text-white text-lg font-bold leading-tight tracking-[-0.015em] px-4 pb-2 font-display uppercase tracking-wider text-xs opacity-60">The Change</h3>
+      <!-- TextField: Experimental Variable -->
+      <div class="flex flex-wrap items-end gap-4 px-4 py-3">
+        <label class="flex flex-col min-w-40 flex-1">
+          <p class="text-[#171112] dark:text-gray-300 text-sm font-medium leading-normal pb-2">Experimental Variable</p>
+          <input class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl text-[#171112] focus:outline-0 focus:ring-2 focus:ring-primary/20 border border-gray-200 dark:border-gray-700 bg-white dark:bg-zinc-900 focus:border-primary h-14 placeholder:text-gray-400 p-[15px] text-base font-normal leading-normal transition-all" placeholder="e.g., Bake Time: +5 mins" value=""/>
+        </label>
+      </div>
+    </div>
+    <!-- SectionHeader: Environment -->
+    <div class="mt-4">
+      <h3 class="text-[#171112] dark:text-white text-lg font-bold leading-tight tracking-[-0.015em] px-4 pb-2 font-display uppercase tracking-wider text-xs opacity-60">Environment</h3>
+      <!-- TextField: Baking Conditions -->
+      <div class="flex flex-wrap items-end gap-4 px-4 py-3">
+        <label class="flex flex-col min-w-40 flex-1">
+          <p class="text-[#171112] dark:text-gray-300 text-sm font-medium leading-normal pb-2">Baking Conditions</p>
+          <input class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl text-[#171112] focus:outline-0 focus:ring-2 focus:ring-primary/20 border border-gray-200 dark:border-gray-700 bg-white dark:bg-zinc-900 focus:border-primary h-14 placeholder:text-gray-400 p-[15px] text-base font-normal leading-normal transition-all" placeholder="e.g., Kitchen Temp: 72°F" value=""/>
+        </label>
+      </div>
+    </div>
+    <!-- Visual Proof Section (Custom) -->
+    <div class="mt-4 px-4">
+      <h3 class="text-[#171112] dark:text-white text-lg font-bold leading-tight tracking-[-0.015em] pb-4 font-display uppercase tracking-wider text-xs opacity-60">Visual Proof</h3>
+      <div class="relative w-full aspect-video rounded-2xl border-2 border-dashed border-gray-300 dark:border-gray-700 bg-alabaster/30 dark:bg-zinc-900/50 flex flex-col items-center justify-center cursor-pointer hover:bg-alabaster/50 transition-colors">
+        <span class="material-symbols-outlined text-4xl text-gray-400 mb-2">add_a_photo</span>
+        <p class="text-gray-500 font-medium text-sm">Outcome Photos</p>
+        <p class="text-gray-400 text-xs mt-1">Tap to upload proof</p>
+      </div>
+    </div>
+    <!-- Evaluation Section (Custom Star Ratings) -->
+    <div class="mt-8 px-4 pb-8">
+      <h3 class="text-[#171112] dark:text-white text-lg font-bold leading-tight tracking-[-0.015em] pb-4 font-display uppercase tracking-wider text-xs opacity-60">Evaluation</h3>
+      <div class="space-y-6 bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
+        <!-- Rating: Texture -->
+        <div class="flex items-center justify-between">
+          <span class="text-[#171112] dark:text-gray-300 font-medium">Texture</span>
+          <div class="flex gap-1 text-primary">
+            <span class="material-symbols-outlined star-rating">star</span>
+            <span class="material-symbols-outlined star-rating">star</span>
+            <span class="material-symbols-outlined star-rating">star</span>
+            <span class="material-symbols-outlined star-rating">star</span>
+            <span class="material-symbols-outlined star-empty">star</span>
+          </div>
+        </div>
+        <!-- Rating: Taste -->
+        <div class="flex items-center justify-between">
+          <span class="text-[#171112] dark:text-gray-300 font-medium">Taste</span>
+          <div class="flex gap-1 text-primary">
+            <span class="material-symbols-outlined star-rating">star</span>
+            <span class="material-symbols-outlined star-rating">star</span>
+            <span class="material-symbols-outlined star-rating">star</span>
+            <span class="material-symbols-outlined star-rating">star</span>
+            <span class="material-symbols-outlined star-rating">star</span>
+          </div>
+        </div>
+        <!-- Rating: Visuals -->
+        <div class="flex items-center justify-between">
+          <span class="text-[#171112] dark:text-gray-300 font-medium">Visuals</span>
+          <div class="flex gap-1 text-primary">
+            <span class="material-symbols-outlined star-rating">star</span>
+            <span class="material-symbols-outlined star-rating">star</span>
+            <span class="material-symbols-outlined star-rating">star</span>
+            <span class="material-symbols-outlined star-empty">star</span>
+            <span class="material-symbols-outlined star-empty">star</span>
+          </div>
+        </div>
+      </div>
+      <!-- Notes Field -->
+      <div class="mt-6">
+        <label class="flex flex-col flex-1">
+          <p class="text-[#171112] dark:text-gray-300 text-sm font-medium leading-normal pb-2">General Notes</p>
+          <textarea class="form-textarea flex w-full min-w-0 flex-1 rounded-xl text-[#171112] focus:outline-0 focus:ring-2 focus:ring-primary/20 border border-gray-200 dark:border-gray-700 bg-white dark:bg-zinc-900 focus:border-primary h-32 placeholder:text-gray-400 p-[15px] text-base font-normal leading-normal transition-all" placeholder="How did the crust feel? Did the flavor profile shift?"></textarea>
+        </label>
+      </div>
+    </div>
+  </div>
+  <!-- Footer Action Button -->
+  <div class="p-4 bg-background-light dark:bg-background-dark border-t border-gray-100 dark:border-gray-800">
+    <button class="w-full bg-primary hover:bg-primary/90 text-white font-bold py-4 rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-[0.98] font-display flex items-center justify-center gap-2">
+      <span class="material-symbols-outlined">save</span>
+      Save Attempt
+    </button>
+    <button class="w-full mt-3 bg-secondary/30 hover:bg-secondary/40 text-[#171112] dark:text-white font-semibold py-3 rounded-xl transition-all font-display text-sm">
+      Add Another Photo
+    </button>
+  </div>
+  <!-- Bottom Spacer for iOS Notch -->
+  <div class="h-8 bg-background-light dark:bg-background-dark"></div>
+</div>
+</body></html>

@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import Icon from '../common/Icon';
+import PasteIngredientsModal from './PasteIngredientsModal';
+import { UNIT_PRESETS } from '../../constants/units';
 import type { Recipe, Ingredient, CreateRecipeRequest } from '@proofed/shared';
 
 interface RecipeFormProps {
@@ -20,6 +22,35 @@ export default function RecipeForm({
     recipe?.ingredients || [{ name: '', quantity: 0, unit: '' }]
   );
   const [prepNotes, setPrepNotes] = useState(recipe?.prepNotes || '');
+  const [customUnits, setCustomUnits] = useState<Record<number, string>>({});
+  const [showPasteModal, setShowPasteModal] = useState(false);
+
+  const isPresetUnit = (unit: string) => UNIT_PRESETS.some(p => p.value === unit);
+
+  const getUnitSelectValue = (_index: number, unit: string) => {
+    if (!unit) return '';
+    if (isPresetUnit(unit)) return unit;
+    return 'other';
+  };
+
+  const handleUnitChange = (index: number, value: string) => {
+    if (value === 'other') {
+      setCustomUnits(prev => ({ ...prev, [index]: '' }));
+      updateIngredient(index, 'unit', '');
+    } else {
+      setCustomUnits(prev => {
+        const next = { ...prev };
+        delete next[index];
+        return next;
+      });
+      updateIngredient(index, 'unit', value);
+    }
+  };
+
+  const handleCustomUnitChange = (index: number, value: string) => {
+    setCustomUnits(prev => ({ ...prev, [index]: value }));
+    updateIngredient(index, 'unit', value);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,6 +72,12 @@ export default function RecipeForm({
     if (ingredients.length > 1) {
       setIngredients(ingredients.filter((_, i) => i !== index));
     }
+  };
+
+  const handlePastedIngredients = (newIngredients: Ingredient[]) => {
+    // Filter out empty placeholder ingredients before adding
+    const existingNonEmpty = ingredients.filter((i) => i.name.trim());
+    setIngredients([...existingNonEmpty, ...newIngredients]);
   };
 
   return (
@@ -81,15 +118,30 @@ export default function RecipeForm({
                 className="w-full rounded-xl border border-black/10 bg-bg-light h-12 px-3 text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
               />
             </div>
-            <div className="w-14">
-              <input
-                type="text"
-                value={ingredient.unit}
-                onChange={(e) => updateIngredient(index, 'unit', e.target.value)}
-                placeholder="Unit"
-                className="w-full rounded-xl border border-black/10 bg-bg-light h-12 px-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-              />
+            <div className="w-20">
+              <select
+                value={getUnitSelectValue(index, ingredient.unit)}
+                onChange={(e) => handleUnitChange(index, e.target.value)}
+                className="w-full rounded-xl border border-black/10 bg-bg-light h-12 px-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all appearance-none"
+              >
+                <option value="">Unit</option>
+                {UNIT_PRESETS.map((unit) => (
+                  <option key={unit.value} value={unit.value}>{unit.label}</option>
+                ))}
+                <option value="other">Other</option>
+              </select>
             </div>
+            {(customUnits[index] !== undefined || (!isPresetUnit(ingredient.unit) && ingredient.unit)) && (
+              <div className="w-16">
+                <input
+                  type="text"
+                  value={customUnits[index] ?? ingredient.unit}
+                  onChange={(e) => handleCustomUnitChange(index, e.target.value)}
+                  placeholder="Custom"
+                  className="w-full rounded-xl border border-black/10 bg-bg-light h-12 px-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                />
+              </div>
+            )}
             <button
               type="button"
               onClick={() => removeIngredient(index)}
@@ -99,14 +151,24 @@ export default function RecipeForm({
             </button>
           </div>
         ))}
-        <button
-          type="button"
-          onClick={addIngredient}
-          className="w-full py-3 text-primary font-bold active:bg-primary/5 rounded-xl border-2 border-dashed border-pastel-pink flex items-center justify-center gap-2"
-        >
-          <Icon name="add" size="sm" />
-          Add Ingredient
-        </button>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={addIngredient}
+            className="flex-1 py-3 text-primary font-bold active:bg-primary/5 rounded-xl border-2 border-dashed border-pastel-pink flex items-center justify-center gap-2"
+          >
+            <Icon name="add" size="sm" />
+            Add Ingredient
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowPasteModal(true)}
+            className="py-3 px-4 text-primary font-bold active:bg-primary/5 rounded-xl border-2 border-dashed border-pastel-pink flex items-center justify-center gap-2"
+          >
+            <Icon name="content_paste" size="sm" />
+            Paste
+          </button>
+        </div>
       </div>
 
       <div>
@@ -136,6 +198,12 @@ export default function RecipeForm({
           {recipe ? 'Update' : 'Create'}
         </button>
       </div>
+
+      <PasteIngredientsModal
+        isOpen={showPasteModal}
+        onClose={() => setShowPasteModal(false)}
+        onAdd={handlePastedIngredients}
+      />
     </form>
   );
 }

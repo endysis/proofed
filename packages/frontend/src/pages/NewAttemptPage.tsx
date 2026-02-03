@@ -6,6 +6,7 @@ import { useVariants } from '../hooks/useVariants';
 import { useCreateAttempt } from '../hooks/useAttempts';
 import Loading from '../components/common/Loading';
 import Icon from '../components/common/Icon';
+import { SCALE_PRESETS } from '../utils/scaleRecipe';
 import type { ItemUsage } from '@proofed/shared';
 
 interface ItemUsageInput extends ItemUsage {
@@ -302,6 +303,28 @@ function ItemUsageRow({
                   <option key={v.variantId} value={v.variantId}>{v.name}</option>
                 ))}
               </select>
+            </div>
+          )}
+
+          {usage.recipeId && (
+            <div>
+              <p className="text-[#171112] text-sm font-medium leading-normal pb-2">Scale</p>
+              <div className="flex gap-1">
+                {SCALE_PRESETS.map((preset) => (
+                  <button
+                    key={preset.value}
+                    type="button"
+                    onClick={() => onUpdate({ scaleFactor: preset.value === 1 ? undefined : preset.value })}
+                    className={`px-3 py-2 text-sm font-bold rounded-lg transition-colors ${
+                      (usage.scaleFactor ?? 1) === preset.value
+                        ? 'bg-primary text-white'
+                        : 'bg-bg-light text-dusty-mauve hover:bg-pastel-pink'
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 

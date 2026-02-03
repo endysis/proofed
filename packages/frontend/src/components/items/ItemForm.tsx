@@ -27,10 +27,20 @@ export default function ItemForm({
   const [name, setName] = useState(item?.name || '');
   const [type, setType] = useState<ItemType>(item?.type || 'batter');
   const [notes, setNotes] = useState(item?.notes || '');
+  const [bakeTime, setBakeTime] = useState<number | ''>(item?.bakeTime ?? '');
+  const [bakeTemp, setBakeTemp] = useState<number | ''>(item?.bakeTemp ?? '');
+  const [bakeTempUnit, setBakeTempUnit] = useState<'F' | 'C'>(item?.bakeTempUnit ?? 'F');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({ name, type, notes: notes || undefined });
+    onSubmit({
+      name,
+      type,
+      notes: notes || undefined,
+      bakeTime: bakeTime || undefined,
+      bakeTemp: bakeTemp || undefined,
+      bakeTempUnit: bakeTemp ? bakeTempUnit : undefined,
+    });
   };
 
   return (
@@ -78,6 +88,47 @@ export default function ItemForm({
           rows={3}
           className="w-full rounded-xl border border-black/10 bg-white p-4 text-base focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none"
         />
+      </div>
+
+      <div>
+        <p className="text-[#171112] text-sm font-medium leading-normal pb-2">
+          Bake Settings <span className="text-dusty-mauve font-normal">(optional)</span>
+        </p>
+        <div className="flex gap-3">
+          <div className="flex-1">
+            <label className="text-xs text-dusty-mauve">Time (min)</label>
+            <input
+              type="number"
+              inputMode="numeric"
+              value={bakeTime}
+              onChange={(e) => setBakeTime(e.target.value ? parseInt(e.target.value) : '')}
+              placeholder="25"
+              className="w-full rounded-xl border border-black/10 bg-white h-12 px-4 text-base focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+            />
+          </div>
+          <div className="flex-1">
+            <label className="text-xs text-dusty-mauve">Temperature</label>
+            <input
+              type="number"
+              inputMode="numeric"
+              value={bakeTemp}
+              onChange={(e) => setBakeTemp(e.target.value ? parseInt(e.target.value) : '')}
+              placeholder="350"
+              className="w-full rounded-xl border border-black/10 bg-white h-12 px-4 text-base focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+            />
+          </div>
+          <div className="w-20">
+            <label className="text-xs text-dusty-mauve">Unit</label>
+            <select
+              value={bakeTempUnit}
+              onChange={(e) => setBakeTempUnit(e.target.value as 'F' | 'C')}
+              className="w-full rounded-xl border border-black/10 bg-white h-12 px-2 text-base focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+            >
+              <option value="F">°F</option>
+              <option value="C">°C</option>
+            </select>
+          </div>
+        </div>
       </div>
 
       <div className="flex gap-3 pt-2">

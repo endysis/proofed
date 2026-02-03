@@ -21,6 +21,9 @@ export async function createItem(request: CreateItemRequest): Promise<Item> {
     name: request.name,
     type: request.type,
     notes: request.notes,
+    bakeTime: request.bakeTime,
+    bakeTemp: request.bakeTemp,
+    bakeTempUnit: request.bakeTempUnit,
     createdAt: now,
     updatedAt: now,
   };

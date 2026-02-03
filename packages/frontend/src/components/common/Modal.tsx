@@ -53,8 +53,8 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-4 overflow-y-auto pb-safe">{children}</div>
+        {/* Content - extra bottom padding to clear bottom nav on mobile */}
+        <div className="p-4 overflow-y-auto pb-24 sm:pb-4">{children}</div>
       </div>
 
       <style>{`

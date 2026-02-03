@@ -1,6 +1,7 @@
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import Icon from './components/common/Icon';
-import ItemsPage from './pages/ItemsPage';
+import HomePage from './pages/HomePage';
+import PantryPage from './pages/PantryPage';
 import ItemDetailPage from './pages/ItemDetailPage';
 import AttemptsPage from './pages/AttemptsPage';
 import NewAttemptPage from './pages/NewAttemptPage';
@@ -13,13 +14,17 @@ function BottomNav() {
 
   const isActive = (path: string) => {
     if (path === '/') {
-      return location.pathname === '/' || location.pathname.startsWith('/items');
+      return location.pathname === '/';
+    }
+    if (path === '/items') {
+      return location.pathname.startsWith('/items');
     }
     return location.pathname.startsWith(path);
   };
 
   const navItems = [
     { path: '/', label: 'Home', icon: 'home' },
+    { path: '/items', label: 'Pantry', icon: 'inventory_2' },
     { path: '/attempts', label: 'Bakes', icon: 'menu_book' },
     { path: '/proofed', label: 'Proofed', icon: 'verified' },
   ];
@@ -53,8 +58,8 @@ export default function App() {
   return (
     <div className="min-h-screen bg-bg-light pb-24">
       <Routes>
-        <Route path="/" element={<ItemsPage />} />
-        <Route path="/items" element={<ItemsPage />} />
+        <Route path="/" element={<HomePage />} />
+        <Route path="/items" element={<PantryPage />} />
         <Route path="/items/:itemId" element={<ItemDetailPage />} />
         <Route path="/attempts" element={<AttemptsPage />} />
         <Route path="/attempts/new" element={<NewAttemptPage />} />

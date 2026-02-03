@@ -9,6 +9,7 @@ import VariantForm from '../components/variants/VariantForm';
 import Modal from '../components/common/Modal';
 import Loading from '../components/common/Loading';
 import Icon from '../components/common/Icon';
+import { scaleIngredients, SCALE_PRESETS } from '../utils/scaleRecipe';
 import type { Recipe, Variant, CreateItemRequest, CreateRecipeRequest, CreateVariantRequest } from '@proofed/shared';
 
 const typeIcons: Record<string, string> = {
@@ -36,6 +37,7 @@ export default function ItemDetailPage() {
   const deleteVariant = useDeleteVariant();
 
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
+  const [viewScale, setViewScale] = useState(1);
   const [editItemModal, setEditItemModal] = useState(false);
   const [recipeModal, setRecipeModal] = useState<{ isOpen: boolean; recipe?: Recipe }>({ isOpen: false });
   const [variantModal, setVariantModal] = useState<{
@@ -144,6 +146,24 @@ export default function ItemDetailPage() {
         </p>
       )}
 
+      {/* Bake Settings */}
+      {(item.bakeTime || item.bakeTemp) && (
+        <div className="flex gap-4 px-4 pb-3">
+          {item.bakeTime && (
+            <div className="flex items-center gap-2 text-sm">
+              <Icon name="timer" size="sm" className="text-dusty-mauve" />
+              <span className="font-medium">{item.bakeTime} min</span>
+            </div>
+          )}
+          {item.bakeTemp && (
+            <div className="flex items-center gap-2 text-sm">
+              <Icon name="thermostat" size="sm" className="text-dusty-mauve" />
+              <span className="font-medium">{item.bakeTemp}°{item.bakeTempUnit || 'F'}</span>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Recipes Section */}
       <div className="mt-4">
         <div className="flex items-center justify-between px-4 pb-3">
@@ -186,12 +206,39 @@ export default function ItemDetailPage() {
               </button>
             </div>
 
+            {/* Scale Selector */}
+            <div className="flex items-center gap-2 mb-4 pb-4 border-b border-bg-light">
+              <span className="text-xs font-bold text-dusty-mauve uppercase tracking-wider">Scale:</span>
+              <div className="flex gap-1">
+                {SCALE_PRESETS.map((preset) => (
+                  <button
+                    key={preset.value}
+                    onClick={() => setViewScale(preset.value)}
+                    className={`px-3 py-1.5 text-sm font-bold rounded-lg transition-colors ${
+                      viewScale === preset.value
+                        ? 'bg-primary text-white'
+                        : 'bg-bg-light text-dusty-mauve hover:bg-pastel-pink'
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Ingredients */}
             <div className="space-y-3">
-              {selectedRecipe.ingredients.map((ing, i) => (
+              {scaleIngredients(selectedRecipe.ingredients, viewScale).map((ing, i) => (
                 <div key={i} className="flex justify-between items-center border-b border-bg-light pb-2">
                   <span className="text-sm font-medium">{ing.name}</span>
-                  <span className="text-sm font-bold">{ing.quantity} {ing.unit}</span>
+                  <span className="text-sm font-bold">
+                    {ing.quantity} {ing.unit}
+                    {viewScale !== 1 && (
+                      <span className="text-xs text-dusty-mauve font-normal ml-1">
+                        (was {selectedRecipe.ingredients[i].quantity})
+                      </span>
+                    )}
+                  </span>
                 </div>
               ))}
             </div>
@@ -295,6 +342,7 @@ export default function ItemDetailPage() {
       >
         <VariantForm
           variant={variantModal.variant}
+          recipeIngredients={selectedRecipe?.ingredients}
           onSubmit={variantModal.variant ? handleUpdateVariant : handleCreateVariant}
           onCancel={() => setVariantModal({ isOpen: false })}
           isLoading={createVariant.isPending || updateVariant.isPending}

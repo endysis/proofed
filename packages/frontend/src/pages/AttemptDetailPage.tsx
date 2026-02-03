@@ -9,6 +9,7 @@ import Modal from '../components/common/Modal';
 import Loading from '../components/common/Loading';
 import Icon from '../components/common/Icon';
 import PhotoUpload from '../components/photos/PhotoUpload';
+import { formatScaleFactor } from '../utils/scaleRecipe';
 import type { ItemUsage } from '@proofed/shared';
 
 export default function AttemptDetailPage() {
@@ -315,6 +316,9 @@ function ItemUsageDisplay({ usage }: { usage: ItemUsage }) {
           <p className="text-xs text-dusty-mauve">
             {recipe?.name || 'Loading...'}
             {variant && <span className="text-primary font-medium"> • {variant.name}</span>}
+            {usage.scaleFactor && usage.scaleFactor !== 1 && (
+              <span className="text-primary font-medium"> • {formatScaleFactor(usage.scaleFactor)} scale</span>
+            )}
           </p>
         </div>
       </div>

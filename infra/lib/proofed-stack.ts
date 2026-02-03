@@ -76,7 +76,6 @@ export class ProofedStack extends cdk.Stack {
       autoDeleteObjects: true,
       websiteIndexDocument: 'index.html',
       websiteErrorDocument: 'index.html',
-      publicReadAccess: true,
       blockPublicAccess: new s3.BlockPublicAccess({
         blockPublicAcls: false,
         ignorePublicAcls: false,
@@ -84,6 +83,20 @@ export class ProofedStack extends cdk.Stack {
         restrictPublicBuckets: false,
       }),
     });
+
+    // IP-restricted bucket policy for frontend
+    frontendBucket.addToResourcePolicy(
+      new iam.PolicyStatement({
+        actions: ['s3:GetObject'],
+        resources: [frontendBucket.arnForObjects('*')],
+        principals: [new iam.AnyPrincipal()],
+        conditions: {
+          IpAddress: {
+            'aws:SourceIp': '82.36.100.6/32',
+          },
+        },
+      })
+    );
 
     // Lambda function
     const apiHandler = new lambda.Function(this, 'ApiHandler', {

@@ -6,6 +6,9 @@ export interface Item {
   name: string;
   type: ItemType;
   notes?: string;
+  bakeTime?: number;        // minutes
+  bakeTemp?: number;        // temperature value
+  bakeTempUnit?: 'F' | 'C'; // Fahrenheit or Celsius
   createdAt: string;
   updatedAt: string;
 }
@@ -43,6 +46,7 @@ export interface ItemUsage {
   itemId: string;
   recipeId: string;
   variantId?: string;
+  scaleFactor?: number;  // e.g., 0.5 for half, 2 for double
   notes?: string;
 }
 
@@ -76,12 +80,18 @@ export interface CreateItemRequest {
   name: string;
   type: ItemType;
   notes?: string;
+  bakeTime?: number;
+  bakeTemp?: number;
+  bakeTempUnit?: 'F' | 'C';
 }
 
 export interface UpdateItemRequest {
   name?: string;
   type?: ItemType;
   notes?: string;
+  bakeTime?: number;
+  bakeTemp?: number;
+  bakeTempUnit?: 'F' | 'C';
 }
 
 export interface CreateRecipeRequest {
