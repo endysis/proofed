@@ -14,13 +14,6 @@ export default function AttemptCard({ attempt }: AttemptCardProps) {
           <div className="flex-1 min-w-0">
             <h3 className="font-medium text-gray-900 truncate">{attempt.name}</h3>
             <p className="text-sm text-gray-500 mt-0.5">{attempt.date}</p>
-            <div className="flex items-center gap-2 mt-1 text-sm text-gray-500">
-              {attempt.ovenTemp && (
-                <span>{attempt.ovenTemp}°{attempt.ovenTempUnit || 'F'}</span>
-              )}
-              {attempt.ovenTemp && attempt.bakeTime && <span>·</span>}
-              {attempt.bakeTime && <span>{attempt.bakeTime} min</span>}
-            </div>
           </div>
           <div className="flex items-center gap-2 text-gray-400 ml-3">
             {attempt.photoKeys && attempt.photoKeys.length > 0 && (

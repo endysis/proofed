@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom';
 import { useAttempts } from '../hooks/useAttempts';
+import { usePhotoUrl } from '../hooks/usePhotos';
 import Loading from '../components/common/Loading';
 import Icon from '../components/common/Icon';
+import { formatRelativeDate } from '../utils/formatDate';
 
 export default function HomePage() {
   const { data: attempts, isLoading } = useAttempts();
@@ -45,14 +47,10 @@ export default function HomePage() {
                   to={`/attempts/${attempt.attemptId}`}
                   className="flex h-full flex-1 flex-col gap-3 rounded-xl min-w-64 bg-white p-3 shadow-sm border border-black/5"
                 >
-                  <div className="w-full bg-center bg-no-repeat aspect-[4/3] bg-cover rounded-lg relative bg-pastel-pink/30 flex items-center justify-center">
-                    <Icon name="menu_book" size="xl" className="text-dusty-mauve" />
-                    {attempt.createdAt && new Date(attempt.createdAt).toDateString() === new Date().toDateString() && (
-                      <div className="absolute top-2 left-2 bg-white/90 backdrop-blur px-2 py-1 rounded text-[10px] font-bold text-primary uppercase tracking-tight">
-                        Today
-                      </div>
-                    )}
-                  </div>
+                  <AttemptThumbnail
+                    photoKey={attempt.mainPhotoKey || attempt.photoKeys?.[0]}
+                    relativeDate={attempt.date ? formatRelativeDate(attempt.date) : undefined}
+                  />
                   <div>
                     <p className="text-[#171112] text-base font-bold leading-normal line-clamp-1">{attempt.name}</p>
                     <div className="flex items-center gap-2 mt-1">
@@ -84,6 +82,25 @@ export default function HomePage() {
               Start Baking
             </Link>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AttemptThumbnail({ photoKey, relativeDate }: { photoKey?: string; relativeDate?: string }) {
+  const { data: url } = usePhotoUrl(photoKey);
+
+  return (
+    <div className="w-full aspect-[4/3] rounded-lg relative bg-pastel-pink/30 flex items-center justify-center overflow-hidden">
+      {url ? (
+        <img src={url} alt="Bake" className="w-full h-full object-cover" />
+      ) : (
+        <Icon name="menu_book" size="xl" className="text-dusty-mauve" />
+      )}
+      {relativeDate && (
+        <div className="absolute top-2 left-2 bg-white/90 backdrop-blur px-2 py-1 rounded text-[10px] font-bold text-primary uppercase tracking-tight">
+          {relativeDate}
         </div>
       )}
     </div>

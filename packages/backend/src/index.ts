@@ -34,7 +34,7 @@ import {
   updateProofedItemById,
   deleteProofedItemById,
 } from './handlers/proofed-items';
-import { getUploadUrl } from './handlers/photos';
+import { getUploadUrl, getDownloadUrl } from './handlers/photos';
 
 function response(statusCode: number, body: unknown): APIGatewayProxyResultV2 {
   return {
@@ -223,6 +223,11 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
     // Photos routes
     if (path === '/photos/upload-url' && method === 'POST') {
       const result = await getUploadUrl(parseBody(event));
+      return response(200, result);
+    }
+
+    if (path === '/photos/download-url' && method === 'POST') {
+      const result = await getDownloadUrl(parseBody(event));
       return response(200, result);
     }
 

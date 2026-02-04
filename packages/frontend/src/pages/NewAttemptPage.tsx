@@ -6,7 +6,7 @@ import { useVariants } from '../hooks/useVariants';
 import { useCreateAttempt } from '../hooks/useAttempts';
 import Loading from '../components/common/Loading';
 import Icon from '../components/common/Icon';
-import { SCALE_PRESETS } from '../utils/scaleRecipe';
+import { getScaleOptions } from '../utils/scaleRecipe';
 import type { ItemUsage } from '@proofed/shared';
 
 interface ItemUsageInput extends ItemUsage {
@@ -20,9 +20,6 @@ export default function NewAttemptPage() {
 
   const [name, setName] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [ovenTemp, setOvenTemp] = useState<number | ''>('');
-  const [ovenTempUnit, setOvenTempUnit] = useState<'F' | 'C'>('F');
-  const [bakeTime, setBakeTime] = useState<number | ''>('');
   const [notes, setNotes] = useState('');
   const [itemUsages, setItemUsages] = useState<ItemUsageInput[]>([]);
 
@@ -55,9 +52,6 @@ export default function NewAttemptPage() {
       {
         name,
         date,
-        ovenTemp: ovenTemp || undefined,
-        ovenTempUnit: ovenTemp ? ovenTempUnit : undefined,
-        bakeTime: bakeTime || undefined,
         itemUsages: validUsages,
         notes: notes || undefined,
       },
@@ -122,53 +116,6 @@ export default function NewAttemptPage() {
                 required
               />
             </label>
-          </div>
-        </div>
-
-        {/* Environment Section */}
-        <div className="mt-4">
-          <h3 className="section-title px-4 pb-2">Environment</h3>
-
-          <div className="px-4 py-3 flex gap-3">
-            <div className="flex-1">
-              <label className="flex flex-col">
-                <p className="text-[#171112] text-sm font-medium leading-normal pb-2">Oven Temp</p>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    value={ovenTemp}
-                    onChange={(e) => setOvenTemp(e.target.value ? parseInt(e.target.value) : '')}
-                    placeholder="350"
-                    className="flex-1 rounded-xl border border-black/10 bg-white h-14 px-4 text-base focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                  />
-                  <select
-                    value={ovenTempUnit}
-                    onChange={(e) => setOvenTempUnit(e.target.value as 'F' | 'C')}
-                    className="w-20 rounded-xl border border-black/10 bg-white h-14 px-3 text-base focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                  >
-                    <option value="F">°F</option>
-                    <option value="C">°C</option>
-                  </select>
-                </div>
-              </label>
-            </div>
-            <div className="flex-1">
-              <label className="flex flex-col">
-                <p className="text-[#171112] text-sm font-medium leading-normal pb-2">Bake Time</p>
-                <div className="relative">
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    value={bakeTime}
-                    onChange={(e) => setBakeTime(e.target.value ? parseInt(e.target.value) : '')}
-                    placeholder="30"
-                    className="w-full rounded-xl border border-black/10 bg-white h-14 px-4 pr-12 text-base focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                  />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-dusty-mauve text-sm">min</span>
-                </div>
-              </label>
-            </div>
           </div>
         </div>
 
@@ -309,19 +256,19 @@ function ItemUsageRow({
           {usage.recipeId && (
             <div>
               <p className="text-[#171112] text-sm font-medium leading-normal pb-2">Scale</p>
-              <div className="flex gap-1">
-                {SCALE_PRESETS.map((preset) => (
+              <div className="flex gap-1 flex-wrap">
+                {getScaleOptions(recipes?.find(r => r.recipeId === usage.recipeId)?.customScales).map((option) => (
                   <button
-                    key={preset.value}
+                    key={option.value}
                     type="button"
-                    onClick={() => onUpdate({ scaleFactor: preset.value === 1 ? undefined : preset.value })}
+                    onClick={() => onUpdate({ scaleFactor: option.value === 1 ? undefined : option.value })}
                     className={`px-3 py-2 text-sm font-bold rounded-lg transition-colors ${
-                      (usage.scaleFactor ?? 1) === preset.value
+                      (usage.scaleFactor ?? 1) === option.value
                         ? 'bg-primary text-white'
                         : 'bg-bg-light text-dusty-mauve hover:bg-pastel-pink'
                     }`}
                   >
-                    {preset.label}
+                    {option.label}
                   </button>
                 ))}
               </div>

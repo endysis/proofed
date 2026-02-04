@@ -30,9 +30,29 @@ export function formatScaleFactor(scale: number): string {
 /**
  * Available scale presets
  */
-export const SCALE_PRESETS = [
+export const SCALE_PRESETS: { value: number; label: string }[] = [
   { value: 0.5, label: '÷2' },
+  { value: 0.75, label: '×0.75' },
   { value: 1, label: '1×' },
   { value: 1.5, label: '×1.5' },
   { value: 2, label: '×2' },
-] as const;
+];
+
+/**
+ * Get scale options combining presets with custom scales
+ */
+export function getScaleOptions(customScales?: number[]): { value: number; label: string }[] {
+  const presetValues = new Set(SCALE_PRESETS.map(p => p.value));
+  const options = [...SCALE_PRESETS];
+
+  if (customScales) {
+    customScales.forEach(scale => {
+      if (!presetValues.has(scale)) {
+        options.push({ value: scale, label: formatScaleFactor(scale) });
+      }
+    });
+  }
+
+  // Sort by value
+  return options.sort((a, b) => a.value - b.value);
+}

@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useItems, useCreateItem } from '../hooks/useItems';
 import ItemForm from '../components/items/ItemForm';
 import Modal from '../components/common/Modal';
 import Loading from '../components/common/Loading';
 import Icon from '../components/common/Icon';
-import type { CreateItemRequest, Item } from '@proofed/shared';
+import type { CreateItemRequest, Item, ItemType } from '@proofed/shared';
 
 const typeIcons: Record<string, string> = {
   batter: 'cake',
@@ -16,10 +16,38 @@ const typeIcons: Record<string, string> = {
   other: 'category',
 };
 
+const typeLabels: Record<ItemType, string> = {
+  batter: 'Batters',
+  frosting: 'Frostings',
+  filling: 'Fillings',
+  dough: 'Doughs',
+  glaze: 'Glazes',
+  other: 'Other',
+};
+
+const typeOrder: ItemType[] = ['batter', 'dough', 'frosting', 'filling', 'glaze', 'other'];
+
 export default function PantryPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { data: items, isLoading } = useItems();
   const createItem = useCreateItem();
+
+  // Group items by type
+  const groupedItems = useMemo((): Record<ItemType, Item[]> => {
+    const groups: Record<ItemType, Item[]> = {
+      batter: [],
+      frosting: [],
+      filling: [],
+      dough: [],
+      glaze: [],
+      other: [],
+    };
+    if (!items) return groups;
+    items.forEach((item) => {
+      groups[item.type].push(item);
+    });
+    return groups;
+  }, [items]);
 
   const handleCreate = (data: CreateItemRequest) => {
     createItem.mutate(data, {
@@ -61,29 +89,50 @@ export default function PantryPage() {
             </button>
           </div>
         ) : (
-          <div className="flex flex-col gap-3">
-            {items?.map((item: Item) => (
-              <Link
-                key={item.itemId}
-                to={`/items/${item.itemId}`}
-                className="flex items-center gap-4 bg-white px-4 min-h-[72px] py-2 justify-between rounded-xl shadow-sm border border-black/5 active:scale-[0.98] transition-transform"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="text-primary flex items-center justify-center rounded-lg bg-primary/10 shrink-0 size-12">
-                    <Icon name={typeIcons[item.type] || 'category'} />
+          <div className="space-y-6">
+            {typeOrder.map((type) => {
+              const typeItems = groupedItems[type];
+              if (!typeItems || typeItems.length === 0) return null;
+              return (
+                <div key={type}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Icon name={typeIcons[type]} size="sm" className="text-dusty-mauve" />
+                    <h3 className="text-sm font-bold text-dusty-mauve uppercase tracking-wider">
+                      {typeLabels[type]}
+                    </h3>
+                    <span className="text-xs text-dusty-mauve/60 bg-bg-light px-2 py-0.5 rounded-full">
+                      {typeItems.length}
+                    </span>
                   </div>
-                  <div className="flex flex-col justify-center">
-                    <p className="text-[#171112] text-base font-bold leading-normal line-clamp-1">{item.name}</p>
-                    <p className="text-dusty-mauve text-xs font-normal leading-normal line-clamp-2 capitalize">
-                      {item.type}{item.notes ? ` • ${item.notes}` : ''}
-                    </p>
+                  <div className="flex flex-col gap-2">
+                    {typeItems.map((item: Item) => (
+                      <Link
+                        key={item.itemId}
+                        to={`/items/${item.itemId}`}
+                        className="flex items-center gap-4 bg-white px-4 min-h-[64px] py-2 justify-between rounded-xl shadow-sm border border-black/5 active:scale-[0.98] transition-transform"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="text-primary flex items-center justify-center rounded-lg bg-primary/10 shrink-0 size-10">
+                            <Icon name={typeIcons[item.type] || 'category'} size="sm" />
+                          </div>
+                          <div className="flex flex-col justify-center">
+                            <p className="text-[#171112] text-base font-bold leading-normal line-clamp-1">{item.name}</p>
+                            {item.notes && (
+                              <p className="text-dusty-mauve text-xs font-normal leading-normal line-clamp-1">
+                                {item.notes}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="shrink-0">
+                          <Icon name="chevron_right" className="text-dusty-mauve" />
+                        </div>
+                      </Link>
+                    ))}
                   </div>
                 </div>
-                <div className="shrink-0">
-                  <Icon name="chevron_right" className="text-dusty-mauve" />
-                </div>
-              </Link>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

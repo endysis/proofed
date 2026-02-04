@@ -78,22 +78,6 @@ export default function AttemptsPage() {
                   {attempt.notes && (
                     <p className="text-sm text-dusty-mauve line-clamp-2">{attempt.notes}</p>
                   )}
-                  {(attempt.ovenTemp || attempt.bakeTime) && (
-                    <div className="flex items-center gap-3 mt-2 text-xs text-dusty-mauve">
-                      {attempt.ovenTemp && (
-                        <span className="flex items-center gap-1">
-                          <Icon name="thermostat" size="sm" />
-                          {attempt.ovenTemp}°{attempt.ovenTempUnit || 'F'}
-                        </span>
-                      )}
-                      {attempt.bakeTime && (
-                        <span className="flex items-center gap-1">
-                          <Icon name="timer" size="sm" />
-                          {attempt.bakeTime} min
-                        </span>
-                      )}
-                    </div>
-                  )}
                 </div>
               </Link>
             ))}

@@ -16,6 +16,8 @@ import type {
   UpdateProofedItemRequest,
   PhotoUploadRequest,
   PhotoUploadResponse,
+  PhotoDownloadRequest,
+  PhotoDownloadResponse,
 } from '@proofed/shared';
 import {
   mockItemsApi,
@@ -161,6 +163,11 @@ export const photosApi = USE_MOCK
   : {
       getUploadUrl: (data: PhotoUploadRequest) =>
         request<PhotoUploadResponse>('/photos/upload-url', {
+          method: 'POST',
+          body: JSON.stringify(data),
+        }),
+      getDownloadUrl: (data: PhotoDownloadRequest) =>
+        request<PhotoDownloadResponse>('/photos/download-url', {
           method: 'POST',
           body: JSON.stringify(data),
         }),

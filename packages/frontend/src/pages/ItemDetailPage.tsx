@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useItem, useUpdateItem, useDeleteItem } from '../hooks/useItems';
 import { useRecipes, useCreateRecipe, useUpdateRecipe, useDeleteRecipe } from '../hooks/useRecipes';
 import { useVariants, useCreateVariant, useUpdateVariant, useDeleteVariant } from '../hooks/useVariants';
@@ -9,8 +9,9 @@ import VariantForm from '../components/variants/VariantForm';
 import Modal from '../components/common/Modal';
 import Loading from '../components/common/Loading';
 import Icon from '../components/common/Icon';
-import { scaleIngredients, SCALE_PRESETS } from '../utils/scaleRecipe';
-import type { Recipe, Variant, CreateItemRequest, CreateRecipeRequest, CreateVariantRequest } from '@proofed/shared';
+import { scaleIngredients, getScaleOptions, formatScaleFactor } from '../utils/scaleRecipe';
+import { formatContainer } from '../constants/containers';
+import type { Recipe, Variant, Ingredient, CreateItemRequest, CreateRecipeRequest, CreateVariantRequest } from '@proofed/shared';
 
 const typeIcons: Record<string, string> = {
   batter: 'cake',
@@ -24,6 +25,12 @@ const typeIcons: Record<string, string> = {
 export default function ItemDetailPage() {
   const { itemId } = useParams<{ itemId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // Read query params for deep linking from bake details
+  const initialRecipeId = searchParams.get('recipeId');
+  const initialScale = searchParams.get('scale');
+  const initialVariantId = searchParams.get('variantId');
 
   const { data: item, isLoading: itemLoading } = useItem(itemId!);
   const { data: recipes, isLoading: recipesLoading } = useRecipes(itemId!);
@@ -36,8 +43,20 @@ export default function ItemDetailPage() {
   const updateVariant = useUpdateVariant();
   const deleteVariant = useDeleteVariant();
 
-  const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
-  const [viewScale, setViewScale] = useState(1);
+  const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(initialRecipeId);
+  const [viewScale, setViewScale] = useState(initialScale ? parseFloat(initialScale) : 1);
+  const [highlightedVariantId, setHighlightedVariantId] = useState<string | null>(initialVariantId);
+
+  // Set initial recipe selection from query param once recipes load
+  useEffect(() => {
+    if (recipes && recipes.length > 0 && !selectedRecipeId) {
+      if (initialRecipeId && recipes.some(r => r.recipeId === initialRecipeId)) {
+        setSelectedRecipeId(initialRecipeId);
+      } else {
+        setSelectedRecipeId(recipes[0].recipeId);
+      }
+    }
+  }, [recipes, initialRecipeId, selectedRecipeId]);
   const [editItemModal, setEditItemModal] = useState(false);
   const [recipeModal, setRecipeModal] = useState<{ isOpen: boolean; recipe?: Recipe }>({ isOpen: false });
   const [variantModal, setVariantModal] = useState<{
@@ -45,6 +64,10 @@ export default function ItemDetailPage() {
     recipeId?: string;
     variant?: Variant;
   }>({ isOpen: false });
+  const [viewVariantModal, setViewVariantModal] = useState<{
+    variant: Variant;
+    recipe: Recipe;
+  } | null>(null);
   const [showActions, setShowActions] = useState(false);
 
   const handleUpdateItem = (data: CreateItemRequest) => {
@@ -114,9 +137,12 @@ export default function ItemDetailPage() {
     <div className="pb-4">
       {/* Top App Bar */}
       <div className="sticky top-0 z-10 flex items-center bg-white p-4 pb-2 justify-between">
-        <Link to="/" className="text-[#171112] flex size-12 shrink-0 items-center">
+        <button
+          onClick={() => navigate(-1)}
+          className="text-[#171112] flex size-12 shrink-0 items-center"
+        >
           <Icon name="arrow_back_ios" />
-        </Link>
+        </button>
         <h2 className="text-[#171112] text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center">Recipe Log</h2>
         <button
           onClick={() => setShowActions(true)}
@@ -144,24 +170,6 @@ export default function ItemDetailPage() {
         <p className="text-dusty-mauve text-sm font-medium leading-normal pb-3 pt-1 px-4">
           {item.notes}
         </p>
-      )}
-
-      {/* Bake Settings */}
-      {(item.bakeTime || item.bakeTemp) && (
-        <div className="flex gap-4 px-4 pb-3">
-          {item.bakeTime && (
-            <div className="flex items-center gap-2 text-sm">
-              <Icon name="timer" size="sm" className="text-dusty-mauve" />
-              <span className="font-medium">{item.bakeTime} min</span>
-            </div>
-          )}
-          {item.bakeTemp && (
-            <div className="flex items-center gap-2 text-sm">
-              <Icon name="thermostat" size="sm" className="text-dusty-mauve" />
-              <span className="font-medium">{item.bakeTemp}°{item.bakeTempUnit || 'F'}</span>
-            </div>
-          )}
-        </div>
       )}
 
       {/* Recipes Section */}
@@ -196,7 +204,7 @@ export default function ItemDetailPage() {
         {/* Selected Recipe Card */}
         {selectedRecipe ? (
           <div className="mx-4 p-5 bg-white rounded-xl border border-pastel-pink shadow-sm">
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex justify-between items-center mb-2">
               <h4 className="font-bold text-lg text-[#171112]">{selectedRecipe.name}</h4>
               <button
                 onClick={() => setRecipeModal({ isOpen: true, recipe: selectedRecipe })}
@@ -206,21 +214,57 @@ export default function ItemDetailPage() {
               </button>
             </div>
 
+            {/* Bake Settings & Container */}
+            {(selectedRecipe.bakeTime || selectedRecipe.bakeTemp || selectedRecipe.container) && (
+              <div className="flex flex-wrap gap-4 mb-4 pb-4 border-b border-bg-light">
+                {selectedRecipe.bakeTime && (
+                  <div className="flex items-center gap-1.5 text-sm">
+                    <Icon name="timer" size="sm" className="text-dusty-mauve" />
+                    <span className="font-medium">{selectedRecipe.bakeTime} min</span>
+                  </div>
+                )}
+                {selectedRecipe.bakeTemp && (
+                  <div className="flex items-center gap-1.5 text-sm">
+                    <Icon name="thermostat" size="sm" className="text-dusty-mauve" />
+                    <span className="font-medium">{selectedRecipe.bakeTemp}°{selectedRecipe.bakeTempUnit || 'F'}</span>
+                  </div>
+                )}
+                {selectedRecipe.container && (
+                  <div className="flex items-center gap-1.5 text-sm">
+                    <Icon name="cake" size="sm" className="text-dusty-mauve" />
+                    <span className="font-medium">
+                      {formatContainer(
+                        selectedRecipe.container.type,
+                        selectedRecipe.container.size,
+                        selectedRecipe.container.count,
+                        viewScale
+                      )}
+                    </span>
+                    {viewScale !== 1 && (
+                      <span className="text-xs text-dusty-mauve font-normal">
+                        (was {selectedRecipe.container.count})
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Scale Selector */}
             <div className="flex items-center gap-2 mb-4 pb-4 border-b border-bg-light">
               <span className="text-xs font-bold text-dusty-mauve uppercase tracking-wider">Scale:</span>
-              <div className="flex gap-1">
-                {SCALE_PRESETS.map((preset) => (
+              <div className="flex gap-1 flex-wrap">
+                {getScaleOptions(selectedRecipe.customScales).map((option) => (
                   <button
-                    key={preset.value}
-                    onClick={() => setViewScale(preset.value)}
+                    key={option.value}
+                    onClick={() => setViewScale(option.value)}
                     className={`px-3 py-1.5 text-sm font-bold rounded-lg transition-colors ${
-                      viewScale === preset.value
+                      viewScale === option.value
                         ? 'bg-primary text-white'
                         : 'bg-bg-light text-dusty-mauve hover:bg-pastel-pink'
                     }`}
                   >
-                    {preset.label}
+                    {option.label}
                   </button>
                 ))}
               </div>
@@ -254,7 +298,12 @@ export default function ItemDetailPage() {
             <VariantsSection
               itemId={itemId!}
               recipe={selectedRecipe}
+              highlightedVariantId={highlightedVariantId}
               onAddVariant={() => setVariantModal({ isOpen: true, recipeId: selectedRecipe.recipeId })}
+              onViewVariant={(variant) => {
+                setHighlightedVariantId(null);
+                setViewVariantModal({ variant, recipe: selectedRecipe });
+              }}
               onEditVariant={(variant) => setVariantModal({ isOpen: true, recipeId: selectedRecipe.recipeId, variant })}
               onDeleteVariant={(variantId) => handleDeleteVariant(selectedRecipe.recipeId, variantId)}
             />
@@ -348,6 +397,16 @@ export default function ItemDetailPage() {
           isLoading={createVariant.isPending || updateVariant.isPending}
         />
       </Modal>
+
+      {/* Variant Comparison Modal */}
+      {viewVariantModal && (
+        <VariantComparisonModal
+          variant={viewVariantModal.variant}
+          recipe={viewVariantModal.recipe}
+          viewScale={viewScale}
+          onClose={() => setViewVariantModal(null)}
+        />
+      )}
     </div>
   );
 }
@@ -355,13 +414,17 @@ export default function ItemDetailPage() {
 function VariantsSection({
   itemId,
   recipe,
+  highlightedVariantId,
   onAddVariant,
+  onViewVariant,
   onEditVariant,
   onDeleteVariant,
 }: {
   itemId: string;
   recipe: Recipe;
+  highlightedVariantId: string | null;
   onAddVariant: () => void;
+  onViewVariant: (variant: Variant) => void;
   onEditVariant: (variant: Variant) => void;
   onDeleteVariant: (variantId: string) => void;
 }) {
@@ -378,37 +441,174 @@ function VariantsSection({
 
       {variants && variants.length > 0 ? (
         <div className="space-y-2">
-          {variants.map((variant) => (
-            <div
-              key={variant.variantId}
-              className="flex items-center justify-between bg-bg-light rounded-lg p-3"
-            >
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm text-[#171112]">{variant.name}</p>
-                {variant.notes && (
-                  <p className="text-xs text-dusty-mauve line-clamp-1">{variant.notes}</p>
-                )}
-              </div>
-              <div className="flex items-center gap-1">
+          {variants.map((variant) => {
+            const isHighlighted = variant.variantId === highlightedVariantId;
+            return (
+              <div
+                key={variant.variantId}
+                className={`flex items-center justify-between rounded-lg p-3 transition-colors ${
+                  isHighlighted
+                    ? 'bg-primary/10 ring-2 ring-primary'
+                    : 'bg-bg-light'
+                }`}
+              >
                 <button
-                  onClick={() => onEditVariant(variant)}
-                  className="p-2 text-dusty-mauve"
+                  onClick={() => onViewVariant(variant)}
+                  className="flex-1 min-w-0 text-left"
                 >
-                  <Icon name="edit" size="sm" />
+                  <p className={`font-medium text-sm ${isHighlighted ? 'text-primary' : 'text-[#171112]'}`}>
+                    {variant.name}
+                    {isHighlighted && <span className="ml-2 text-xs">(selected)</span>}
+                  </p>
+                  {variant.notes && (
+                    <p className="text-xs text-dusty-mauve line-clamp-1">{variant.notes}</p>
+                  )}
                 </button>
-                <button
-                  onClick={() => onDeleteVariant(variant.variantId)}
-                  className="p-2 text-dusty-mauve"
-                >
-                  <Icon name="delete" size="sm" />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => onEditVariant(variant)}
+                    className="p-2 text-dusty-mauve"
+                  >
+                    <Icon name="edit" size="sm" />
+                  </button>
+                  <button
+                    onClick={() => onDeleteVariant(variant.variantId)}
+                    className="p-2 text-dusty-mauve"
+                  >
+                    <Icon name="delete" size="sm" />
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <p className="text-sm text-dusty-mauve/70">No variants yet</p>
       )}
     </div>
+  );
+}
+
+function VariantComparisonModal({
+  variant,
+  recipe,
+  viewScale,
+  onClose,
+}: {
+  variant: Variant;
+  recipe: Recipe;
+  viewScale: number;
+  onClose: () => void;
+}) {
+  // Build a map of variant ingredient overrides
+  const overrideMap = new Map<string, Ingredient>();
+  variant.ingredientOverrides.forEach((ing) => overrideMap.set(ing.name, ing));
+
+  // Merge base recipe with variant overrides, scaling quantities by viewScale
+  const comparisonRows: { name: string; base: Ingredient | null; variant: Ingredient | null }[] = [];
+
+  // Add all base ingredients (scaled)
+  recipe.ingredients.forEach((ing) => {
+    const override = overrideMap.get(ing.name);
+    const scaledBase: Ingredient = {
+      ...ing,
+      quantity: Math.round(ing.quantity * viewScale * 100) / 100,
+    };
+    const scaledOverride: Ingredient | null = override
+      ? { ...override, quantity: Math.round(override.quantity * viewScale * 100) / 100 }
+      : null;
+    comparisonRows.push({
+      name: ing.name,
+      base: scaledBase,
+      variant: scaledOverride,
+    });
+    if (override) overrideMap.delete(ing.name);
+  });
+
+  // Add any new ingredients only in variant (scaled)
+  overrideMap.forEach((ing) => {
+    comparisonRows.push({
+      name: ing.name,
+      base: null,
+      variant: { ...ing, quantity: Math.round(ing.quantity * viewScale * 100) / 100 },
+    });
+  });
+
+  return (
+    <Modal isOpen={true} onClose={onClose} title={`${variant.name}`}>
+      <div className="space-y-4">
+        <p className="text-sm text-dusty-mauve">
+          Changes from <span className="font-bold">{recipe.name}</span>
+          {viewScale !== 1 && <span className="ml-1">({formatScaleFactor(viewScale)} scale)</span>}
+        </p>
+        <div className="bg-bg-light rounded-xl p-4 space-y-3">
+          <div className="grid grid-cols-3 gap-2 text-xs font-bold text-dusty-mauve uppercase tracking-wider pb-2 border-b border-black/10">
+            <div>Ingredient</div>
+            <div className="text-center">Base</div>
+            <div className="text-center">Variant</div>
+          </div>
+          {comparisonRows.map((row) => {
+            const isDifferent = row.base && row.variant &&
+              (row.base.quantity !== row.variant.quantity || row.base.unit !== row.variant.unit);
+            const isNew = !row.base && row.variant;
+
+            return (
+              <div
+                key={row.name}
+                className={`grid grid-cols-3 gap-2 text-sm py-1 ${
+                  isDifferent || isNew ? 'text-primary font-medium' : ''
+                }`}
+              >
+                <div className="truncate">{row.name}</div>
+                <div className="text-center">
+                  {row.base ? `${row.base.quantity} ${row.base.unit}` : '—'}
+                </div>
+                <div className="text-center">
+                  {row.variant ? `${row.variant.quantity} ${row.variant.unit}` : '(same)'}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        {/* Bake Settings Overrides */}
+        {(variant.bakeTime || variant.bakeTemp) && (
+          <div className="bg-bg-light rounded-xl p-4">
+            <p className="text-xs font-bold text-dusty-mauve uppercase tracking-wider mb-3">Bake Settings Override</p>
+            <div className="flex gap-6">
+              {variant.bakeTime && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Icon name="timer" size="sm" className="text-dusty-mauve" />
+                  <span className="font-medium">{variant.bakeTime} min</span>
+                  {recipe.bakeTime && (
+                    <span className="text-xs text-dusty-mauve">(was {recipe.bakeTime})</span>
+                  )}
+                </div>
+              )}
+              {variant.bakeTemp && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Icon name="thermostat" size="sm" className="text-dusty-mauve" />
+                  <span className="font-medium">{variant.bakeTemp}°{variant.bakeTempUnit || 'F'}</span>
+                  {recipe.bakeTemp && (
+                    <span className="text-xs text-dusty-mauve">(was {recipe.bakeTemp}°{recipe.bakeTempUnit || 'F'})</span>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        {variant.notes && (
+          <div>
+            <p className="text-xs font-bold text-dusty-mauve uppercase tracking-wider mb-2">Notes</p>
+            <p className="text-sm text-[#171112]/80">{variant.notes}</p>
+          </div>
+        )}
+        <button
+          onClick={onClose}
+          className="w-full py-3 rounded-xl bg-primary text-white font-bold"
+        >
+          Close
+        </button>
+      </div>
+    </Modal>
   );
 }

@@ -30,6 +30,11 @@ export async function createRecipe(
     name: request.name,
     ingredients: request.ingredients,
     prepNotes: request.prepNotes,
+    bakeTime: request.bakeTime,
+    bakeTemp: request.bakeTemp,
+    bakeTempUnit: request.bakeTempUnit,
+    customScales: request.customScales,
+    container: request.container,
     createdAt: now,
     updatedAt: now,
   };

@@ -45,6 +45,9 @@ export default function VariantForm({
   const [ingredientOverrides, setIngredientOverrides] = useState<Ingredient[]>(
     variant?.ingredientOverrides || [{ name: '', quantity: 0, unit: '' }]
   );
+  const [bakeTime, setBakeTime] = useState<number | ''>(variant?.bakeTime ?? '');
+  const [bakeTemp, setBakeTemp] = useState<number | ''>(variant?.bakeTemp ?? '');
+  const [bakeTempUnit, setBakeTempUnit] = useState<'F' | 'C'>(variant?.bakeTempUnit ?? 'F');
   const [notes, setNotes] = useState(variant?.notes || '');
   const [customUnits, setCustomUnits] = useState<Record<number, string>>({});
 
@@ -101,7 +104,14 @@ export default function VariantForm({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const validOverrides = ingredientOverrides.filter((i) => i.name.trim());
-    onSubmit({ name, ingredientOverrides: validOverrides, notes: notes || undefined });
+    onSubmit({
+      name,
+      ingredientOverrides: validOverrides,
+      bakeTime: bakeTime || undefined,
+      bakeTemp: bakeTemp || undefined,
+      bakeTempUnit: bakeTemp ? bakeTempUnit : undefined,
+      notes: notes || undefined,
+    });
   };
 
   const updateOverride = (index: number, field: keyof Ingredient, value: string | number) => {
@@ -226,6 +236,47 @@ export default function VariantForm({
           <Icon name="add" size="sm" />
           Add Override
         </button>
+      </div>
+
+      <div>
+        <p className="text-[#171112] text-sm font-medium leading-normal pb-2">
+          Bake Settings Override <span className="text-dusty-mauve font-normal">(optional)</span>
+        </p>
+        <div className="flex gap-3">
+          <div className="flex-1">
+            <label className="text-xs text-dusty-mauve">Time (min)</label>
+            <input
+              type="number"
+              inputMode="numeric"
+              value={bakeTime}
+              onChange={(e) => setBakeTime(e.target.value ? parseInt(e.target.value) : '')}
+              placeholder="Override"
+              className="w-full rounded-xl border border-black/10 bg-white h-12 px-4 text-base focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+            />
+          </div>
+          <div className="flex-1">
+            <label className="text-xs text-dusty-mauve">Temperature</label>
+            <input
+              type="number"
+              inputMode="numeric"
+              value={bakeTemp}
+              onChange={(e) => setBakeTemp(e.target.value ? parseInt(e.target.value) : '')}
+              placeholder="Override"
+              className="w-full rounded-xl border border-black/10 bg-white h-12 px-4 text-base focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+            />
+          </div>
+          <div className="w-16">
+            <label className="text-xs text-dusty-mauve">Unit</label>
+            <select
+              value={bakeTempUnit}
+              onChange={(e) => setBakeTempUnit(e.target.value as 'F' | 'C')}
+              className="w-full rounded-xl border border-black/10 bg-white h-12 px-2 text-base focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+            >
+              <option value="F">°F</option>
+              <option value="C">°C</option>
+            </select>
+          </div>
+        </div>
       </div>
 
       <div>

@@ -225,6 +225,11 @@ export class ProofedStack extends cdk.Stack {
       methods: [apigateway.HttpMethod.POST],
       integration,
     });
+    httpApi.addRoutes({
+      path: '/photos/download-url',
+      methods: [apigateway.HttpMethod.POST],
+      integration,
+    });
 
     // Outputs
     new cdk.CfnOutput(this, 'ApiUrl', {

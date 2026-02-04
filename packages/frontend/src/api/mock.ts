@@ -16,6 +16,8 @@ import type {
   UpdateProofedItemRequest,
   PhotoUploadRequest,
   PhotoUploadResponse,
+  PhotoDownloadRequest,
+  PhotoDownloadResponse,
 } from '@proofed/shared';
 
 const DEFAULT_USER_ID = 'default-user';
@@ -228,9 +230,6 @@ export const mockAttemptsApi = {
       userId: DEFAULT_USER_ID,
       name: data.name,
       date: data.date,
-      ovenTemp: data.ovenTemp,
-      ovenTempUnit: data.ovenTempUnit,
-      bakeTime: data.bakeTime,
       itemUsages: data.itemUsages,
       notes: data.notes,
       createdAt: now,
@@ -326,6 +325,13 @@ export const mockPhotosApi = {
     return {
       uploadUrl: `https://mock-s3.local/${key}`,
       key,
+    };
+  },
+
+  getDownloadUrl: async (data: PhotoDownloadRequest): Promise<PhotoDownloadResponse> => {
+    await delay();
+    return {
+      downloadUrl: `https://mock-s3.local/${data.key}`,
     };
   },
 
