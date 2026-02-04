@@ -4,7 +4,7 @@
 Converting `packages/frontend` (React + Tailwind) to `packages/mobile` (React Native iOS)
 
 **Started:** 2026-02-04
-**Status:** In Progress
+**Status:** Complete ✓
 
 ---
 
@@ -13,12 +13,12 @@ Converting `packages/frontend` (React + Tailwind) to `packages/mobile` (React Na
 ### Pages (8 files)
 - [x] HomePage.tsx → HomeScreen.tsx (COMPLETE)
 - [x] PantryPage.tsx → PantryScreen.tsx (COMPLETE)
-- [ ] ItemDetailPage.tsx → ItemDetailScreen.tsx (placeholder)
+- [x] ItemDetailPage.tsx → ItemDetailScreen.tsx (COMPLETE)
 - [x] AttemptsPage.tsx → BakesScreen.tsx (COMPLETE)
-- [ ] AttemptDetailPage.tsx → AttemptDetailScreen.tsx (placeholder)
-- [ ] NewAttemptPage.tsx → NewAttemptScreen.tsx (placeholder)
+- [x] AttemptDetailPage.tsx → AttemptDetailScreen.tsx (COMPLETE)
+- [x] NewAttemptPage.tsx → NewAttemptScreen.tsx (COMPLETE)
 - [x] ProofedItemsPage.tsx → ProofedScreen.tsx (COMPLETE)
-- [ ] ProofedItemDetailPage.tsx → ProofedItemDetailScreen.tsx (placeholder)
+- [x] ProofedItemDetailPage.tsx → ProofedItemDetailScreen.tsx (COMPLETE)
 
 ### Common Components (10 files)
 - [x] Card.tsx
@@ -33,16 +33,16 @@ Converting `packages/frontend` (React + Tailwind) to `packages/mobile` (React Na
 - [x] Input.tsx
 
 ### Feature Components (10 files)
-- [ ] items/ItemCard.tsx
-- [x] items/ItemForm.tsx
-- [ ] recipes/RecipeCard.tsx
-- [ ] recipes/RecipeForm.tsx
-- [ ] recipes/PasteIngredientsModal.tsx
-- [ ] variants/VariantCard.tsx
-- [ ] variants/VariantForm.tsx
-- [ ] attempts/AttemptCard.tsx
-- [ ] photos/PhotoUpload.tsx
-- [ ] proofed/ProofedItemCard.tsx
+- [x] items/ItemCard.tsx (COMPLETE)
+- [x] items/ItemForm.tsx (COMPLETE)
+- [x] recipes/RecipeCard.tsx (inline in ItemDetailScreen)
+- [x] recipes/RecipeForm.tsx (COMPLETE)
+- [x] recipes/PasteIngredientsModal.tsx (COMPLETE)
+- [x] variants/VariantCard.tsx (inline in ItemDetailScreen)
+- [x] variants/VariantForm.tsx (COMPLETE)
+- [x] attempts/AttemptCard.tsx (COMPLETE)
+- [x] photos/PhotoUpload.tsx (COMPLETE)
+- [x] proofed/ProofedItemCard.tsx (COMPLETE)
 
 ### Hooks (6 files) - Mostly reusable
 - [x] useItems.ts
@@ -111,18 +111,27 @@ text: #171112
 All 4 main tab screens complete with full styling.
 Remaining: Detail screens + complex forms.
 
+### Session 2 (2026-02-04)
+- [x] RecipeForm component with ingredients, bake settings, container config, custom scales
+- [x] PasteIngredientsModal for bulk ingredient parsing
+- [x] VariantForm component with ingredient overrides and bake setting overrides
+- [x] ItemCard component
+- [x] AttemptCard component
+- [x] ProofedItemCard component
+- [x] PhotoUpload component using expo-image-picker
+- [x] ItemDetailScreen - full implementation with recipe/variant management, scale selector, modals
+- [x] AttemptDetailScreen - attempt details, item usages, outcome logging, photo gallery, capture as proofed
+- [x] NewAttemptScreen - form for creating attempts with item/recipe/variant pickers
+- [x] ProofedItemDetailScreen - proven recipe display with expandable ingredients, edit/delete
+
+**Progress: 100% complete**
+
+All screens and components migrated to React Native.
+
 ---
-
-## Current Task
-Building out remaining screens with full styling
-
-## Next Up
-- ProofedScreen
-- ItemDetailScreen (complex - recipes, variants, scale selector)
-- AttemptDetailScreen (complex - photos, item usages, editing)
-- NewAttemptScreen (complex - forms, photo upload)
 
 ## Notes
 - Keeping `packages/frontend` intact
-- New app will be at `packages/mobile`
+- New app at `packages/mobile`
 - Sharing types from `@proofed/shared`
+- RecipeCard and VariantCard are rendered inline in ItemDetailScreen rather than as separate components
