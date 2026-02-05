@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -14,16 +14,151 @@ import { usePhotoUrl } from '../hooks/usePhotos';
 import { Loading, Icon } from '../components/common';
 import { formatRelativeDate } from '../utils/formatDate';
 import { colors, spacing, borderRadius, fontFamily, fontSize } from '../theme';
-import type { Attempt } from '@proofed/shared';
+import type { Attempt, AttemptStatus } from '@proofed/shared';
+
+const getStatusStyle = (status?: AttemptStatus) => {
+  switch (status) {
+    case 'planning':
+      return { bg: '#FFF3CD', text: '#856404', border: '#F59E0B' };
+    case 'baking':
+      return { bg: '#D4EDDA', text: '#155724', border: '#10B981' };
+    default:
+      return { bg: '#E2E3E5', text: '#6C757D', border: colors.dustyMauve };
+  }
+};
+
+const getStatusLabel = (status?: AttemptStatus) => {
+  switch (status) {
+    case 'planning':
+      return 'Planned';
+    case 'baking':
+      return 'Baking';
+    default:
+      return 'Done';
+  }
+};
+
+const formatUpcomingDate = (date?: string) => {
+  if (!date) return 'TBD';
+  const d = new Date(date);
+  return d.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
+};
+
+const CARD_WIDTH = 256;
+const CARD_GAP = 16;
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { data: attempts, isLoading } = useAttempts();
+  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollPosition = useRef(0);
+  const isUserScrolling = useRef(false);
+  const animationFrame = useRef<number | null>(null);
+
+  // Sort by date (most recent first)
+  const recentAttempts =
+    attempts
+      ?.slice()
+      .sort((a, b) => {
+        const dateA = a.date ? new Date(a.date).getTime() : 0;
+        const dateB = b.date ? new Date(b.date).getTime() : 0;
+        return dateB - dateA;
+      })
+      .slice(0, 5) || [];
+
+  const upcomingAttempts =
+    attempts?.filter((a) => a.status === 'planning' || a.status === 'baking') || [];
+
+  // For infinite scroll: duplicate the items
+  const loopedAttempts = recentAttempts.length > 1
+    ? [...recentAttempts, ...recentAttempts]
+    : recentAttempts;
+
+  // The point where we reset (end of first set of items)
+  const resetPoint = recentAttempts.length * (CARD_WIDTH + CARD_GAP);
+
+  const startSmoothScroll = useCallback(() => {
+    if (recentAttempts.length <= 1 || isUserScrolling.current) return;
+
+    const scrollSpeed = 0.5; // pixels per frame (smooth and slow)
+    let lastTime = Date.now();
+
+    const animate = () => {
+      if (isUserScrolling.current) return;
+
+      const now = Date.now();
+      const delta = now - lastTime;
+      lastTime = now;
+
+      scrollPosition.current += scrollSpeed * (delta / 16); // normalize to ~60fps
+
+      // When we reach the duplicate set, seamlessly jump back to start
+      if (scrollPosition.current >= resetPoint) {
+        scrollPosition.current = scrollPosition.current - resetPoint;
+        scrollViewRef.current?.scrollTo({
+          x: scrollPosition.current,
+          animated: false,
+        });
+      }
+
+      scrollViewRef.current?.scrollTo({
+        x: scrollPosition.current,
+        animated: false,
+      });
+
+      animationFrame.current = requestAnimationFrame(animate);
+    };
+
+    animationFrame.current = requestAnimationFrame(animate);
+  }, [recentAttempts.length, resetPoint]);
+
+  useEffect(() => {
+    if (recentAttempts.length <= 1) return;
+
+    const timer = setTimeout(() => {
+      startSmoothScroll();
+    }, 2000);
+
+    return () => {
+      clearTimeout(timer);
+      if (animationFrame.current) {
+        cancelAnimationFrame(animationFrame.current);
+      }
+    };
+  }, [recentAttempts.length, startSmoothScroll]);
+
+  const handleScrollBeginDrag = () => {
+    isUserScrolling.current = true;
+    if (animationFrame.current) {
+      cancelAnimationFrame(animationFrame.current);
+    }
+  };
+
+  const handleScrollEndDrag = () => {
+    setTimeout(() => {
+      isUserScrolling.current = false;
+      startSmoothScroll();
+    }, 5000);
+  };
+
+  const handleScroll = (event: any) => {
+    if (isUserScrolling.current) {
+      let x = event.nativeEvent.contentOffset.x;
+      // Normalize position if user scrolled into the duplicate zone
+      if (x >= resetPoint) {
+        x = x - resetPoint;
+        scrollViewRef.current?.scrollTo({ x, animated: false });
+      }
+      scrollPosition.current = x;
+    }
+  };
 
   if (isLoading) return <Loading />;
-
-  const recentAttempts = attempts?.slice(0, 5) || [];
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -54,13 +189,18 @@ export default function HomeScreen() {
               </TouchableOpacity>
             </View>
             <ScrollView
+              ref={scrollViewRef}
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.carouselContent}
+              onScrollBeginDrag={handleScrollBeginDrag}
+              onScrollEndDrag={handleScrollEndDrag}
+              onScroll={handleScroll}
+              scrollEventThrottle={16}
             >
-              {recentAttempts.map((attempt) => (
+              {loopedAttempts.map((attempt, index) => (
                 <AttemptCard
-                  key={attempt.attemptId}
+                  key={`${attempt.attemptId}-${index}`}
                   attempt={attempt}
                   onPress={() =>
                     navigation.navigate('AttemptDetail', { attemptId: attempt.attemptId })
@@ -83,8 +223,101 @@ export default function HomeScreen() {
             </View>
           </View>
         )}
+
+        {/* Upcoming Bakes Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Upcoming Bakes</Text>
+            {upcomingAttempts.length > 0 && (
+              <TouchableOpacity
+                onPress={() => navigation.navigate('Tabs', { screen: 'Bakes' })}
+              >
+                <Text style={styles.viewAllLink}>See Schedule</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          {upcomingAttempts.length > 0 ? (
+            <View style={styles.upcomingList}>
+              {upcomingAttempts.map((attempt) => (
+                <UpcomingBakeCard
+                  key={attempt.attemptId}
+                  attempt={attempt}
+                  onPress={() =>
+                    navigation.navigate('AttemptDetail', { attemptId: attempt.attemptId })
+                  }
+                />
+              ))}
+            </View>
+          ) : (
+            <View style={styles.upcomingEmptyContainer}>
+              <TouchableOpacity
+                style={styles.upcomingEmptyCard}
+                onPress={() => navigation.navigate('NewAttempt')}
+                activeOpacity={0.8}
+              >
+                <View style={styles.upcomingEmptyIcon}>
+                  <Icon name="event" size="lg" color={colors.primary} />
+                </View>
+                <View style={styles.upcomingEmptyContent}>
+                  <Text style={styles.upcomingEmptyTitle}>Nothing planned yet</Text>
+                  <Text style={styles.upcomingEmptyDescription}>
+                    Start planning your next bake
+                  </Text>
+                </View>
+                <Icon name="add" size="md" color={colors.primary} />
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
       </ScrollView>
     </View>
+  );
+}
+
+function UpcomingBakeCard({
+  attempt,
+  onPress,
+}: {
+  attempt: Attempt;
+  onPress: () => void;
+}) {
+  const statusStyle = getStatusStyle(attempt.status);
+
+  return (
+    <TouchableOpacity
+      style={[styles.upcomingCard, { borderLeftColor: statusStyle.border }]}
+      onPress={onPress}
+      activeOpacity={0.8}
+    >
+      <View style={styles.upcomingHeader}>
+        <Text style={styles.upcomingName} numberOfLines={1}>
+          {attempt.name}
+        </Text>
+        <TouchableOpacity style={styles.menuButton}>
+          <Icon name="more_horiz" color={colors.dustyMauve} />
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.upcomingDateRow}>
+        <Icon name="event" size="sm" color={colors.dustyMauve} />
+        <Text style={styles.upcomingDate}>{formatUpcomingDate(attempt.date)}</Text>
+        <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
+          <Text style={[styles.statusBadgeText, { color: statusStyle.text }]}>
+            {getStatusLabel(attempt.status)}
+          </Text>
+        </View>
+      </View>
+
+      {attempt.itemUsages && attempt.itemUsages.length > 0 && (
+        <View style={styles.itemTags}>
+          <View style={styles.itemTag}>
+            <Text style={styles.itemTagText}>
+              {attempt.itemUsages.length} item{attempt.itemUsages.length !== 1 ? 's' : ''}
+            </Text>
+          </View>
+        </View>
+      )}
+    </TouchableOpacity>
   );
 }
 
@@ -344,5 +577,112 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.bold,
     fontSize: fontSize.sm,
     color: colors.primary,
+  },
+  upcomingList: {
+    paddingHorizontal: spacing[4],
+    gap: spacing[3],
+  },
+  upcomingCard: {
+    backgroundColor: colors.white,
+    borderRadius: borderRadius.xl,
+    padding: spacing[4],
+    borderLeftWidth: 4,
+    borderLeftColor: colors.dustyMauve,
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.05)',
+  },
+  upcomingHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  upcomingName: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.base,
+    color: colors.text,
+    flex: 1,
+  },
+  menuButton: {
+    padding: spacing[1],
+  },
+  upcomingDateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+    marginTop: spacing[2],
+  },
+  upcomingDate: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.dustyMauve,
+    flex: 1,
+  },
+  statusBadge: {
+    paddingHorizontal: spacing[2],
+    paddingVertical: spacing[0.5],
+    borderRadius: borderRadius.full,
+  },
+  statusBadgeText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.xs,
+    textTransform: 'uppercase',
+  },
+  itemTags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing[2],
+    marginTop: spacing[3],
+  },
+  itemTag: {
+    backgroundColor: '#f4f0f1',
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[1],
+    borderRadius: borderRadius.full,
+  },
+  itemTagText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.xs,
+    color: colors.dustyMauve,
+  },
+  upcomingEmptyContainer: {
+    paddingHorizontal: spacing[4],
+  },
+  upcomingEmptyCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.white,
+    borderRadius: borderRadius.xl,
+    padding: spacing[4],
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.05)',
+    borderStyle: 'dashed',
+  },
+  upcomingEmptyIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: borderRadius.lg,
+    backgroundColor: 'rgba(229, 52, 78, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing[3],
+  },
+  upcomingEmptyContent: {
+    flex: 1,
+  },
+  upcomingEmptyTitle: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.base,
+    color: colors.text,
+  },
+  upcomingEmptyDescription: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.dustyMauve,
+    marginTop: spacing[0.5],
   },
 });
