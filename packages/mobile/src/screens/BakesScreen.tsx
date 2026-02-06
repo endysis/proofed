@@ -1,22 +1,65 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
   StyleSheet,
+  Alert,
+  Animated,
 } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { useAttempts } from '../hooks/useAttempts';
+import { useAttempts, useDeleteAttempt } from '../hooks/useAttempts';
 import { Loading, Icon } from '../components/common';
 import { colors, spacing, borderRadius, fontFamily, fontSize } from '../theme';
-import type { Attempt } from '@proofed/shared';
+import type { Attempt, AttemptStatus } from '@proofed/shared';
+
+const getStatusBadgeStyle = (status?: AttemptStatus) => {
+  switch (status) {
+    case 'planning':
+      return { bg: '#FFF3CD', text: '#856404', dot: '#F59E0B' };
+    case 'baking':
+      return { bg: '#D4EDDA', text: '#155724', dot: '#10B981' };
+    case 'done':
+    default:
+      return { bg: '#E2E3E5', text: '#6C757D', dot: colors.dustyMauve };
+  }
+};
+
+const getStatusLabel = (status?: AttemptStatus) => {
+  switch (status) {
+    case 'planning':
+      return 'Planning';
+    case 'baking':
+      return 'Baking';
+    case 'done':
+    default:
+      return 'Done';
+  }
+};
 
 export default function BakesScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { data: attempts, isLoading, error } = useAttempts();
+  const deleteAttempt = useDeleteAttempt();
+
+  const handleDelete = (attemptId: string, attemptName: string) => {
+    Alert.alert(
+      'Delete Attempt',
+      `Are you sure you want to delete "${attemptName}"?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => deleteAttempt.mutate(attemptId),
+        },
+      ]
+    );
+  };
 
   if (isLoading) return <Loading />;
   if (error) {
@@ -27,9 +70,17 @@ export default function BakesScreen() {
     );
   }
 
-  const sortedAttempts = [...(attempts || [])].sort(
-    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-  );
+  // Upcoming bakes: ascending order (earliest first - shows what's next)
+  const upcomingAttempts = [...(attempts || [])]
+    .filter((a) => a.status === 'planning' || a.status === 'baking')
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+  // Past bakes: descending order (most recent first)
+  const pastAttempts = [...(attempts || [])]
+    .filter((a) => a.status === 'done' || !a.status)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  const hasAttempts = upcomingAttempts.length > 0 || pastAttempts.length > 0;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -52,7 +103,7 @@ export default function BakesScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {sortedAttempts.length === 0 ? (
+        {!hasAttempts ? (
           <View style={styles.emptyCard}>
             <View style={styles.emptyIconContainer}>
               <Icon name="menu_book" size="xl" color={colors.primary} />
@@ -66,61 +117,53 @@ export default function BakesScreen() {
             </TouchableOpacity>
           </View>
         ) : (
-          <View style={styles.timeline}>
-            {/* Timeline line */}
-            <View style={styles.timelineLine} />
-
-            {sortedAttempts.map((attempt, index) => (
-              <TouchableOpacity
-                key={attempt.attemptId}
-                style={styles.timelineItem}
-                onPress={() =>
-                  navigation.navigate('AttemptDetail', {
-                    attemptId: attempt.attemptId,
-                  })
-                }
-                activeOpacity={0.8}
-              >
-                {/* Timeline dot */}
-                <View
-                  style={[
-                    styles.timelineDot,
-                    index === 0 ? styles.timelineDotActive : null,
-                  ]}
-                />
-
-                <View
-                  style={[
-                    styles.attemptCard,
-                    index !== 0 && styles.attemptCardFaded,
-                  ]}
-                >
-                  <View style={styles.attemptHeader}>
-                    <Text style={styles.attemptDate}>
-                      {new Date(attempt.date).toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                      })}
-                    </Text>
-                    {attempt.itemUsages && attempt.itemUsages.length > 0 && (
-                      <View style={styles.itemsBadge}>
-                        <Text style={styles.itemsBadgeText}>
-                          {attempt.itemUsages.length} items
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                  <Text style={styles.attemptName}>{attempt.name}</Text>
-                  {attempt.notes && (
-                    <Text style={styles.attemptNotes} numberOfLines={2}>
-                      {attempt.notes}
-                    </Text>
-                  )}
+          <>
+            {upcomingAttempts.length > 0 && (
+              <>
+                <Text style={styles.sectionHeader}>UPCOMING</Text>
+                <View style={styles.timeline}>
+                  <View style={styles.timelineLine} />
+                  {upcomingAttempts.map((attempt, index) => (
+                    <SwipeableAttemptRow
+                      key={attempt.attemptId}
+                      attempt={attempt}
+                      index={index}
+                      isFirstInSection={index === 0}
+                      onPress={() =>
+                        navigation.navigate('AttemptDetail', {
+                          attemptId: attempt.attemptId,
+                        })
+                      }
+                      onDelete={() => handleDelete(attempt.attemptId, attempt.name)}
+                    />
+                  ))}
                 </View>
-              </TouchableOpacity>
-            ))}
-          </View>
+              </>
+            )}
+
+            {pastAttempts.length > 0 && (
+              <>
+                <Text style={styles.sectionHeader}>PAST BAKES</Text>
+                <View style={styles.timeline}>
+                  <View style={styles.timelineLine} />
+                  {pastAttempts.map((attempt, index) => (
+                    <SwipeableAttemptRow
+                      key={attempt.attemptId}
+                      attempt={attempt}
+                      index={index}
+                      isFirstInSection={index === 0}
+                      onPress={() =>
+                        navigation.navigate('AttemptDetail', {
+                          attemptId: attempt.attemptId,
+                        })
+                      }
+                      onDelete={() => handleDelete(attempt.attemptId, attempt.name)}
+                    />
+                  ))}
+                </View>
+              </>
+            )}
+          </>
         )}
       </ScrollView>
 
@@ -132,6 +175,104 @@ export default function BakesScreen() {
       >
         <Icon name="add" size="lg" color={colors.white} />
       </TouchableOpacity>
+    </View>
+  );
+}
+
+function SwipeableAttemptRow({
+  attempt,
+  index,
+  isFirstInSection,
+  onPress,
+  onDelete,
+}: {
+  attempt: Attempt;
+  index: number;
+  isFirstInSection: boolean;
+  onPress: () => void;
+  onDelete: () => void;
+}) {
+  const statusStyle = getStatusBadgeStyle(attempt.status);
+  const swipeableRef = useRef<Swipeable>(null);
+
+  const renderRightActions = (
+    progress: Animated.AnimatedInterpolation<number>,
+    dragX: Animated.AnimatedInterpolation<number>
+  ) => {
+    const translateX = dragX.interpolate({
+      inputRange: [-80, 0],
+      outputRange: [0, 80],
+      extrapolate: 'clamp',
+    });
+
+    return (
+      <View style={styles.deleteActionContainer}>
+        <Animated.View
+          style={[styles.deleteAction, { transform: [{ translateX }] }]}
+        >
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={() => {
+              swipeableRef.current?.close();
+              onDelete();
+            }}
+          >
+            <Icon name="delete" color={colors.white} size="md" />
+            <Text style={styles.deleteText}>Delete</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      </View>
+    );
+  };
+
+  return (
+    <View style={styles.timelineItem}>
+      {/* Timeline dot */}
+      <View
+        style={[
+          styles.timelineDot,
+          { backgroundColor: statusStyle.dot },
+        ]}
+      />
+
+      <View style={styles.swipeableWrapper}>
+        <Swipeable
+          ref={swipeableRef}
+          renderRightActions={renderRightActions}
+          rightThreshold={40}
+          overshootRight={false}
+        >
+          <TouchableOpacity
+            style={[
+              styles.attemptCard,
+              !isFirstInSection && styles.attemptCardFaded,
+            ]}
+            onPress={onPress}
+            activeOpacity={0.8}
+          >
+            <View style={styles.attemptHeader}>
+              <Text style={styles.attemptDate}>
+                {new Date(attempt.date).toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                })}
+              </Text>
+              <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
+                <Text style={[styles.statusBadgeText, { color: statusStyle.text }]}>
+                  {getStatusLabel(attempt.status)}
+                </Text>
+              </View>
+            </View>
+            <Text style={styles.attemptName}>{attempt.name}</Text>
+            {attempt.notes && (
+              <Text style={styles.attemptNotes} numberOfLines={2}>
+                {attempt.notes}
+              </Text>
+            )}
+          </TouchableOpacity>
+        </Swipeable>
+      </View>
     </View>
   );
 }
@@ -228,6 +369,15 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.primary,
   },
+  sectionHeader: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.xs,
+    color: colors.dustyMauve,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginTop: spacing[6],
+    marginBottom: spacing[2],
+  },
   timeline: {
     marginTop: spacing[4],
     position: 'relative',
@@ -257,11 +407,12 @@ const styles = StyleSheet.create({
     borderColor: colors.white,
     zIndex: 1,
   },
-  timelineDotActive: {
-    backgroundColor: colors.primary,
+  swipeableWrapper: {
+    flex: 1,
+    overflow: 'hidden',
+    borderRadius: borderRadius.xl,
   },
   attemptCard: {
-    flex: 1,
     backgroundColor: colors.white,
     padding: spacing[4],
     borderRadius: borderRadius.xl,
@@ -288,16 +439,14 @@ const styles = StyleSheet.create({
     color: colors.dustyMauve,
     textTransform: 'uppercase',
   },
-  itemsBadge: {
-    backgroundColor: '#f4f0f1',
+  statusBadge: {
     paddingHorizontal: spacing[2],
     paddingVertical: spacing[0.5],
     borderRadius: borderRadius.full,
   },
-  itemsBadgeText: {
+  statusBadgeText: {
     fontFamily: fontFamily.medium,
     fontSize: fontSize.xs,
-    color: colors.dustyMauve,
   },
   attemptName: {
     fontFamily: fontFamily.bold,
@@ -324,5 +473,31 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 8,
+  },
+  deleteActionContainer: {
+    width: 80,
+    justifyContent: 'center',
+    alignItems: 'flex-end',
+  },
+  deleteAction: {
+    width: 80,
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  deleteButton: {
+    width: 72,
+    height: '100%',
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.xl,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: spacing[2],
+  },
+  deleteText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.xs,
+    color: colors.white,
+    marginTop: spacing[1],
   },
 });

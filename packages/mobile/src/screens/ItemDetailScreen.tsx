@@ -274,7 +274,11 @@ export default function ItemDetailScreen() {
               {/* Scale Selector */}
               <View style={styles.scaleSection}>
                 <Text style={styles.scaleLabel}>SCALE:</Text>
-                <View style={styles.scaleButtons}>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.scaleButtons}
+                >
                   {getScaleOptions(selectedRecipe.customScales).map((option) => (
                     <TouchableOpacity
                       key={option.value}
@@ -294,7 +298,7 @@ export default function ItemDetailScreen() {
                       </Text>
                     </TouchableOpacity>
                   ))}
-                </View>
+                </ScrollView>
               </View>
 
               {/* Ingredients */}
@@ -819,7 +823,6 @@ const styles = StyleSheet.create({
   scaleSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing[2],
     marginBottom: spacing[4],
     paddingBottom: spacing[4],
     borderBottomWidth: 1,
@@ -831,10 +834,10 @@ const styles = StyleSheet.create({
     color: colors.dustyMauve,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+    marginRight: spacing[2],
   },
   scaleButtons: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: spacing[1],
   },
   scaleButton: {

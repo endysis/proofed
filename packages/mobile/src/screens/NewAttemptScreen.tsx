@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,6 @@ import {
   ScrollView,
   TextInput,
   Platform,
-  Modal as RNModal,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -33,6 +32,8 @@ export default function NewAttemptScreen() {
   const [dateValue, setDateValue] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [notes, setNotes] = useState('');
+  const [tempDate, setTempDate] = useState(new Date());
+  const tempDateRef = useRef(new Date());
 
   const handleSubmit = () => {
     const status: AttemptStatus = flowType === 'direct' ? 'done' : 'planning';
@@ -63,7 +64,7 @@ export default function NewAttemptScreen() {
           <TouchableOpacity style={styles.closeButton} onPress={() => navigation.goBack()}>
             <Icon name="close" color={colors.primary} size="lg" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>New Attempt</Text>
+          <Text style={styles.headerTitle}>New Bake</Text>
           <View style={{ width: 40 }} />
         </View>
 
@@ -94,7 +95,7 @@ export default function NewAttemptScreen() {
               <Icon name="history" size="xl" color={colors.primary} />
             </View>
             <View style={styles.flowContent}>
-              <Text style={styles.flowOptionTitle}>Log Past Attempt</Text>
+              <Text style={styles.flowOptionTitle}>Log Past Bake</Text>
               <Text style={styles.flowOptionDescription}>
                 Record a bake you've already completed
               </Text>
@@ -139,7 +140,11 @@ export default function NewAttemptScreen() {
             <Text style={styles.label}>Date</Text>
             <TouchableOpacity
               style={styles.datePickerButton}
-              onPress={() => setShowDatePicker(true)}
+              onPress={() => {
+                tempDateRef.current = dateValue;
+                setTempDate(dateValue);
+                setShowDatePicker(true);
+              }}
             >
               <Icon name="calendar_today" size="sm" color={colors.dustyMauve} />
               <Text style={styles.dateText}>
@@ -151,37 +156,6 @@ export default function NewAttemptScreen() {
                 })}
               </Text>
             </TouchableOpacity>
-
-            {/* iOS Date Picker Modal */}
-            {Platform.OS === 'ios' && showDatePicker && (
-              <RNModal
-                transparent
-                animationType="slide"
-                visible={showDatePicker}
-                onRequestClose={() => setShowDatePicker(false)}
-              >
-                <View style={styles.datePickerModal}>
-                  <View style={styles.datePickerContent}>
-                    <View style={styles.datePickerHeader}>
-                      <TouchableOpacity onPress={() => setShowDatePicker(false)}>
-                        <Text style={styles.datePickerDone}>Done</Text>
-                      </TouchableOpacity>
-                    </View>
-                    <DateTimePicker
-                      value={dateValue}
-                      mode="date"
-                      display="inline"
-                      onChange={(_, selectedDate) => {
-                        if (selectedDate) {
-                          setDateValue(selectedDate);
-                        }
-                      }}
-                      style={styles.datePickerInline}
-                    />
-                  </View>
-                </View>
-              </RNModal>
-            )}
 
             {/* Android Date Picker */}
             {Platform.OS === 'android' && showDatePicker && (
@@ -202,7 +176,7 @@ export default function NewAttemptScreen() {
 
         {/* Notes */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Notes</Text>
+          <Text style={styles.sectionTitle}>Bake Notes</Text>
           <TextInput
             style={[styles.input, styles.textArea]}
             value={notes}
@@ -231,6 +205,44 @@ export default function NewAttemptScreen() {
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* iOS Date Picker */}
+      {Platform.OS === 'ios' && showDatePicker && (
+        <>
+          <TouchableOpacity
+            style={styles.datePickerBackdrop}
+            activeOpacity={1}
+            onPress={() => setShowDatePicker(false)}
+          />
+          <View style={[styles.datePickerSheet, { paddingBottom: insets.bottom }]}>
+            <View style={styles.datePickerHeader}>
+              <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                <Text style={styles.datePickerCancel}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  setDateValue(tempDateRef.current);
+                  setShowDatePicker(false);
+                }}
+              >
+                <Text style={styles.datePickerDone}>Done</Text>
+              </TouchableOpacity>
+            </View>
+            <DateTimePicker
+              value={tempDate}
+              mode="date"
+              display="spinner"
+              onChange={(event, selectedDate) => {
+                const currentDate = selectedDate;
+                const newDate = new Date(currentDate);
+                tempDateRef.current = newDate;
+                setTempDate(newDate);
+              }}
+              style={styles.datePicker}
+            />
+          </View>
+        </>
+      )}
     </View>
   );
 }
@@ -358,22 +370,34 @@ const styles = StyleSheet.create({
     fontSize: fontSize.base,
     color: colors.text,
   },
-  datePickerModal: {
-    flex: 1,
-    justifyContent: 'flex-end',
+  datePickerBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
-  datePickerContent: {
+  datePickerSheet: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: colors.white,
     borderTopLeftRadius: borderRadius.xl,
     borderTopRightRadius: borderRadius.xl,
   },
   datePickerHeader: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
     padding: spacing[4],
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  datePickerCancel: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.base,
+    color: colors.dustyMauve,
   },
   datePickerDone: {
     fontFamily: fontFamily.bold,
@@ -385,6 +409,23 @@ const styles = StyleSheet.create({
   },
   datePickerInline: {
     height: 350,
+  },
+  inlinePicker: {
+    marginTop: spacing[2],
+    backgroundColor: colors.white,
+    borderRadius: borderRadius.xl,
+    overflow: 'hidden',
+  },
+  doneButton: {
+    alignItems: 'center',
+    paddingVertical: spacing[3],
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  doneButtonText: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.base,
+    color: colors.primary,
   },
   textArea: {
     height: 100,

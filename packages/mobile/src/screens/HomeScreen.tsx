@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -48,22 +48,16 @@ const formatUpcomingDate = (date?: string) => {
   });
 };
 
-const CARD_WIDTH = 256;
-const CARD_GAP = 16;
-
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { data: attempts, isLoading } = useAttempts();
-  const scrollViewRef = useRef<ScrollView>(null);
-  const scrollPosition = useRef(0);
-  const isUserScrolling = useRef(false);
-  const animationFrame = useRef<number | null>(null);
 
-  // Sort by date (most recent first)
+  // Sort by date (most recent first), filter to done status only
   const recentAttempts =
     attempts
-      ?.slice()
+      ?.filter((a) => a.status === 'done')
+      .slice()
       .sort((a, b) => {
         const dateA = a.date ? new Date(a.date).getTime() : 0;
         const dateB = b.date ? new Date(b.date).getTime() : 0;
@@ -71,92 +65,16 @@ export default function HomeScreen() {
       })
       .slice(0, 5) || [];
 
+  // Upcoming bakes: ascending order (earliest first - shows what's next)
   const upcomingAttempts =
-    attempts?.filter((a) => a.status === 'planning' || a.status === 'baking') || [];
-
-  // For infinite scroll: duplicate the items
-  const loopedAttempts = recentAttempts.length > 1
-    ? [...recentAttempts, ...recentAttempts]
-    : recentAttempts;
-
-  // The point where we reset (end of first set of items)
-  const resetPoint = recentAttempts.length * (CARD_WIDTH + CARD_GAP);
-
-  const startSmoothScroll = useCallback(() => {
-    if (recentAttempts.length <= 1 || isUserScrolling.current) return;
-
-    const scrollSpeed = 0.5; // pixels per frame (smooth and slow)
-    let lastTime = Date.now();
-
-    const animate = () => {
-      if (isUserScrolling.current) return;
-
-      const now = Date.now();
-      const delta = now - lastTime;
-      lastTime = now;
-
-      scrollPosition.current += scrollSpeed * (delta / 16); // normalize to ~60fps
-
-      // When we reach the duplicate set, seamlessly jump back to start
-      if (scrollPosition.current >= resetPoint) {
-        scrollPosition.current = scrollPosition.current - resetPoint;
-        scrollViewRef.current?.scrollTo({
-          x: scrollPosition.current,
-          animated: false,
-        });
-      }
-
-      scrollViewRef.current?.scrollTo({
-        x: scrollPosition.current,
-        animated: false,
-      });
-
-      animationFrame.current = requestAnimationFrame(animate);
-    };
-
-    animationFrame.current = requestAnimationFrame(animate);
-  }, [recentAttempts.length, resetPoint]);
-
-  useEffect(() => {
-    if (recentAttempts.length <= 1) return;
-
-    const timer = setTimeout(() => {
-      startSmoothScroll();
-    }, 2000);
-
-    return () => {
-      clearTimeout(timer);
-      if (animationFrame.current) {
-        cancelAnimationFrame(animationFrame.current);
-      }
-    };
-  }, [recentAttempts.length, startSmoothScroll]);
-
-  const handleScrollBeginDrag = () => {
-    isUserScrolling.current = true;
-    if (animationFrame.current) {
-      cancelAnimationFrame(animationFrame.current);
-    }
-  };
-
-  const handleScrollEndDrag = () => {
-    setTimeout(() => {
-      isUserScrolling.current = false;
-      startSmoothScroll();
-    }, 5000);
-  };
-
-  const handleScroll = (event: any) => {
-    if (isUserScrolling.current) {
-      let x = event.nativeEvent.contentOffset.x;
-      // Normalize position if user scrolled into the duplicate zone
-      if (x >= resetPoint) {
-        x = x - resetPoint;
-        scrollViewRef.current?.scrollTo({ x, animated: false });
-      }
-      scrollPosition.current = x;
-    }
-  };
+    attempts
+      ?.filter((a) => a.status === 'planning' || a.status === 'baking')
+      .slice()
+      .sort((a, b) => {
+        const dateA = a.date ? new Date(a.date).getTime() : 0;
+        const dateB = b.date ? new Date(b.date).getTime() : 0;
+        return dateA - dateB;
+      }) || [];
 
   if (isLoading) return <Loading />;
 
@@ -189,18 +107,13 @@ export default function HomeScreen() {
               </TouchableOpacity>
             </View>
             <ScrollView
-              ref={scrollViewRef}
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.carouselContent}
-              onScrollBeginDrag={handleScrollBeginDrag}
-              onScrollEndDrag={handleScrollEndDrag}
-              onScroll={handleScroll}
-              scrollEventThrottle={16}
             >
-              {loopedAttempts.map((attempt, index) => (
+              {recentAttempts.map((attempt) => (
                 <AttemptCard
-                  key={`${attempt.attemptId}-${index}`}
+                  key={attempt.attemptId}
                   attempt={attempt}
                   onPress={() =>
                     navigation.navigate('AttemptDetail', { attemptId: attempt.attemptId })
@@ -293,9 +206,9 @@ function UpcomingBakeCard({
         <Text style={styles.upcomingName} numberOfLines={1}>
           {attempt.name}
         </Text>
-        <TouchableOpacity style={styles.menuButton}>
+        <View style={styles.menuButton}>
           <Icon name="more_horiz" color={colors.dustyMauve} />
-        </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.upcomingDateRow}>
