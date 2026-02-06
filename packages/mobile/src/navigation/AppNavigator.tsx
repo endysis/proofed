@@ -13,9 +13,12 @@ import type { RootStackParamList, TabParamList } from './types';
 import HomeScreen from '../screens/HomeScreen';
 import PantryScreen from '../screens/PantryScreen';
 import BakesScreen from '../screens/BakesScreen';
-import ProofedScreen from '../screens/ProofedScreen';
+import StarredScreen from '../screens/StarredScreen';
 import ItemDetailScreen from '../screens/ItemDetailScreen';
-import AttemptDetailScreen from '../screens/AttemptDetailScreen';
+import AttemptRouter from '../screens/AttemptRouter';
+import PlanScreen from '../screens/PlanScreen';
+import BakeScreen from '../screens/BakeScreen';
+import EvaluateScreen from '../screens/EvaluateScreen';
 import NewAttemptScreen from '../screens/NewAttemptScreen';
 import ProofedItemDetailScreen from '../screens/ProofedItemDetailScreen';
 
@@ -74,11 +77,11 @@ function TabNavigator() {
         }}
       />
       <Tab.Screen
-        name="Proofed"
-        component={ProofedScreen}
+        name="Starred"
+        component={StarredScreen}
         options={{
           tabBarIcon: ({ color, focused }) => (
-            <Icon name="verified" color={color} size="md" />
+            <Icon name="favorite" color={color} size="md" />
           ),
         }}
       />
@@ -97,7 +100,10 @@ export default function AppNavigator() {
       >
         <Stack.Screen name="Tabs" component={TabNavigator} />
         <Stack.Screen name="ItemDetail" component={ItemDetailScreen} />
-        <Stack.Screen name="AttemptDetail" component={AttemptDetailScreen} />
+        <Stack.Screen name="AttemptDetail" component={AttemptRouter} />
+        <Stack.Screen name="PlanScreen" component={PlanScreen} />
+        <Stack.Screen name="BakeScreen" component={BakeScreen} />
+        <Stack.Screen name="EvaluateScreen" component={EvaluateScreen} />
         <Stack.Screen name="NewAttempt" component={NewAttemptScreen} />
         <Stack.Screen name="ProofedItemDetail" component={ProofedItemDetailScreen} />
       </Stack.Navigator>

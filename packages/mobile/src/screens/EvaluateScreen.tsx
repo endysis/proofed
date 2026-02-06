@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { Icon, Modal, Loading } from '../components/common';
+import { Icon, Modal, Loading, FavoriteButton } from '../components/common';
 import { PhotoUpload, ImageAsset } from '../components/photos';
 import { useAttempt, useUpdateAttempt, useDeleteAttempt, useCaptureAttempt } from '../hooks/useAttempts';
 import { useItem } from '../hooks/useItems';
@@ -134,6 +134,13 @@ export default function EvaluateScreen() {
     ]);
   };
 
+  const handleToggleStar = () => {
+    updateAttempt.mutate({
+      attemptId,
+      data: { starred: !attempt?.starred },
+    });
+  };
+
   if (isLoading) return <Loading />;
   if (!attempt) {
     return (
@@ -170,6 +177,11 @@ export default function EvaluateScreen() {
               COMPLETE
             </Text>
           </View>
+          <FavoriteButton
+            isStarred={attempt.starred ?? false}
+            onToggle={handleToggleStar}
+            disabled={updateAttempt.isPending}
+          />
         </View>
 
         {/* Title & Date */}
@@ -775,6 +787,7 @@ const styles = StyleSheet.create({
   statusBadgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginTop: spacing[2],
   },
   statusBadge: {

@@ -7,7 +7,7 @@ export type TabParamList = {
   Home: undefined;
   Pantry: undefined;
   Bakes: undefined;
-  Proofed: undefined;
+  Starred: undefined;
 };
 
 // Root Stack Navigator
@@ -15,6 +15,9 @@ export type RootStackParamList = {
   Tabs: NavigatorScreenParams<TabParamList>;
   ItemDetail: { itemId: string; recipeId?: string; scale?: number; variantId?: string };
   AttemptDetail: { attemptId: string };
+  PlanScreen: { attemptId: string };
+  BakeScreen: { attemptId: string };
+  EvaluateScreen: { attemptId: string };
   NewAttempt: undefined;
   ProofedItemDetail: { proofedItemId: string };
 };
