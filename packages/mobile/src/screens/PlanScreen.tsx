@@ -9,7 +9,6 @@ import {
   Alert,
   Platform,
   Dimensions,
-  KeyboardAvoidingView,
 } from 'react-native';
 import Animated, { ZoomIn } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -55,6 +54,8 @@ export default function PlanScreen() {
   const [name, setName] = useState('');
   const [date, setDate] = useState<Date>(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [tempDate, setTempDate] = useState<Date>(new Date());
+  const tempDateRef = useRef<Date>(new Date());
   const [activeIndex, setActiveIndex] = useState(0);
   const carouselRef = useRef<ScrollView>(null);
 
@@ -107,14 +108,16 @@ export default function PlanScreen() {
     setHasChanges(true);
   };
 
-  const handleDateChange = (event: any, selectedDate?: Date) => {
-    if (Platform.OS === 'android') {
-      setShowDatePicker(false);
-    }
-    if (selectedDate) {
-      setDate(selectedDate);
-      setHasChanges(true);
-    }
+  const handleOpenDatePicker = () => {
+    tempDateRef.current = date;
+    setTempDate(date);
+    setShowDatePicker(true);
+  };
+
+  const handleDateConfirm = () => {
+    setDate(tempDateRef.current);
+    setHasChanges(true);
+    setShowDatePicker(false);
   };
 
   const handleDelete = () => {
@@ -199,17 +202,7 @@ export default function PlanScreen() {
         </TouchableOpacity>
       </View>
 
-      <KeyboardAvoidingView
-        style={styles.keyboardAvoid}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={insets.top + 56}
-      >
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        style={styles.content}
-        keyboardShouldPersistTaps="handled"
-        automaticallyAdjustKeyboardInsets={true}
-      >
+      <View style={styles.mainContent}>
         {/* Status Badge */}
         <View style={styles.statusBadgeRow}>
           <View style={[styles.statusBadge, { backgroundColor: colors.pastelPink }]}>
@@ -228,7 +221,7 @@ export default function PlanScreen() {
             placeholder="Bake name"
             placeholderTextColor={colors.dustyMauve}
           />
-          <TouchableOpacity style={styles.dateRow} onPress={() => setShowDatePicker(true)}>
+          <TouchableOpacity style={styles.dateRow} onPress={handleOpenDatePicker}>
             <Icon name="calendar_today" size="sm" color={colors.dustyMauve} />
             <Text style={styles.date}>
               {date.toLocaleDateString('en-US', {
@@ -241,15 +234,6 @@ export default function PlanScreen() {
             <Icon name="edit" size="sm" color={colors.dustyMauve} />
           </TouchableOpacity>
         </View>
-
-        {showDatePicker && (
-          <DateTimePicker
-            value={date}
-            mode="date"
-            display={Platform.OS === 'ios' ? 'inline' : 'default'}
-            onChange={handleDateChange}
-          />
-        )}
 
         {/* Items Used - Carousel */}
         <View style={styles.section}>
@@ -314,9 +298,7 @@ export default function PlanScreen() {
             </View>
           </View>
         </View>
-
-        <View style={{ height: 160 }} />
-      </ScrollView>
+      </View>
 
       {/* Bottom Action Area - Two Buttons */}
       <View style={[styles.bottomAction, { paddingBottom: insets.bottom + spacing[4] }]}>
@@ -337,7 +319,6 @@ export default function PlanScreen() {
           <Text style={styles.primaryButtonText}>Start Baking</Text>
         </TouchableOpacity>
       </View>
-      </KeyboardAvoidingView>
 
       {/* Action Sheet */}
       <Modal isOpen={showActions} onClose={() => setShowActions(false)} title="Actions">
@@ -354,6 +335,55 @@ export default function PlanScreen() {
           </Text>
         </TouchableOpacity>
       </Modal>
+
+      {/* iOS Date Picker Modal */}
+      {Platform.OS === 'ios' && showDatePicker && (
+        <>
+          <TouchableOpacity
+            style={styles.datePickerBackdrop}
+            activeOpacity={1}
+            onPress={() => setShowDatePicker(false)}
+          />
+          <View style={[styles.datePickerSheet, { paddingBottom: insets.bottom }]}>
+            <View style={styles.datePickerHeader}>
+              <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                <Text style={styles.datePickerCancel}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleDateConfirm}>
+                <Text style={styles.datePickerDone}>Done</Text>
+              </TouchableOpacity>
+            </View>
+            <DateTimePicker
+              value={tempDate}
+              mode="date"
+              display="spinner"
+              onChange={(_, selectedDate) => {
+                if (selectedDate) {
+                  tempDateRef.current = selectedDate;
+                  setTempDate(selectedDate);
+                }
+              }}
+              style={styles.datePicker}
+            />
+          </View>
+        </>
+      )}
+
+      {/* Android Date Picker */}
+      {Platform.OS === 'android' && showDatePicker && (
+        <DateTimePicker
+          value={date}
+          mode="date"
+          display="default"
+          onChange={(_, selectedDate) => {
+            setShowDatePicker(false);
+            if (selectedDate) {
+              setDate(selectedDate);
+              setHasChanges(true);
+            }
+          }}
+        />
+      )}
     </View>
   );
 }
@@ -611,8 +641,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.bgLight,
   },
-  keyboardAvoid: {
+  mainContent: {
     flex: 1,
+    paddingHorizontal: spacing[4],
   },
   header: {
     flexDirection: 'row',
@@ -640,10 +671,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: -spacing[2],
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: spacing[4],
   },
   statusBadgeRow: {
     flexDirection: 'row',
@@ -890,10 +917,6 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   bottomAction: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
     padding: spacing[4],
     backgroundColor: colors.bgLight,
     borderTopWidth: 1,
@@ -950,5 +973,42 @@ const styles = StyleSheet.create({
     fontSize: fontSize.base,
     color: colors.error,
     padding: spacing[4],
+  },
+  datePickerBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  datePickerSheet: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: colors.white,
+    borderTopLeftRadius: borderRadius.xl,
+    borderTopRightRadius: borderRadius.xl,
+  },
+  datePickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: spacing[4],
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  datePickerCancel: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.base,
+    color: colors.dustyMauve,
+  },
+  datePickerDone: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.base,
+    color: colors.primary,
+  },
+  datePicker: {
+    height: 200,
   },
 });
