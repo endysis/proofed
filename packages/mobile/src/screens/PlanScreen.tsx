@@ -20,10 +20,11 @@ import { useAttempt, useUpdateAttempt, useDeleteAttempt } from '../hooks/useAtte
 import { useItems, useItem } from '../hooks/useItems';
 import { useRecipes, useRecipe } from '../hooks/useRecipes';
 import { useVariants, useVariant } from '../hooks/useVariants';
-import { formatScaleFactor, getScaleOptions } from '../utils/scaleRecipe';
+import { formatScaleFactor, getScaleOptions, calculateScaleFromIngredient } from '../utils/scaleRecipe';
+import { mergeIngredients } from '../utils/mergeIngredients';
 import { colors, fontFamily, fontSize, spacing, borderRadius } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
-import type { ItemUsage, Item } from '@proofed/shared';
+import type { ItemUsage, Item, Ingredient } from '@proofed/shared';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type PlanScreenRouteProp = RouteProp<RootStackParamList, 'PlanScreen'>;
@@ -403,14 +404,21 @@ function ItemUsageRow({
   const { data: recipes } = useRecipes(usage.itemId);
   const { data: variants } = useVariants(usage.itemId, usage.recipeId);
   const { data: selectedRecipe } = useRecipe(usage.itemId, usage.recipeId);
+  const { data: selectedVariantData } = useVariant(usage.itemId, usage.recipeId, usage.variantId || '');
   const [showItemPicker, setShowItemPicker] = useState(false);
   const [showRecipePicker, setShowRecipePicker] = useState(false);
   const [showVariantPicker, setShowVariantPicker] = useState(false);
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [editingNotes, setEditingNotes] = useState('');
+  const [showScaleByIngredient, setShowScaleByIngredient] = useState(false);
+  const [selectedIngredient, setSelectedIngredient] = useState<Ingredient | null>(null);
+  const [ingredientAmount, setIngredientAmount] = useState('');
 
   const selectedItem = items.find((i) => i.itemId === usage.itemId);
   const selectedVariant = variants?.find((v) => v.variantId === usage.variantId);
+  const mergedIngredients = selectedRecipe
+    ? mergeIngredients(selectedRecipe, selectedVariantData)
+    : [];
 
   return (
     <View style={styles.usageCard}>
@@ -497,6 +505,14 @@ function ItemUsageRow({
                     </Text>
                   </TouchableOpacity>
                 ))}
+                {/* Scale by ingredient button */}
+                <TouchableOpacity
+                  style={styles.scaleByIngredientButton}
+                  onPress={() => setShowScaleByIngredient(true)}
+                >
+                  <Icon name="calculate" size="sm" color={colors.primary} />
+                  <Text style={styles.scaleByIngredientText}>I have...</Text>
+                </TouchableOpacity>
               </View>
             </View>
           )}
@@ -630,6 +646,103 @@ function ItemUsageRow({
             }}
           >
             <Text style={styles.submitButtonText}>Save</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+
+      {/* Scale by Ingredient Modal */}
+      <Modal
+        isOpen={showScaleByIngredient}
+        onClose={() => {
+          setShowScaleByIngredient(false);
+          setSelectedIngredient(null);
+          setIngredientAmount('');
+        }}
+        title="Scale by Ingredient"
+      >
+        {/* Step 1: Select Ingredient */}
+        <Text style={styles.modalLabel}>Select ingredient</Text>
+        <ScrollView style={styles.ingredientList}>
+          {mergedIngredients.map((ing) => (
+            <TouchableOpacity
+              key={ing.name}
+              style={[
+                styles.ingredientOption,
+                selectedIngredient?.name === ing.name && styles.ingredientOptionActive,
+              ]}
+              onPress={() => setSelectedIngredient(ing)}
+            >
+              <Text style={styles.ingredientOptionName}>{ing.name}</Text>
+              <Text style={styles.ingredientOptionAmount}>
+                {ing.quantity} {ing.unit}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        {/* Step 2: Enter Amount (shown when ingredient selected) */}
+        {selectedIngredient && (
+          <>
+            <Text style={styles.modalLabel}>
+              How much {selectedIngredient.name.toLowerCase()} do you have?
+            </Text>
+            <View style={styles.amountInputRow}>
+              <TextInput
+                style={styles.amountInput}
+                value={ingredientAmount}
+                onChangeText={setIngredientAmount}
+                keyboardType="decimal-pad"
+                placeholder="0"
+                placeholderTextColor={colors.dustyMauve}
+              />
+              <Text style={styles.unitLabel}>{selectedIngredient.unit}</Text>
+            </View>
+
+            {/* Preview calculated scale */}
+            {ingredientAmount && parseFloat(ingredientAmount) > 0 && (
+              <View style={styles.scalePreview}>
+                <Text style={styles.scalePreviewLabel}>Recipe will scale to:</Text>
+                <Text style={styles.scalePreviewValue}>
+                  {formatScaleFactor(calculateScaleFromIngredient(
+                    selectedIngredient.quantity,
+                    parseFloat(ingredientAmount)
+                  ))}
+                </Text>
+              </View>
+            )}
+          </>
+        )}
+
+        {/* Action Buttons */}
+        <View style={styles.modalButtons}>
+          <TouchableOpacity
+            style={styles.cancelButton}
+            onPress={() => {
+              setShowScaleByIngredient(false);
+              setSelectedIngredient(null);
+              setIngredientAmount('');
+            }}
+          >
+            <Text style={styles.cancelButtonText}>Cancel</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.submitButton,
+              (!selectedIngredient || !ingredientAmount || parseFloat(ingredientAmount) <= 0) && styles.buttonDisabled,
+            ]}
+            onPress={() => {
+              const scale = calculateScaleFromIngredient(
+                selectedIngredient!.quantity,
+                parseFloat(ingredientAmount)
+              );
+              onUpdate({ scaleFactor: scale === 1 ? undefined : scale });
+              setShowScaleByIngredient(false);
+              setSelectedIngredient(null);
+              setIngredientAmount('');
+            }}
+            disabled={!selectedIngredient || !ingredientAmount || parseFloat(ingredientAmount) <= 0}
+          >
+            <Text style={styles.submitButtonText}>Apply Scale</Text>
           </TouchableOpacity>
         </View>
       </Modal>
@@ -901,6 +1014,106 @@ const styles = StyleSheet.create({
   },
   scaleButtonTextActive: {
     color: colors.white,
+  },
+  scaleByIngredientButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[1],
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[2],
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderStyle: 'dashed',
+  },
+  scaleByIngredientText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: colors.primary,
+  },
+  modalLabel: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: colors.text,
+    marginBottom: spacing[2],
+  },
+  ingredientList: {
+    maxHeight: 200,
+    marginBottom: spacing[4],
+  },
+  ingredientOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: spacing[3],
+    paddingHorizontal: spacing[4],
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
+    backgroundColor: colors.white,
+  },
+  ingredientOptionActive: {
+    backgroundColor: 'rgba(229, 52, 78, 0.1)',
+  },
+  ingredientOptionName: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.base,
+    color: colors.text,
+  },
+  ingredientOptionAmount: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.dustyMauve,
+  },
+  amountInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+    marginBottom: spacing[4],
+  },
+  amountInput: {
+    flex: 1,
+    backgroundColor: colors.bgLight,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+    borderRadius: borderRadius.xl,
+    height: 56,
+    paddingHorizontal: spacing[4],
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.xl,
+    color: colors.text,
+    textAlign: 'center',
+  },
+  unitLabel: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.lg,
+    color: colors.dustyMauve,
+    minWidth: 40,
+  },
+  scalePreview: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: 'rgba(229, 52, 78, 0.1)',
+    padding: spacing[4],
+    borderRadius: borderRadius.xl,
+    marginBottom: spacing[4],
+  },
+  scalePreviewLabel: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.text,
+  },
+  scalePreviewValue: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.lg,
+    color: colors.primary,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: spacing[3],
+  },
+  buttonDisabled: {
+    opacity: 0.5,
   },
   pickerList: {
     maxHeight: 300,

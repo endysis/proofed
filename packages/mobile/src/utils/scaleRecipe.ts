@@ -1,6 +1,17 @@
 import type { Ingredient } from '@proofed/shared';
 
 /**
+ * Calculate scale factor from a target ingredient amount
+ * @param baseAmount - Original recipe amount (e.g., 800g)
+ * @param targetAmount - Amount user has (e.g., 678g)
+ * @returns Scale factor rounded to 4 decimal places
+ */
+export function calculateScaleFromIngredient(baseAmount: number, targetAmount: number): number {
+  if (baseAmount <= 0) return 1;
+  return Math.round((targetAmount / baseAmount) * 10000) / 10000;
+}
+
+/**
  * Scale ingredients by a given factor
  */
 export function scaleIngredients(ingredients: Ingredient[], scaleFactor: number): Ingredient[] {
