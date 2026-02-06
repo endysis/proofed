@@ -16,7 +16,13 @@
     "deploy": "npm run deploy -w infra",
     "test": "npm run test --workspaces --if-present"
   },
+  "dependencies": {
+    "expo": "53"
+  },
   "devDependencies": {
     "typescript": "^5.3.3"
+  },
+  "overrides": {
+    "react": "19.0.0"
   }
 }
