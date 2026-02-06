@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { Icon, Modal, Loading, FavoriteButton } from '../components/common';
+import { Icon, Modal, Loading } from '../components/common';
 import { useAttempt, useUpdateAttempt, useDeleteAttempt } from '../hooks/useAttempts';
 import { useItem } from '../hooks/useItems';
 import { useRecipe } from '../hooks/useRecipes';
@@ -75,13 +75,6 @@ export default function BakeScreen() {
     );
   };
 
-  const handleToggleStar = () => {
-    updateAttempt.mutate({
-      attemptId,
-      data: { starred: !attempt?.starred },
-    });
-  };
-
   if (isLoading) return <Loading />;
   if (!attempt) {
     return (
@@ -112,14 +105,7 @@ export default function BakeScreen() {
               IN PROGRESS
             </Text>
           </View>
-          <View style={styles.statusBadgeRight}>
-            <Text style={styles.stepIndicator}>Step 2/3</Text>
-            <FavoriteButton
-              isStarred={attempt.starred ?? false}
-              onToggle={handleToggleStar}
-              disabled={updateAttempt.isPending}
-            />
-          </View>
+          <Text style={styles.stepIndicator}>Step 2/3</Text>
         </View>
 
         {/* Title & Time */}
@@ -304,11 +290,6 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.bold,
     fontSize: fontSize.xs,
     letterSpacing: 0.5,
-  },
-  statusBadgeRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[2],
   },
   stepIndicator: {
     fontFamily: fontFamily.medium,
