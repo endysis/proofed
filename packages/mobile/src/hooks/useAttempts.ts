@@ -13,6 +13,16 @@ export function useAttempts() {
   });
 }
 
+export function useStarredAttempts() {
+  return useQuery({
+    queryKey: ['attempts', 'starred'],
+    queryFn: async () => {
+      const attempts = await attemptsApi.list();
+      return attempts.filter((a) => a.starred === true);
+    },
+  });
+}
+
 export function useAttempt(attemptId: string) {
   return useQuery({
     queryKey: ['attempts', attemptId],
@@ -43,9 +53,13 @@ export function useUpdateAttempt() {
       attemptId: string;
       data: UpdateAttemptRequest;
     }) => attemptsApi.update(attemptId, data),
-    onSuccess: (_, { attemptId }) => {
+    onSuccess: (_, { attemptId, data }) => {
       queryClient.invalidateQueries({ queryKey: ['attempts'] });
       queryClient.invalidateQueries({ queryKey: ['attempts', attemptId] });
+      // Also invalidate starred query when starred field changes
+      if (data.starred !== undefined) {
+        queryClient.invalidateQueries({ queryKey: ['attempts', 'starred'] });
+      }
     },
   });
 }

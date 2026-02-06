@@ -5,23 +5,56 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { useProofedItems } from '../hooks/useProofedItems';
+import { useStarredAttempts } from '../hooks/useAttempts';
+import { usePhotoUrl } from '../hooks/usePhotos';
 import { Loading, Icon } from '../components/common';
 import { colors, spacing, borderRadius, fontFamily, fontSize } from '../theme';
+import type { Attempt, AttemptStatus } from '@proofed/shared';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../navigation/types';
 
-export default function ProofedScreen() {
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+
+function getStatusBadge(status?: AttemptStatus) {
+  switch (status) {
+    case 'planning':
+      return { label: 'PLAN', bg: colors.pastelPink, color: colors.primary };
+    case 'baking':
+      return { label: 'IN PROGRESS', bg: '#FFF3CD', color: '#856404' };
+    case 'done':
+      return { label: 'COMPLETE', bg: '#D4EDDA', color: '#155724' };
+    default:
+      return { label: 'PLAN', bg: colors.pastelPink, color: colors.primary };
+  }
+}
+
+function navigateToAttempt(navigation: NavigationProp, attempt: Attempt) {
+  switch (attempt.status) {
+    case 'baking':
+      navigation.navigate('BakeScreen', { attemptId: attempt.attemptId });
+      break;
+    case 'done':
+      navigation.navigate('EvaluateScreen', { attemptId: attempt.attemptId });
+      break;
+    default:
+      navigation.navigate('PlanScreen', { attemptId: attempt.attemptId });
+  }
+}
+
+export default function StarredScreen() {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation();
-  const { data: proofedItems, isLoading, error } = useProofedItems();
+  const navigation = useNavigation<NavigationProp>();
+  const { data: starredAttempts, isLoading, error } = useStarredAttempts();
 
   if (isLoading) return <Loading />;
   if (error) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
-        <Text style={styles.errorText}>Error loading proofed items</Text>
+        <Text style={styles.errorText}>Error loading starred bakes</Text>
       </View>
     );
   }
@@ -31,11 +64,11 @@ export default function ProofedScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerText}>
-          <Text style={styles.title}>Proofed</Text>
-          <Text style={styles.subtitle}>Your proven recipes, ready to bake</Text>
+          <Text style={styles.title}>Starred Bakes</Text>
+          <Text style={styles.subtitle}>Your favorite baking sessions</Text>
         </View>
         <View style={styles.headerIcon}>
-          <Icon name="verified" color={colors.primary} />
+          <Icon name="favorite" color={colors.primary} />
         </View>
       </View>
 
@@ -44,66 +77,99 @@ export default function ProofedScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {proofedItems?.length === 0 ? (
+        {starredAttempts?.length === 0 ? (
           <View style={styles.emptyCard}>
             <View style={styles.emptyIconContainer}>
-              <Icon name="verified" size="xl" color={colors.primary} />
+              <Icon name="favorite_border" size="xl" color={colors.primary} />
             </View>
-            <Text style={styles.emptyTitle}>No proofed items yet</Text>
+            <Text style={styles.emptyTitle}>No starred bakes yet</Text>
             <Text style={styles.emptyDescription}>
-              Capture a successful attempt to add it here
+              Star your favorite bakes to find them here
             </Text>
             <TouchableOpacity
               onPress={() => navigation.navigate('Tabs', { screen: 'Bakes' })}
             >
-              <Text style={styles.emptyLink}>View Attempts</Text>
+              <Text style={styles.emptyLink}>View Bakes</Text>
             </TouchableOpacity>
           </View>
         ) : (
           <View style={styles.itemsList}>
-            {proofedItems?.map((item) => (
-              <TouchableOpacity
-                key={item.proofedItemId}
-                style={styles.itemCard}
-                onPress={() =>
-                  navigation.navigate('ProofedItemDetail', {
-                    proofedItemId: item.proofedItemId,
-                  })
-                }
-                activeOpacity={0.8}
-              >
-                <View style={styles.itemContent}>
-                  <View style={styles.itemIcon}>
-                    <Icon name="verified" color={colors.primary} />
-                  </View>
-                  <View style={styles.itemInfo}>
-                    <Text style={styles.itemName} numberOfLines={1}>
-                      {item.name}
-                    </Text>
-                    {item.notes && (
-                      <Text style={styles.itemNotes} numberOfLines={2}>
-                        {item.notes}
-                      </Text>
-                    )}
-                    <View style={styles.itemMeta}>
-                      <View style={styles.itemsBadge}>
-                        <Text style={styles.itemsBadgeText}>
-                          {item.itemConfigs?.length || 0} items
-                        </Text>
-                      </View>
-                      <Text style={styles.itemDate}>
-                        {new Date(item.createdAt).toLocaleDateString()}
-                      </Text>
-                    </View>
-                  </View>
-                  <Icon name="chevron_right" color={colors.dustyMauve} />
-                </View>
-              </TouchableOpacity>
+            {starredAttempts?.map((attempt) => (
+              <AttemptCard
+                key={attempt.attemptId}
+                attempt={attempt}
+                onPress={() => navigateToAttempt(navigation, attempt)}
+              />
             ))}
           </View>
         )}
       </ScrollView>
     </View>
+  );
+}
+
+function AttemptCard({
+  attempt,
+  onPress,
+}: {
+  attempt: Attempt;
+  onPress: () => void;
+}) {
+  const statusBadge = getStatusBadge(attempt.status);
+  const photoKey = attempt.mainPhotoKey || attempt.photoKeys?.[0];
+
+  return (
+    <TouchableOpacity
+      style={styles.itemCard}
+      onPress={onPress}
+      activeOpacity={0.8}
+    >
+      <View style={styles.itemContent}>
+        {photoKey ? (
+          <AttemptThumbnail photoKey={photoKey} />
+        ) : (
+          <View style={styles.itemIcon}>
+            <Icon name="bakery_dining" color={colors.primary} />
+          </View>
+        )}
+        <View style={styles.itemInfo}>
+          <Text style={styles.itemName} numberOfLines={1}>
+            {attempt.name}
+          </Text>
+          <View style={styles.itemMeta}>
+            <View style={[styles.statusBadge, { backgroundColor: statusBadge.bg }]}>
+              <Text style={[styles.statusBadgeText, { color: statusBadge.color }]}>
+                {statusBadge.label}
+              </Text>
+            </View>
+            <Text style={styles.itemDate}>
+              {new Date(attempt.date).toLocaleDateString()}
+            </Text>
+          </View>
+        </View>
+        <Icon name="chevron_right" color={colors.dustyMauve} />
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+function AttemptThumbnail({ photoKey }: { photoKey: string }) {
+  const { data: url, isLoading } = usePhotoUrl(photoKey);
+
+  if (isLoading || !url) {
+    return (
+      <View style={styles.itemIcon}>
+        <Icon name="image" color={colors.dustyMauve} />
+      </View>
+    );
+  }
+
+  return (
+    <Image
+      source={{ uri: url }}
+      style={styles.thumbnail}
+      resizeMode="cover"
+    />
   );
 }
 
@@ -213,7 +279,7 @@ const styles = StyleSheet.create({
   },
   itemContent: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: spacing[4],
   },
   itemIcon: {
@@ -224,6 +290,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  thumbnail: {
+    width: 48,
+    height: 48,
+    borderRadius: borderRadius.lg,
+  },
   itemInfo: {
     flex: 1,
   },
@@ -232,28 +303,21 @@ const styles = StyleSheet.create({
     fontSize: fontSize.base,
     color: colors.text,
   },
-  itemNotes: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.sm,
-    color: colors.dustyMauve,
-    marginTop: spacing[1],
-  },
   itemMeta: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing[2],
     marginTop: spacing[2],
   },
-  itemsBadge: {
-    backgroundColor: '#f4f0f1',
+  statusBadge: {
     paddingHorizontal: spacing[2],
     paddingVertical: spacing[0.5],
     borderRadius: borderRadius.full,
   },
-  itemsBadgeText: {
-    fontFamily: fontFamily.medium,
+  statusBadgeText: {
+    fontFamily: fontFamily.bold,
     fontSize: fontSize.xs,
-    color: colors.dustyMauve,
+    letterSpacing: 0.5,
   },
   itemDate: {
     fontFamily: fontFamily.regular,
