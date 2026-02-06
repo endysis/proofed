@@ -2,6 +2,8 @@ export type ItemType = 'batter' | 'frosting' | 'filling' | 'dough' | 'glaze' | '
 
 export type ContainerType = 'round_cake_tin' | 'square_cake_tin' | 'loaf_tin' | 'bundt_tin' | 'sheet_pan' | 'muffin_tin' | 'other';
 
+export type AttemptStatus = 'planning' | 'baking' | 'done';
+
 export interface ContainerInfo {
   type: ContainerType;
   size: number;      // in inches
@@ -73,6 +75,8 @@ export interface Attempt {
   outcomeNotes?: string;
   photoKeys?: string[];
   mainPhotoKey?: string;  // Key of the photo to display on home screen
+  status?: AttemptStatus;  // 'planning' | 'baking' | 'done'
+  starred?: boolean;       // Whether this attempt is starred/favorited
   createdAt: string;
 }
 
@@ -144,6 +148,7 @@ export interface CreateAttemptRequest {
   date: string;
   itemUsages: ItemUsage[];
   notes?: string;
+  status?: AttemptStatus;  // defaults to 'planning'
 }
 
 export interface UpdateAttemptRequest {
@@ -154,6 +159,8 @@ export interface UpdateAttemptRequest {
   outcomeNotes?: string;
   photoKeys?: string[];
   mainPhotoKey?: string;
+  status?: AttemptStatus;
+  starred?: boolean;
 }
 
 export interface CaptureAttemptRequest {

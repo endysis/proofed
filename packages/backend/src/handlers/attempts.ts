@@ -32,6 +32,7 @@ export async function createAttempt(request: CreateAttemptRequest): Promise<Atte
     bakeTime: request.bakeTime,
     itemUsages: request.itemUsages,
     notes: request.notes,
+    status: request.status || 'planning',
     createdAt: now,
   };
   return putItem(ATTEMPTS_TABLE, attempt);
