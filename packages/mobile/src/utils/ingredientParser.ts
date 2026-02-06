@@ -217,6 +217,12 @@ function parseLine(line: string): ParsedIngredient | null {
   // Keep them as part of the name since they may be relevant
   name = name.trim();
 
+  // Capitalize each word in the ingredient name
+  name = name
+    .split(' ')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+
   // If we still have no unit but have a quantity, default to 'unit'
   if (quantity > 0 && !unit) {
     unit = 'unit';
