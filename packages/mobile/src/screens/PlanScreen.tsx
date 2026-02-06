@@ -32,6 +32,8 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 const { width: screenWidth } = Dimensions.get('window');
 const CARD_WIDTH = screenWidth - spacing[4] * 2;
 const CARD_MARGIN = spacing[2];
+const SNAP_INTERVAL = CARD_WIDTH + CARD_MARGIN * 2;
+const SIDE_PADDING = (screenWidth - CARD_WIDTH) / 2 - CARD_MARGIN;
 
 interface ItemUsageInput extends ItemUsage {
   _key: string;
@@ -82,7 +84,7 @@ export default function PlanScreen() {
     // Auto-scroll to the new item (which will be at editedUsages.length position)
     setTimeout(() => {
       carouselRef.current?.scrollTo({
-        x: editedUsages.length * (CARD_WIDTH + CARD_MARGIN * 2),
+        x: editedUsages.length * SNAP_INTERVAL,
         animated: true,
       });
       setActiveIndex(editedUsages.length);
@@ -243,16 +245,13 @@ export default function PlanScreen() {
             <ScrollView
               ref={carouselRef}
               horizontal
-              pagingEnabled
               showsHorizontalScrollIndicator={false}
               decelerationRate="fast"
-              snapToInterval={CARD_WIDTH + CARD_MARGIN * 2}
+              snapToInterval={SNAP_INTERVAL}
               snapToAlignment="center"
-              contentContainerStyle={styles.carouselContent}
+              contentContainerStyle={[styles.carouselContent, { paddingHorizontal: SIDE_PADDING }]}
               onMomentumScrollEnd={(e) => {
-                const index = Math.round(
-                  e.nativeEvent.contentOffset.x / (CARD_WIDTH + CARD_MARGIN * 2)
-                );
+                const index = Math.round(e.nativeEvent.contentOffset.x / SNAP_INTERVAL);
                 setActiveIndex(index);
               }}
             >
@@ -728,7 +727,6 @@ const styles = StyleSheet.create({
     marginHorizontal: -spacing[4], // Extend to screen edges
   },
   carouselContent: {
-    paddingHorizontal: spacing[4],
     alignItems: 'flex-start',
   },
   carouselCard: {
