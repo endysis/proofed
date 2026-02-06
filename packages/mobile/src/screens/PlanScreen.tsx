@@ -276,7 +276,9 @@ export default function PlanScreen() {
                 onPress={addItemUsage}
               >
                 <Icon name="add_circle" size="xl" color={colors.primary} />
-                <Text style={styles.addCardText}>Add Another Item</Text>
+                <Text style={styles.addCardText}>
+                  {editedUsages.length === 0 ? 'Add Item' : 'Add Another Item'}
+                </Text>
               </TouchableOpacity>
             </ScrollView>
 
@@ -711,7 +713,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   section: {
-    marginTop: spacing[6],
+    flex: 1,
+    marginTop: spacing[4],
   },
   sectionTitle: {
     fontFamily: fontFamily.bold,
@@ -726,10 +729,10 @@ const styles = StyleSheet.create({
   },
   carouselContent: {
     paddingHorizontal: spacing[4],
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   carouselCard: {
-    height: 420,
+    // Height determined by content
   },
   addCard: {
     backgroundColor: colors.white,
@@ -741,7 +744,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing[3],
-    height: 420,
+    // Height determined by content - matches carouselCard
   },
   addCardText: {
     fontFamily: fontFamily.medium,
@@ -789,7 +792,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(0, 0, 0, 0.05)',
     padding: spacing[4],
-    marginBottom: spacing[3],
   },
   usageHeader: {
     flexDirection: 'row',
