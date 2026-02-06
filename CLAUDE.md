@@ -7,7 +7,8 @@ A modular recipe experimentation log for home bakers.
 ```
 proofed/
 ├── packages/
-│   ├── frontend/          # React app (TypeScript)
+│   ├── mobile/            # React Native app (Expo SDK 53) ← ACTIVE FRONTEND
+│   ├── frontend/          # [DEPRECATED] Legacy React web app (S3)
 │   ├── backend/           # Lambda handlers (TypeScript)
 │   └── shared/            # Shared types/utils
 ├── infra/                 # CDK infrastructure
@@ -15,25 +16,32 @@ proofed/
 └── tsconfig.base.json     # Shared TS config
 ```
 
+## Development Focus
+
+**All frontend development should be done in `packages/mobile` (React Native).**
+
+The `packages/frontend` web app is deprecated and should not receive new features or changes.
+
 ## Quick Start
 
 ```bash
 # Install dependencies
 npm install
 
-# Build all packages
-npm run build
+# Run mobile app locally
+cd packages/mobile
+npx expo start
 
-# Run frontend locally
-npm run dev:frontend
+# Run on iOS device
+npx expo run:ios --device
 
-# Deploy to AWS
+# Deploy backend to AWS
 npm run deploy
 ```
 
 ## Architecture
 
-- **Frontend**: React + TypeScript, hosted on S3
+- **Frontend**: React Native + Expo (SDK 53), development builds
 - **Backend**: Lambda + API Gateway (HTTP API)
 - **Database**: DynamoDB (5 tables: Items, Recipes, Variants, Attempts, ProofedItems)
 - **Photos**: S3 bucket with presigned URLs for direct upload
