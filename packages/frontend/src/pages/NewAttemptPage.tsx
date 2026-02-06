@@ -156,17 +156,6 @@ export default function NewAttemptPage() {
           </div>
         </div>
 
-        {/* Notes Section */}
-        <div className="mt-6 px-4">
-          <h3 className="section-title pb-2">Notes</h3>
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Any notes about this bake..."
-            rows={4}
-            className="w-full rounded-xl border border-black/10 bg-white p-4 text-base focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none"
-          />
-        </div>
       </form>
 
       {/* Footer Button */}

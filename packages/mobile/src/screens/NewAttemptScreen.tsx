@@ -115,7 +115,7 @@ export default function NewAttemptScreen() {
           <Icon name="arrow_back_ios" color={colors.primary} size="lg" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
-          {flowType === 'guided' ? 'Start Attempt' : 'Log Past Attempt'}
+          {flowType === 'guided' ? 'Start Bake' : 'Log Past Bake'}
         </Text>
         <View style={{ width: 40 }} />
       </View>
@@ -174,22 +174,6 @@ export default function NewAttemptScreen() {
           </View>
         </View>
 
-        {/* Notes */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Bake Notes</Text>
-          <TextInput
-            style={[styles.input, styles.textArea]}
-            value={notes}
-            onChangeText={setNotes}
-            placeholder="Any notes about this bake..."
-            placeholderTextColor={colors.dustyMauve}
-            multiline
-            numberOfLines={4}
-            textAlignVertical="top"
-          />
-        </View>
-
-        <View style={{ height: 120 }} />
       </ScrollView>
 
       {/* Footer Button */}
