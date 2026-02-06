@@ -10,9 +10,10 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import { Icon, Modal } from '../common';
 import { colors, spacing, borderRadius, fontFamily, fontSize } from '../../theme';
+import type { ImageAsset } from '../../api/client';
 
 interface PhotoUploadProps {
-  onUpload: (imageUri: string) => void;
+  onUpload: (image: ImageAsset) => void;
   isLoading?: boolean;
 }
 
@@ -55,7 +56,12 @@ export default function PhotoUpload({ onUpload, isLoading }: PhotoUploadProps) {
     });
 
     if (!result.canceled && result.assets[0]) {
-      onUpload(result.assets[0].uri);
+      const asset = result.assets[0];
+      onUpload({
+        uri: asset.uri,
+        type: asset.mimeType || 'image/jpeg',
+        fileName: asset.fileName || `photo_${Date.now()}.jpg`,
+      });
     }
   };
 
@@ -72,7 +78,12 @@ export default function PhotoUpload({ onUpload, isLoading }: PhotoUploadProps) {
     });
 
     if (!result.canceled && result.assets[0]) {
-      onUpload(result.assets[0].uri);
+      const asset = result.assets[0];
+      onUpload({
+        uri: asset.uri,
+        type: asset.mimeType || 'image/jpeg',
+        fileName: asset.fileName || `photo_${Date.now()}.jpg`,
+      });
     }
   };
 
