@@ -514,6 +514,15 @@ function ItemUsageRow({
                   <Text style={styles.scaleByIngredientText}>I have...</Text>
                 </TouchableOpacity>
               </View>
+              {/* Show applied custom scale indicator */}
+              {usage.scaleFactor && !getScaleOptions(selectedRecipe?.customScales).some(opt => opt.value === usage.scaleFactor) && (
+                <View style={styles.customScaleBadge}>
+                  <Icon name="check_circle" size="sm" color={colors.success} />
+                  <Text style={styles.customScaleBadgeText}>
+                    Custom scale applied: {formatScaleFactor(usage.scaleFactor)}
+                  </Text>
+                </View>
+              )}
             </View>
           )}
 
@@ -1030,6 +1039,21 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.medium,
     fontSize: fontSize.sm,
     color: colors.primary,
+  },
+  customScaleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+    marginTop: spacing[2],
+    backgroundColor: `${colors.success}15`,
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[2],
+    borderRadius: borderRadius.lg,
+  },
+  customScaleBadgeText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: colors.success,
   },
   modalLabel: {
     fontFamily: fontFamily.medium,
