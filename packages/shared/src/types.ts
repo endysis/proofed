@@ -192,6 +192,41 @@ export interface PhotoDownloadResponse {
   downloadUrl: string;
 }
 
+// AI Advice types
+export interface AiAdviceTip {
+  title: string;
+  suggestion: string;
+  itemUsageIndex: number;  // Which item this tip applies to (index in itemUsages array)
+  ingredientOverrides?: Ingredient[];  // Specific ingredient changes with quantities
+  bakeTime?: number;       // Optional bake time override
+  bakeTemp?: number;       // Optional bake temp override
+  bakeTempUnit?: 'F' | 'C';
+}
+
+export interface AiAdviceRequest {
+  outcomeNotes: string;
+  photoUrl?: string;  // URL to the main photo for visual analysis
+  context: {
+    attemptName: string;
+    itemUsages: Array<{
+      itemName: string;
+      recipeName: string;
+      variantName?: string;
+      scaleFactor?: number;
+      ingredients: Ingredient[];
+      bakeTime?: number;        // minutes
+      bakeTemp?: number;        // temperature value
+      bakeTempUnit?: 'F' | 'C'; // Fahrenheit or Celsius
+    }>;
+  };
+}
+
+export interface AiAdviceResponse {
+  overview: string;  // Friendly, informal reaction to the bake
+  tips: AiAdviceTip[];
+  generatedAt: string;
+}
+
 // API Response wrappers
 export interface ApiResponse<T> {
   data?: T;

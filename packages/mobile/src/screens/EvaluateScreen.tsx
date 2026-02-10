@@ -14,17 +14,21 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { Icon, Modal, Loading, FavoriteButton } from '../components/common';
+import { Icon, Modal, Loading, FavoriteButton, Skeleton, SkeletonThumbnail } from '../components/common';
 import { PhotoUpload, ImageAsset } from '../components/photos';
-import { useAttempt, useUpdateAttempt, useDeleteAttempt, useCaptureAttempt } from '../hooks/useAttempts';
+import { AiAdviceSection } from '../components/ai';
+import { useAttempt, useUpdateAttempt, useDeleteAttempt, useCreateAttempt } from '../hooks/useAttempts';
+import { useAiAdvice } from '../hooks/useAiAdvice';
 import { useItem } from '../hooks/useItems';
 import { useRecipe } from '../hooks/useRecipes';
-import { useVariant } from '../hooks/useVariants';
+import { useVariant, useCreateVariant } from '../hooks/useVariants';
+import VariantForm from '../components/variants/VariantForm';
 import { usePhotoUpload, usePhotoUrl } from '../hooks/usePhotos';
+import { useItemUsageDetails } from '../hooks/useItemUsageDetails';
 import { formatScaleFactor } from '../utils/scaleRecipe';
 import { colors, fontFamily, fontSize, spacing, borderRadius } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
-import type { ItemUsage } from '@proofed/shared';
+import type { ItemUsage, AiAdviceResponse, AiAdviceRequest, AiAdviceTip } from '@proofed/shared';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type EvaluateScreenRouteProp = RouteProp<RootStackParamList, 'EvaluateScreen'>;
@@ -39,20 +43,28 @@ export default function EvaluateScreen() {
   const { data: attempt, isLoading } = useAttempt(attemptId);
   const updateAttempt = useUpdateAttempt();
   const deleteAttempt = useDeleteAttempt();
-  const captureAttempt = useCaptureAttempt();
+  const createAttempt = useCreateAttempt();
   const photoUpload = usePhotoUpload();
+  const aiAdviceMutation = useAiAdvice();
+  const createVariantMutation = useCreateVariant();
+  const { data: mainPhotoUrl } = usePhotoUrl(attempt?.mainPhotoKey);
+  const { details: itemUsageDetails } = useItemUsageDetails(attempt?.itemUsages || []);
 
   const [showActions, setShowActions] = useState(false);
   const [outcomeModal, setOutcomeModal] = useState(false);
   const [outcomeNotes, setOutcomeNotes] = useState('');
-  const [captureModal, setCaptureModal] = useState(false);
-  const [captureName, setCaptureName] = useState('');
-  const [captureNotes, setCaptureNotes] = useState('');
   const [photoGallery, setPhotoGallery] = useState<{ isOpen: boolean; initialIndex: number }>({
     isOpen: false,
     initialIndex: 0,
   });
   const [expandedItems, setExpandedItems] = useState(true);
+  const [aiAdvice, setAiAdvice] = useState<AiAdviceResponse | null>(null);
+  const [variantCreation, setVariantCreation] = useState<{
+    isOpen: boolean;
+    tip: AiAdviceTip | null;
+    step: 'select-item' | 'create-variant';
+    selectedUsageIndex: number | null;
+  }>({ isOpen: false, tip: null, step: 'select-item', selectedUsageIndex: null });
 
   const handleDelete = () => {
     Alert.alert('Delete Attempt', 'Are you sure you want to delete this attempt?', [
@@ -74,15 +86,34 @@ export default function EvaluateScreen() {
     );
   };
 
-  const handleCapture = () => {
-    captureAttempt.mutate(
-      { attemptId, data: { name: captureName, notes: captureNotes || undefined } },
+  const handleRebake = () => {
+    if (!attempt) return;
+
+    // Parse current name to determine next number
+    const match = attempt.name.match(/^(.+?)\s*#(\d+)$/);
+    let baseName: string;
+    let nextNumber: number;
+
+    if (match) {
+      baseName = match[1];
+      nextNumber = parseInt(match[2], 10) + 1;
+    } else {
+      baseName = attempt.name;
+      nextNumber = 2;
+    }
+
+    const newName = `${baseName} #${nextNumber}`;
+
+    createAttempt.mutate(
       {
-        onSuccess: (proofedItem) => {
-          setCaptureModal(false);
-          navigation.navigate('ProofedItemDetail', {
-            proofedItemId: proofedItem.proofedItemId,
-          });
+        name: newName,
+        date: new Date().toISOString(),
+        itemUsages: attempt.itemUsages,
+        status: 'planning',
+      },
+      {
+        onSuccess: (newAttempt) => {
+          navigation.replace('PlanScreen', { attemptId: newAttempt.attemptId });
         },
       }
     );
@@ -141,8 +172,124 @@ export default function EvaluateScreen() {
     });
   };
 
-  if (isLoading) return <Loading />;
-  if (!attempt) {
+  const handleResumeSession = () => {
+    updateAttempt.mutate(
+      { attemptId, data: { status: 'baking' } },
+      {
+        onSuccess: () => {
+          navigation.replace('BakeScreen', { attemptId });
+        },
+      }
+    );
+  };
+
+  const handleRequestAdvice = () => {
+    if (!attempt || !attempt.outcomeNotes?.trim()) return;
+
+    // Build the request with full context from item usage details
+    const request: AiAdviceRequest = {
+      outcomeNotes: attempt.outcomeNotes,
+      photoUrl: mainPhotoUrl || undefined,  // Include main photo URL if available
+      context: {
+        attemptName: attempt.name,
+        itemUsages: itemUsageDetails.map((detail) => ({
+          itemName: detail.itemName,
+          recipeName: detail.recipeName,
+          variantName: detail.variantName,
+          scaleFactor: detail.scaleFactor,
+          ingredients: detail.ingredients,
+          bakeTime: detail.bakeTime,
+          bakeTemp: detail.bakeTemp,
+          bakeTempUnit: detail.bakeTempUnit,
+        })),
+      },
+    };
+
+    aiAdviceMutation.mutate(
+      { attemptId, request },
+      {
+        onSuccess: (response) => {
+          setAiAdvice(response);
+        },
+      }
+    );
+  };
+
+  const handleCreateVariantFromTip = (tip: AiAdviceTip) => {
+    if (!attempt) return;
+
+    // If tip has itemUsageIndex, use it directly (skip item picker)
+    if (typeof tip.itemUsageIndex === 'number' && tip.itemUsageIndex < attempt.itemUsages.length) {
+      setVariantCreation({
+        isOpen: true,
+        tip,
+        step: 'create-variant',
+        selectedUsageIndex: tip.itemUsageIndex,
+      });
+    } else if (attempt.itemUsages.length === 1) {
+      // If only one item usage, skip item picker and go directly to form
+      setVariantCreation({
+        isOpen: true,
+        tip,
+        step: 'create-variant',
+        selectedUsageIndex: 0,
+      });
+    } else {
+      // Multiple items and no itemUsageIndex - show item picker first (fallback)
+      setVariantCreation({
+        isOpen: true,
+        tip,
+        step: 'select-item',
+        selectedUsageIndex: null,
+      });
+    }
+  };
+
+  const handleSelectItemForVariant = (index: number) => {
+    setVariantCreation((prev) => ({
+      ...prev,
+      step: 'create-variant',
+      selectedUsageIndex: index,
+    }));
+  };
+
+  const handleCloseVariantCreation = () => {
+    setVariantCreation({
+      isOpen: false,
+      tip: null,
+      step: 'select-item',
+      selectedUsageIndex: null,
+    });
+  };
+
+  const handleSubmitVariant = (data: { name: string; ingredientOverrides: any[]; notes?: string; bakeTime?: number; bakeTemp?: number; bakeTempUnit?: 'F' | 'C' }) => {
+    if (!attempt || variantCreation.selectedUsageIndex === null || !variantCreation.tip) return;
+
+    const usage = attempt.itemUsages[variantCreation.selectedUsageIndex];
+
+    createVariantMutation.mutate(
+      {
+        itemId: usage.itemId,
+        recipeId: usage.recipeId,
+        data: {
+          name: data.name || variantCreation.tip.title,
+          ingredientOverrides: data.ingredientOverrides,
+          notes: data.notes || variantCreation.tip.suggestion,
+          bakeTime: data.bakeTime,
+          bakeTemp: data.bakeTemp,
+          bakeTempUnit: data.bakeTempUnit,
+        },
+      },
+      {
+        onSuccess: () => {
+          handleCloseVariantCreation();
+          Alert.alert('Variant Created', 'Your new variant has been saved.');
+        },
+      }
+    );
+  };
+
+  if (!attempt && !isLoading) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <Text style={styles.errorText}>Attempt not found</Text>
@@ -151,10 +298,10 @@ export default function EvaluateScreen() {
   }
 
   // Combine mainPhotoKey and photoKeys, removing duplicates
-  const allPhotoKeys = [
+  const allPhotoKeys = attempt ? [
     ...(attempt.mainPhotoKey ? [attempt.mainPhotoKey] : []),
     ...(attempt.photoKeys || []),
-  ].filter((key, index, arr) => arr.indexOf(key) === index);
+  ].filter((key, index, arr) => arr.indexOf(key) === index) : [];
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -164,59 +311,67 @@ export default function EvaluateScreen() {
           <Icon name="arrow_back_ios" color={colors.text} size="md" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Session Result</Text>
-        <TouchableOpacity style={styles.menuButton} onPress={() => setShowActions(true)}>
-          <Icon name="more_vert" color={colors.text} size="md" />
+        <TouchableOpacity
+          style={styles.menuButton}
+          onPress={() => setShowActions(true)}
+          disabled={isLoading}
+        >
+          <Icon name="more_vert" color={isLoading ? colors.dustyMauve : colors.text} size="md" />
         </TouchableOpacity>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} style={styles.content}>
-        {/* Status Badge */}
-        <View style={styles.statusBadgeRow}>
-          <View style={[styles.statusBadge, { backgroundColor: '#D4EDDA' }]}>
-            <Text style={[styles.statusBadgeText, { color: '#155724' }]}>
-              COMPLETE
-            </Text>
-          </View>
-          <FavoriteButton
-            isStarred={attempt.starred ?? false}
-            onToggle={handleToggleStar}
-            disabled={updateAttempt.isPending}
-          />
-        </View>
+        {isLoading ? (
+          <EvaluateScreenSkeleton />
+        ) : attempt ? (
+          <>
+            {/* Status Badge */}
+            <View style={styles.statusBadgeRow}>
+              <View style={[styles.statusBadge, { backgroundColor: '#D4EDDA' }]}>
+                <Text style={[styles.statusBadgeText, { color: '#155724' }]}>
+                  COMPLETE
+                </Text>
+              </View>
+              <FavoriteButton
+                isStarred={attempt.starred ?? false}
+                onToggle={handleToggleStar}
+                disabled={updateAttempt.isPending}
+              />
+            </View>
 
-        {/* Title & Date */}
-        <View style={styles.titleSection}>
-          <Text style={styles.title}>{attempt.name}</Text>
-          <View style={styles.dateRow}>
-            <Icon name="calendar_today" size="sm" color={colors.dustyMauve} />
-            <Text style={styles.date}>
-              {new Date(attempt.date).toLocaleDateString('en-US', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-              })}
-            </Text>
-          </View>
-        </View>
+            {/* Title & Date */}
+            <View style={styles.titleSection}>
+              <Text style={styles.title}>{attempt.name}</Text>
+              <View style={styles.dateRow}>
+                <Icon name="calendar_today" size="sm" color={colors.dustyMauve} />
+                <Text style={styles.date}>
+                  {new Date(attempt.date).toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                  })}
+                </Text>
+              </View>
+            </View>
 
-        {/* Items Used - Collapsible */}
-        <View style={styles.section}>
-          <TouchableOpacity
-            style={styles.sectionHeader}
-            onPress={() => setExpandedItems(!expandedItems)}
-          >
-            <Text style={styles.sectionTitle}>
-              {attempt.itemUsages.length} Component{attempt.itemUsages.length !== 1 ? 's' : ''} Used
-            </Text>
-            <Icon
-              name={expandedItems ? 'expand_less' : 'expand_more'}
-              size="md"
-              color={colors.dustyMauve}
-            />
-          </TouchableOpacity>
+            {/* Items Used - Collapsible */}
+            <View style={styles.section}>
+              <TouchableOpacity
+                style={styles.sectionHeader}
+                onPress={() => setExpandedItems(!expandedItems)}
+              >
+                <Text style={styles.sectionTitle}>
+                  {attempt.itemUsages.length} Item{attempt.itemUsages.length !== 1 ? 's' : ''} Used
+                </Text>
+                <Icon
+                  name={expandedItems ? 'expand_less' : 'expand_more'}
+                  size="md"
+                  color={colors.dustyMauve}
+                />
+              </TouchableOpacity>
 
-          {expandedItems && (
+              {expandedItems && (
             <>
               {attempt.itemUsages.length > 0 ? (
                 attempt.itemUsages.map((usage, index) => (
@@ -277,44 +432,57 @@ export default function EvaluateScreen() {
               <Text style={styles.emptyText}>No outcome logged yet</Text>
             )}
           </View>
+
+          {/* AI Advice Section */}
+          <AiAdviceSection
+            advice={aiAdvice}
+            isLoading={aiAdviceMutation.isPending}
+            error={aiAdviceMutation.error}
+            onRequestAdvice={handleRequestAdvice}
+            onCreateVariantFromTip={handleCreateVariantFromTip}
+            canRequest={!!attempt.outcomeNotes?.trim()}
+            hasPhoto={!!attempt.mainPhotoKey}
+          />
         </View>
 
-        {/* Notes */}
-        {attempt.notes && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Notes</Text>
-            <View style={styles.card}>
-              <Text style={styles.cardText}>{attempt.notes}</Text>
-            </View>
-          </View>
-        )}
-
-        <View style={{ height: 160 }} />
+            <View style={{ height: 160 }} />
+          </>
+        ) : null}
       </ScrollView>
 
       {/* Bottom Action */}
-      <View style={[styles.bottomAction, { paddingBottom: insets.bottom + spacing[4] }]}>
-        <TouchableOpacity
-          style={styles.saveExitButton}
-          onPress={() => navigation.navigate('Tabs', { screen: 'Bakes' })}
-        >
-          <Icon name="save" color={colors.primary} size="md" />
-          <Text style={styles.saveExitButtonText}>Save & Exit</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.captureButton}
-          onPress={() => {
-            setCaptureName(attempt.name);
-            setCaptureModal(true);
-          }}
-        >
-          <Icon name="verified" color={colors.white} size="md" />
-          <Text style={styles.captureButtonText}>Capture</Text>
-        </TouchableOpacity>
-      </View>
+      {attempt && (
+        <View style={[styles.bottomAction, { paddingBottom: insets.bottom + spacing[4] }]}>
+          <TouchableOpacity
+            style={styles.saveExitButton}
+            onPress={() => navigation.navigate('Tabs', { screen: 'Bakes' })}
+          >
+            <Icon name="save" color={colors.primary} size="md" />
+            <Text style={styles.saveExitButtonText}>Save & Exit</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.rebakeButton, createAttempt.isPending && styles.buttonDisabled]}
+            onPress={handleRebake}
+            disabled={createAttempt.isPending}
+          >
+            <Icon name="replay" color={colors.white} size="md" />
+            <Text style={styles.rebakeButtonText}>Rebake</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Action Sheet */}
       <Modal isOpen={showActions} onClose={() => setShowActions(false)} title="Actions">
+        <TouchableOpacity
+          style={styles.actionOption}
+          onPress={() => {
+            setShowActions(false);
+            handleResumeSession();
+          }}
+        >
+          <Icon name="play_arrow" color={colors.text} size="md" />
+          <Text style={styles.actionOptionText}>Resume Session</Text>
+        </TouchableOpacity>
         <TouchableOpacity
           style={styles.actionOption}
           onPress={() => {
@@ -359,54 +527,143 @@ export default function EvaluateScreen() {
         </View>
       </Modal>
 
-      {/* Capture Modal */}
+
+      {/* Variant Creation Modal */}
       <Modal
-        isOpen={captureModal}
-        onClose={() => setCaptureModal(false)}
-        title="Capture as Proofed"
+        isOpen={variantCreation.isOpen}
+        onClose={handleCloseVariantCreation}
+        title={variantCreation.step === 'select-item' ? 'Select Item' : 'Create Variant'}
       >
-        <Text style={styles.captureHelp}>
-          Save this attempt as a proven recipe in your Proofed collection.
-        </Text>
-        <Text style={styles.modalLabel}>Name</Text>
-        <TextInput
-          style={styles.input}
-          value={captureName}
-          onChangeText={setCaptureName}
-          placeholder="e.g., My Perfect Vanilla Cake"
-          placeholderTextColor={colors.dustyMauve}
-        />
-        <Text style={styles.modalLabel}>Notes</Text>
-        <TextInput
-          style={styles.textArea}
-          value={captureNotes}
-          onChangeText={setCaptureNotes}
-          placeholder="Why does this combination work?"
-          placeholderTextColor={colors.dustyMauve}
-          multiline
-          numberOfLines={3}
-          textAlignVertical="top"
-        />
-        <View style={styles.modalButtons}>
-          <TouchableOpacity
-            style={styles.cancelButton}
-            onPress={() => setCaptureModal(false)}
-          >
-            <Text style={styles.cancelButtonText}>Cancel</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.submitButton,
-              (!captureName.trim() || captureAttempt.isPending) && styles.buttonDisabled,
-            ]}
-            onPress={handleCapture}
-            disabled={!captureName.trim() || captureAttempt.isPending}
-          >
-            <Text style={styles.submitButtonText}>Capture</Text>
-          </TouchableOpacity>
-        </View>
+        {variantCreation.step === 'select-item' && attempt && (
+          <>
+            <Text style={styles.itemPickerHint}>
+              Which item should this variant apply to?
+            </Text>
+            {attempt.itemUsages.map((usage, index) => {
+              const detail = itemUsageDetails[index];
+              return (
+                <TouchableOpacity
+                  key={index}
+                  style={styles.itemPickerOption}
+                  onPress={() => handleSelectItemForVariant(index)}
+                >
+                  <View style={styles.itemPickerIcon}>
+                    <Icon name="cake" size="sm" color={colors.primary} />
+                  </View>
+                  <View style={styles.itemPickerInfo}>
+                    <Text style={styles.itemPickerName}>{detail?.itemName || 'Loading...'}</Text>
+                    <Text style={styles.itemPickerRecipe}>
+                      {detail?.recipeName || 'Loading...'}
+                      {detail?.variantName && ` (${detail.variantName})`}
+                    </Text>
+                  </View>
+                  <Icon name="chevron_right" size="sm" color={colors.dustyMauve} />
+                </TouchableOpacity>
+              );
+            })}
+          </>
+        )}
+        {variantCreation.step === 'create-variant' &&
+          variantCreation.selectedUsageIndex !== null &&
+          variantCreation.tip && (
+            <VariantForm
+              recipeIngredients={itemUsageDetails[variantCreation.selectedUsageIndex]?.ingredients || []}
+              onSubmit={handleSubmitVariant}
+              onCancel={handleCloseVariantCreation}
+              isLoading={createVariantMutation.isPending}
+              variant={{
+                variantId: '',
+                userId: '',
+                recipeId: '',
+                itemId: '',
+                name: variantCreation.tip.title,
+                ingredientOverrides: variantCreation.tip.ingredientOverrides || [],
+                notes: variantCreation.tip.suggestion,
+                bakeTime: variantCreation.tip.bakeTime,
+                bakeTemp: variantCreation.tip.bakeTemp,
+                bakeTempUnit: variantCreation.tip.bakeTempUnit,
+                createdAt: '',
+                updatedAt: '',
+              }}
+            />
+          )}
       </Modal>
     </View>
+  );
+}
+
+function EvaluateScreenSkeleton() {
+  return (
+    <>
+      {/* Status Badge Skeleton */}
+      <View style={styles.statusBadgeRow}>
+        <Skeleton width={90} height={32} borderRadius={borderRadius.lg} />
+        <Skeleton width={32} height={32} borderRadius={borderRadius.full} />
+      </View>
+
+      {/* Title & Date Skeleton */}
+      <View style={styles.titleSection}>
+        <Skeleton width="80%" height={28} />
+        <View style={[styles.dateRow, { marginTop: spacing[2] }]}>
+          <Skeleton width={16} height={16} borderRadius={4} />
+          <Skeleton width={180} height={16} />
+        </View>
+      </View>
+
+      {/* Items Used Section Skeleton */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Skeleton width={140} height={14} />
+          <Skeleton width={24} height={24} />
+        </View>
+        {/* Usage cards skeleton */}
+        <View style={styles.usageCard}>
+          <Skeleton width={40} height={40} borderRadius={borderRadius.lg} />
+          <View style={[styles.usageInfo, { gap: spacing[1] }]}>
+            <Skeleton width="60%" height={14} />
+            <Skeleton width="40%" height={12} />
+          </View>
+          <Skeleton width={16} height={16} />
+        </View>
+        <View style={styles.usageCard}>
+          <Skeleton width={40} height={40} borderRadius={borderRadius.lg} />
+          <View style={[styles.usageInfo, { gap: spacing[1] }]}>
+            <Skeleton width="70%" height={14} />
+            <Skeleton width="50%" height={12} />
+          </View>
+          <Skeleton width={16} height={16} />
+        </View>
+      </View>
+
+      {/* Photos Section Skeleton */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Skeleton width={60} height={14} />
+          <Skeleton width={32} height={32} borderRadius={borderRadius.full} />
+        </View>
+        <View style={styles.featuredGrid}>
+          <Skeleton width="100%" height={240} borderRadius={borderRadius.xl} style={{ flex: 1.6 }} />
+          <View style={styles.smallPhotoColumn}>
+            <Skeleton width="100%" height={0} borderRadius={borderRadius.xl} style={{ flex: 1 }} />
+            <Skeleton width="100%" height={0} borderRadius={borderRadius.xl} style={{ flex: 1 }} />
+          </View>
+        </View>
+      </View>
+
+      {/* Outcome Section Skeleton */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Skeleton width={70} height={14} />
+          <Skeleton width={40} height={14} />
+        </View>
+        <View style={styles.card}>
+          <Skeleton width="90%" height={14} />
+          <Skeleton width="70%" height={14} style={{ marginTop: spacing[2] }} />
+        </View>
+      </View>
+
+      <View style={{ height: 160 }} />
+    </>
   );
 }
 
@@ -552,7 +809,7 @@ function FeaturedPhoto({
   if (isLoading) {
     return (
       <View style={[styles.featuredPhotoPlaceholder, style]}>
-        <Icon name="image" color={colors.dustyMauve} size="md" />
+        <SkeletonThumbnail size="featured" style={styles.featuredSkeleton} />
       </View>
     );
   }
@@ -941,6 +1198,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: borderRadius.xl,
   },
+  featuredSkeleton: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    borderRadius: borderRadius.xl,
+  },
   moreOverlay: {
     position: 'absolute',
     top: 0,
@@ -1073,7 +1336,7 @@ const styles = StyleSheet.create({
     fontSize: fontSize.base,
     color: colors.primary,
   },
-  captureButton: {
+  rebakeButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
@@ -1083,7 +1346,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.xl,
     paddingVertical: spacing[4],
   },
-  captureButtonText: {
+  rebakeButtonText: {
     fontFamily: fontFamily.bold,
     fontSize: fontSize.base,
     color: colors.white,
@@ -1129,11 +1392,6 @@ const styles = StyleSheet.create({
     color: colors.text,
     minHeight: 100,
   },
-  captureHelp: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.sm,
-    color: colors.dustyMauve,
-  },
   modalButtons: {
     flexDirection: 'row',
     gap: spacing[3],
@@ -1172,5 +1430,44 @@ const styles = StyleSheet.create({
     fontSize: fontSize.base,
     color: colors.error,
     padding: spacing[4],
+  },
+  itemPickerHint: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.dustyMauve,
+    marginBottom: spacing[4],
+  },
+  itemPickerOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing[3],
+    borderRadius: borderRadius.xl,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.05)',
+    marginBottom: spacing[2],
+  },
+  itemPickerIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.lg,
+    backgroundColor: 'rgba(229, 52, 78, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing[3],
+  },
+  itemPickerInfo: {
+    flex: 1,
+  },
+  itemPickerName: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.sm,
+    color: colors.text,
+  },
+  itemPickerRecipe: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: colors.dustyMauve,
+    marginTop: 2,
   },
 });

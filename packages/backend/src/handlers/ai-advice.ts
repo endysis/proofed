@@ -1,0 +1,147 @@
+import OpenAI from 'openai';
+import type { AiAdviceRequest, AiAdviceResponse, AiAdviceTip } from '@proofed/shared';
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+export async function getAiAdvice(request: AiAdviceRequest): Promise<AiAdviceResponse> {
+  const { outcomeNotes, photoUrl, context } = request;
+
+  console.log('AI Advice Request:', JSON.stringify(request, null, 2));
+  console.log('OPENAI_API_KEY present:', !!process.env.OPENAI_API_KEY);
+  console.log('OPENAI_API_KEY prefix:', process.env.OPENAI_API_KEY?.substring(0, 10) + '...');
+  console.log('Photo URL provided:', !!photoUrl);
+
+  try {
+    // Build context string from item usages
+    const itemContexts = context.itemUsages.map((usage) => {
+      const ingredientList = usage.ingredients
+        .map((ing) => `${ing.quantity} ${ing.unit} ${ing.name}`)
+        .join(', ');
+
+      let description = `${usage.itemName} using ${usage.recipeName}`;
+      if (usage.variantName) {
+        description += ` (variant: ${usage.variantName})`;
+      }
+      if (usage.scaleFactor && usage.scaleFactor !== 1) {
+        description += ` scaled to ${usage.scaleFactor}x`;
+      }
+      if (ingredientList) {
+        description += `\n   Ingredients: ${ingredientList}`;
+      }
+      if (usage.bakeTime || usage.bakeTemp) {
+        const bakeInfo = [];
+        if (usage.bakeTime) bakeInfo.push(`${usage.bakeTime} minutes`);
+        if (usage.bakeTemp) bakeInfo.push(`${usage.bakeTemp}°${usage.bakeTempUnit || 'F'}`);
+        description += `\n   Baking: ${bakeInfo.join(' at ')}`;
+      }
+      return description;
+    });
+
+    const photoInstruction = photoUrl
+      ? '\n\nI have also attached a photo of my bake. Check it out!'
+      : '';
+
+    const prompt = `You are "Crumb", a chill, laid-back baker who genuinely loves talking about bakes. You've got that cool, relaxed vibe - think of a talented baker friend who's seen it all but never judges. You keep it real but always supportive.
+
+A baker just completed a baking session called "${context.attemptName}" with the following components:
+${itemContexts.map((ctx, i) => `Component ${i} (index ${i}): ${ctx}`).join('\n')}
+
+They noted the following outcome:
+"${outcomeNotes}"${photoInstruction}
+
+Your response has two parts:
+
+1. **Overview**: Give a chill, conversational reaction to their bake (2-3 sentences). Keep it relaxed and real - no over-the-top enthusiasm, just genuine vibes.${photoUrl ? ' When there\'s a photo, definitely comment on the colors (golden brown, caramelization, etc.), texture you can see, and overall look.' : ''} Acknowledge what they observed and keep it casual like you\'re just chatting with a fellow baker.
+
+2. **Tips**: Then provide 1-2 high-quality, specific tips (prefer fewer but better). Focus on the most impactful, actionable suggestions.
+
+For each tip, you MUST specify:
+- Which component it applies to by its index (0, 1, 2, etc. as shown above)
+- Specific ingredient modifications with new quantities (not relative changes like "+20%", but absolute values like "120g")
+- Optional bake time/temperature changes if relevant
+
+Respond with a JSON object in this exact format:
+{
+  "overview": "Your chill, casual reaction to their bake (2-3 sentences)",
+  "tips": [
+    {
+      "title": "Short title (2-4 words)",
+      "suggestion": "Specific actionable advice (1-2 sentences)",
+      "itemUsageIndex": 0,
+      "ingredientOverrides": [
+        { "name": "butter", "quantity": 120, "unit": "g" }
+      ],
+      "bakeTemp": 325,
+      "bakeTempUnit": "F",
+      "bakeTime": 45
+    }
+  ]
+}
+
+Important:
+- Keep the overview chill and real - no corporate speak or over-the-top praise, just genuine baker-to-baker vibes
+- If there's a photo, always mention the color/browning you see
+- itemUsageIndex is REQUIRED for each tip (use the component index shown above)
+- ingredientOverrides should contain only the ingredients being changed, with their new absolute values
+- Only include bakeTemp/bakeTime if you're suggesting a change to those values
+- Be specific and practical with quantities based on the original recipe`;
+
+    console.log('Calling OpenAI API...');
+
+    // Build message content - include image if photo URL provided
+    const userContent: Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }> = [
+      { type: 'text', text: prompt },
+    ];
+
+    if (photoUrl) {
+      userContent.push({
+        type: 'image_url',
+        image_url: { url: photoUrl },
+      });
+    }
+
+    const completion = await openai.chat.completions.create({
+      model: photoUrl ? 'gpt-4o' : 'gpt-4o-mini',  // Use gpt-4o for vision
+      messages: [
+        {
+          role: 'system',
+          content: 'You are an expert baking advisor. Respond only with valid JSON.',
+        },
+        {
+          role: 'user',
+          content: userContent,
+        },
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.7,
+      max_tokens: 700,
+    });
+
+    console.log('OpenAI response received:', JSON.stringify(completion, null, 2));
+
+    const responseContent = completion.choices[0]?.message?.content;
+    if (!responseContent) {
+      throw new Error('No response from AI');
+    }
+
+    const parsed = JSON.parse(responseContent) as { overview: string; tips: AiAdviceTip[] };
+
+    return {
+      overview: parsed.overview,
+      tips: parsed.tips,
+      generatedAt: new Date().toISOString(),
+    };
+  } catch (error: any) {
+    console.error('OpenAI API Error:', {
+      message: error.message,
+      status: error.status,
+      code: error.code,
+      type: error.type,
+      error: error.error,
+      stack: error.stack,
+    });
+    throw error;
+  }
+}
