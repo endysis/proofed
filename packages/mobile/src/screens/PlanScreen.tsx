@@ -515,7 +515,7 @@ function ItemUsageRow({
                   onPress={() => setShowScaleByIngredient(true)}
                 >
                   <Icon name="calculate" size="sm" color={colors.primary} />
-                  <Text style={styles.scaleByIngredientText}>I have...</Text>
+                  <Text style={styles.scaleByIngredientText}>By Ingredient</Text>
                 </TouchableOpacity>
                 {/* Scale by container button - only show if recipe has container */}
                 {selectedRecipe?.container && (
@@ -524,7 +524,7 @@ function ItemUsageRow({
                     onPress={() => setShowContainerScale(true)}
                   >
                     <Icon name="auto_awesome" size="sm" color={colors.primary} />
-                    <Text style={styles.scaleByIngredientText}>Container</Text>
+                    <Text style={styles.scaleByIngredientText}>By Container</Text>
                   </TouchableOpacity>
                 )}
               </View>

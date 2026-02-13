@@ -316,7 +316,7 @@ export default function ItemDetailScreen() {
                     onPress={() => setShowScaleByIngredient(true)}
                   >
                     <Icon name="calculate" size="sm" color={colors.primary} />
-                    <Text style={styles.scaleByText}>I have...</Text>
+                    <Text style={styles.scaleByText}>By Ingredient</Text>
                   </TouchableOpacity>
                   {selectedRecipe.container && (
                     <TouchableOpacity
@@ -324,7 +324,7 @@ export default function ItemDetailScreen() {
                       onPress={() => setShowContainerScale(true)}
                     >
                       <Icon name="auto_awesome" size="sm" color={colors.primary} />
-                      <Text style={styles.scaleByText}>Container</Text>
+                      <Text style={styles.scaleByText}>By Container</Text>
                     </TouchableOpacity>
                   )}
                 </View>
