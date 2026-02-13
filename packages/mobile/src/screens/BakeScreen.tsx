@@ -186,6 +186,7 @@ export default function BakeScreen() {
 }
 
 function BakingChecklist({ usage }: { usage: ItemUsage }) {
+  const [notesExpanded, setNotesExpanded] = useState(false);
   const { data: item } = useItem(usage.itemId);
   const { data: recipe } = useRecipe(usage.itemId, usage.recipeId);
   const { data: variant } = useVariant(usage.itemId, usage.recipeId, usage.variantId || '');
@@ -234,6 +235,30 @@ function BakingChecklist({ usage }: { usage: ItemUsage }) {
           );
         })}
       </View>
+
+      {/* Collapsible Notes Section */}
+      {usage.notes && (
+        <View style={styles.notesSection}>
+          <TouchableOpacity
+            style={styles.notesToggle}
+            onPress={() => setNotesExpanded(!notesExpanded)}
+          >
+            <Icon name="notes" size="sm" color={colors.dustyMauve} />
+            <Text style={styles.notesToggleText}>Notes</Text>
+            <Icon
+              name={notesExpanded ? 'expand_less' : 'expand_more'}
+              size="sm"
+              color={colors.dustyMauve}
+            />
+          </TouchableOpacity>
+
+          {notesExpanded && (
+            <View style={styles.notesContent}>
+              <Text style={styles.notesText}>{usage.notes}</Text>
+            </View>
+          )}
+        </View>
+      )}
     </View>
   );
 }
@@ -411,6 +436,35 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.medium,
     fontSize: fontSize.sm,
     color: colors.dustyMauve,
+  },
+  notesSection: {
+    marginTop: spacing[3],
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0, 0, 0, 0.05)',
+    paddingTop: spacing[3],
+  },
+  notesToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+  },
+  notesToggleText: {
+    flex: 1,
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: colors.dustyMauve,
+  },
+  notesContent: {
+    marginTop: spacing[2],
+    backgroundColor: colors.bgLight,
+    borderRadius: borderRadius.lg,
+    padding: spacing[3],
+  },
+  notesText: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.text,
+    lineHeight: fontSize.sm * 1.5,
   },
   bottomAction: {
     position: 'absolute',

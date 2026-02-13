@@ -11,7 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useAttempts } from '../hooks/useAttempts';
 import { usePhotoUrl } from '../hooks/usePhotos';
-import { Loading, Icon } from '../components/common';
+import { Icon, SkeletonCard, SkeletonThumbnail } from '../components/common';
 import { formatRelativeDate } from '../utils/formatDate';
 import { colors, spacing, borderRadius, fontFamily, fontSize } from '../theme';
 import type { Attempt, AttemptStatus } from '@proofed/shared';
@@ -76,17 +76,18 @@ export default function HomeScreen() {
         return dateA - dateB;
       }) || [];
 
-  if (isLoading) return <Loading />;
-
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Top App Bar */}
       <View style={styles.header}>
-        <View style={styles.avatarContainer}>
+        <TouchableOpacity
+          style={styles.avatarContainer}
+          onPress={() => navigation.navigate('Settings')}
+        >
           <View style={styles.avatar}>
             <Icon name="person" color={colors.primary} />
           </View>
-        </View>
+        </TouchableOpacity>
         <View style={styles.headerText}>
           <Text style={styles.welcomeText}>Welcome back</Text>
           <Text style={styles.headerTitle}>Happy Baking!</Text>
@@ -98,7 +99,21 @@ export default function HomeScreen() {
 
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Recent Bakes Section */}
-        {recentAttempts.length > 0 ? (
+        {isLoading ? (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Recent Bakes</Text>
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.carouselContent}
+            >
+              <SkeletonCard variant="featured" />
+              <SkeletonCard variant="featured" />
+            </ScrollView>
+          </View>
+        ) : recentAttempts.length > 0 ? (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Recent Bakes</Text>
@@ -141,7 +156,7 @@ export default function HomeScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Upcoming Bakes</Text>
-            {upcomingAttempts.length > 0 && (
+            {!isLoading && upcomingAttempts.length > 0 && (
               <TouchableOpacity
                 onPress={() => navigation.navigate('Tabs', { screen: 'Bakes' })}
               >
@@ -149,7 +164,12 @@ export default function HomeScreen() {
               </TouchableOpacity>
             )}
           </View>
-          {upcomingAttempts.length > 0 ? (
+          {isLoading ? (
+            <View style={styles.upcomingList}>
+              <SkeletonCard variant="attempt" />
+              <SkeletonCard variant="attempt" />
+            </View>
+          ) : upcomingAttempts.length > 0 ? (
             <View style={styles.upcomingList}>
               {upcomingAttempts.map((attempt) => (
                 <UpcomingBakeCard
@@ -277,11 +297,13 @@ function AttemptThumbnail({
   photoKey?: string;
   relativeDate?: string;
 }) {
-  const { data: url } = usePhotoUrl(photoKey);
+  const { data: url, isLoading } = usePhotoUrl(photoKey);
 
   return (
     <View style={styles.thumbnail}>
-      {url ? (
+      {isLoading ? (
+        <SkeletonThumbnail size="featured" style={styles.thumbnailSkeleton} />
+      ) : url ? (
         <Image source={{ uri: url }} style={styles.thumbnailImage} />
       ) : (
         <Icon name="menu_book" size="xl" color={colors.dustyMauve} />
@@ -431,6 +453,11 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     resizeMode: 'cover',
+  },
+  thumbnailSkeleton: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
   },
   dateTag: {
     position: 'absolute',

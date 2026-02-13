@@ -26,6 +26,9 @@ export const colors = {
   success: '#22c55e',
   warning: '#f59e0b',
   error: '#ef4444',
+
+  // Skeleton
+  skeleton: '#f0eded',
 };
 
 export type ColorName = keyof typeof colors;

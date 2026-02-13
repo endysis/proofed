@@ -12,7 +12,7 @@ import { Swipeable } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useAttempts, useDeleteAttempt } from '../hooks/useAttempts';
-import { Loading, Icon } from '../components/common';
+import { Icon, SkeletonCard } from '../components/common';
 import { colors, spacing, borderRadius, fontFamily, fontSize } from '../theme';
 import type { Attempt, AttemptStatus } from '@proofed/shared';
 
@@ -61,7 +61,6 @@ export default function BakesScreen() {
     );
   };
 
-  if (isLoading) return <Loading />;
   if (error) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -103,7 +102,34 @@ export default function BakesScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {!hasAttempts ? (
+        {isLoading ? (
+          <>
+            <Text style={styles.sectionHeader}>UPCOMING</Text>
+            <View style={styles.timeline}>
+              <View style={styles.timelineLine} />
+              {[1, 2].map((i) => (
+                <View key={i} style={styles.timelineItem}>
+                  <View style={styles.timelineDot} />
+                  <View style={styles.skeletonWrapper}>
+                    <SkeletonCard variant="attempt" />
+                  </View>
+                </View>
+              ))}
+            </View>
+            <Text style={styles.sectionHeader}>PAST BAKES</Text>
+            <View style={styles.timeline}>
+              <View style={styles.timelineLine} />
+              {[1, 2, 3].map((i) => (
+                <View key={i} style={styles.timelineItem}>
+                  <View style={styles.timelineDot} />
+                  <View style={styles.skeletonWrapper}>
+                    <SkeletonCard variant="attempt" />
+                  </View>
+                </View>
+              ))}
+            </View>
+          </>
+        ) : !hasAttempts ? (
           <View style={styles.emptyCard}>
             <View style={styles.emptyIconContainer}>
               <Icon name="menu_book" size="xl" color={colors.primary} />
@@ -265,11 +291,6 @@ function SwipeableAttemptRow({
               </View>
             </View>
             <Text style={styles.attemptName}>{attempt.name}</Text>
-            {attempt.notes && (
-              <Text style={styles.attemptNotes} numberOfLines={2}>
-                {attempt.notes}
-              </Text>
-            )}
           </TouchableOpacity>
         </Swipeable>
       </View>
@@ -412,6 +433,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderRadius: borderRadius.xl,
   },
+  skeletonWrapper: {
+    flex: 1,
+  },
   attemptCard: {
     backgroundColor: colors.white,
     padding: spacing[4],
@@ -452,12 +476,6 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.bold,
     fontSize: fontSize.base,
     color: colors.text,
-    marginBottom: spacing[1],
-  },
-  attemptNotes: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.sm,
-    color: colors.dustyMauve,
   },
   fab: {
     position: 'absolute',

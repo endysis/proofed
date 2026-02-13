@@ -11,7 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useStarredAttempts } from '../hooks/useAttempts';
 import { usePhotoUrl } from '../hooks/usePhotos';
-import { Loading, Icon } from '../components/common';
+import { Icon, SkeletonCard, SkeletonThumbnail } from '../components/common';
 import { colors, spacing, borderRadius, fontFamily, fontSize } from '../theme';
 import type { Attempt, AttemptStatus } from '@proofed/shared';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -50,7 +50,6 @@ export default function StarredScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { data: starredAttempts, isLoading, error } = useStarredAttempts();
 
-  if (isLoading) return <Loading />;
   if (error) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -77,7 +76,14 @@ export default function StarredScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {starredAttempts?.length === 0 ? (
+        {isLoading ? (
+          <View style={styles.itemsList}>
+            <SkeletonCard variant="starred" />
+            <SkeletonCard variant="starred" />
+            <SkeletonCard variant="starred" />
+            <SkeletonCard variant="starred" />
+          </View>
+        ) : starredAttempts?.length === 0 ? (
           <View style={styles.emptyCard}>
             <View style={styles.emptyIconContainer}>
               <Icon name="favorite_border" size="xl" color={colors.primary} />
@@ -156,7 +162,11 @@ function AttemptCard({
 function AttemptThumbnail({ photoKey }: { photoKey: string }) {
   const { data: url, isLoading } = usePhotoUrl(photoKey);
 
-  if (isLoading || !url) {
+  if (isLoading) {
+    return <SkeletonThumbnail size="sm" />;
+  }
+
+  if (!url) {
     return (
       <View style={styles.itemIcon}>
         <Icon name="image" color={colors.dustyMauve} />
