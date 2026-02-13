@@ -1,17 +1,16 @@
 import OpenAI from 'openai';
 import type { AiAdviceRequest, AiAdviceResponse, AiAdviceTip } from '@proofed/shared';
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+import { getOpenAIApiKey } from '../lib/secrets';
 
 export async function getAiAdvice(request: AiAdviceRequest): Promise<AiAdviceResponse> {
   const { outcomeNotes, photoUrl, context } = request;
 
   console.log('AI Advice Request:', JSON.stringify(request, null, 2));
-  console.log('OPENAI_API_KEY present:', !!process.env.OPENAI_API_KEY);
-  console.log('OPENAI_API_KEY prefix:', process.env.OPENAI_API_KEY?.substring(0, 10) + '...');
   console.log('Photo URL provided:', !!photoUrl);
+
+  // Get OpenAI API key from Secrets Manager
+  const apiKey = await getOpenAIApiKey();
+  const openai = new OpenAI({ apiKey });
 
   try {
     // Build context string from item usages

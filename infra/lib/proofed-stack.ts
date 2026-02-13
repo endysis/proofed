@@ -8,6 +8,7 @@ import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
 import * as path from 'path';
 
@@ -95,6 +96,13 @@ export class ProofedStack extends cdk.Stack {
       },
     });
 
+    // Secrets Manager - OpenAI API Key
+    // Create the secret (you'll need to set the value in AWS Console or CLI)
+    const openaiSecret = new secretsmanager.Secret(this, 'OpenAIApiKey', {
+      secretName: 'proofed/openai-api-key',
+      description: 'OpenAI API Key for Proofed AI features',
+    });
+
     // S3 Bucket for Photos
     const photosBucket = new s3.Bucket(this, 'PhotosBucket', {
       bucketName: `proofed-photos-${this.account}-${this.region}`,
@@ -153,9 +161,12 @@ export class ProofedStack extends cdk.Stack {
         ATTEMPTS_TABLE: attemptsTable.tableName,
         PROOFED_ITEMS_TABLE: proofedItemsTable.tableName,
         PHOTOS_BUCKET: photosBucket.bucketName,
-        OPENAI_API_KEY: process.env.OPENAI_API_KEY || '',
+        OPENAI_SECRET_ARN: openaiSecret.secretArn,
       },
     });
+
+    // Grant Lambda permission to read the OpenAI secret
+    openaiSecret.grantRead(apiHandler);
 
     // Grant permissions
     itemsTable.grantReadWriteData(apiHandler);

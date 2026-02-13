@@ -1,9 +1,6 @@
 import OpenAI from 'openai';
 import type { AiContainerScaleRequest, AiContainerScaleResponse, ContainerInfo, ContainerType, MuffinCupSize } from '@proofed/shared';
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+import { getOpenAIApiKey } from '../lib/secrets';
 
 // Container type display names
 const CONTAINER_NAMES: Record<ContainerType, string> = {
@@ -122,6 +119,10 @@ export async function getAiContainerScale(request: AiContainerScaleRequest): Pro
   const { sourceContainer, targetContainer, context } = request;
 
   console.log('AI Container Scale Request:', JSON.stringify(request, null, 2));
+
+  // Get OpenAI API key from Secrets Manager
+  const apiKey = await getOpenAIApiKey();
+  const openai = new OpenAI({ apiKey });
 
   // Calculate volume ratio for AI context (all in cups)
   const sourceVolume = calculateContainerVolume(sourceContainer);
