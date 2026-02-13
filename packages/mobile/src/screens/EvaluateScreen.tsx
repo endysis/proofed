@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,13 +9,11 @@ import {
   Alert,
   Image,
   Dimensions,
-  FlatList,
-  Modal as RNModal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Icon, Modal, Loading, FavoriteButton, Skeleton, SkeletonThumbnail } from '../components/common';
-import { PhotoUpload, ImageAsset } from '../components/photos';
+import { PhotoUpload, ImageAsset, LuxuryPhotoGallery } from '../components/photos';
 import { AiAdviceSection } from '../components/ai';
 import { useAttempt, useUpdateAttempt, useDeleteAttempt, useCreateAttempt } from '../hooks/useAttempts';
 import { useAiAdvice } from '../hooks/useAiAdvice';
@@ -38,7 +36,7 @@ export default function EvaluateScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<EvaluateScreenRouteProp>();
-  const { attemptId } = route.params;
+  const { attemptId, openGallery } = route.params;
 
   const { data: attempt, isLoading } = useAttempt(attemptId);
   const updateAttempt = useUpdateAttempt();
@@ -57,7 +55,19 @@ export default function EvaluateScreen() {
     isOpen: false,
     initialIndex: 0,
   });
+  const [hasAutoOpenedGallery, setHasAutoOpenedGallery] = useState(false);
   const [expandedItems, setExpandedItems] = useState(true);
+
+  // Auto-open gallery if openGallery param is true and there are photos
+  React.useEffect(() => {
+    if (openGallery && attempt && !hasAutoOpenedGallery) {
+      const hasPhotos = attempt.mainPhotoKey || (attempt.photoKeys && attempt.photoKeys.length > 0);
+      if (hasPhotos) {
+        setPhotoGallery({ isOpen: true, initialIndex: 0 });
+        setHasAutoOpenedGallery(true);
+      }
+    }
+  }, [openGallery, attempt, hasAutoOpenedGallery]);
   const [aiAdvice, setAiAdvice] = useState<AiAdviceResponse | null>(null);
   const [variantCreation, setVariantCreation] = useState<{
     isOpen: boolean;
@@ -311,7 +321,7 @@ export default function EvaluateScreen() {
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <Icon name="arrow_back_ios" color={colors.text} size="md" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Bake Result</Text>
+        <Text style={styles.headerTitle}>Bake Details</Text>
         <TouchableOpacity
           style={styles.menuButton}
           onPress={() => setShowActions(true)}
@@ -400,13 +410,17 @@ export default function EvaluateScreen() {
             onAddPress={() => {}}
           />
           {photoGallery.isOpen && (
-            <PhotoGallery
+            <LuxuryPhotoGallery
               photoKeys={allPhotoKeys}
               mainPhotoKey={attempt.mainPhotoKey}
               initialIndex={photoGallery.initialIndex}
+              title={attempt.name}
+              date={attempt.date}
               onClose={() => setPhotoGallery({ isOpen: false, initialIndex: 0 })}
+              onBack={openGallery ? () => navigation.goBack() : undefined}
               onSetMain={handleSetMainPhoto}
               onDelete={handleDeletePhoto}
+              onRebake={handleRebake}
             />
           )}
         </View>
@@ -890,123 +904,6 @@ function PhotoThumbnail({
   );
 }
 
-function PhotoGallery({
-  photoKeys,
-  mainPhotoKey,
-  initialIndex,
-  onClose,
-  onSetMain,
-  onDelete,
-}: {
-  photoKeys: string[];
-  mainPhotoKey?: string;
-  initialIndex: number;
-  onClose: () => void;
-  onSetMain: (key: string) => void;
-  onDelete: (key: string) => void;
-}) {
-  const insets = useSafeAreaInsets();
-  const [currentIndex, setCurrentIndex] = useState(initialIndex);
-  const flatListRef = useRef<FlatList>(null);
-  const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
-
-  const safeIndex = Math.min(currentIndex, photoKeys.length - 1);
-  const currentPhotoKey = photoKeys[safeIndex];
-  const isCurrentMain = currentPhotoKey === mainPhotoKey;
-
-  React.useEffect(() => {
-    if (currentIndex >= photoKeys.length && photoKeys.length > 0) {
-      setCurrentIndex(photoKeys.length - 1);
-    }
-  }, [photoKeys.length, currentIndex]);
-
-  const handleScroll = (event: any) => {
-    const slideIndex = Math.round(event.nativeEvent.contentOffset.x / screenWidth);
-    setCurrentIndex(slideIndex);
-  };
-
-  return (
-    <RNModal visible={true} transparent animationType="fade">
-      <View style={[styles.galleryContainer, { backgroundColor: 'rgba(0,0,0,0.95)' }]}>
-        {/* Header */}
-        <View style={[styles.galleryHeader, { paddingTop: insets.top + spacing[2] }]}>
-          <TouchableOpacity onPress={onClose} style={styles.galleryCloseButton}>
-            <Icon name="close" size="lg" color={colors.white} />
-          </TouchableOpacity>
-          <Text style={styles.galleryCounter}>
-            {currentIndex + 1} / {photoKeys.length}
-          </Text>
-          <View style={{ width: 44 }} />
-        </View>
-
-        {/* Photo Slider */}
-        <FlatList
-          ref={flatListRef}
-          data={photoKeys}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          initialScrollIndex={initialIndex}
-          getItemLayout={(_, index) => ({
-            length: screenWidth,
-            offset: screenWidth * index,
-            index,
-          })}
-          onMomentumScrollEnd={handleScroll}
-          keyExtractor={(item) => item}
-          renderItem={({ item }) => (
-            <GalleryImage photoKey={item} width={screenWidth} height={screenHeight * 0.7} />
-          )}
-        />
-
-        {/* Actions */}
-        <View style={[styles.galleryActions, { paddingBottom: insets.bottom + spacing[4] }]}>
-          <TouchableOpacity
-            style={[styles.galleryAction, isCurrentMain && styles.galleryActionActive]}
-            onPress={() => onSetMain(currentPhotoKey)}
-            disabled={isCurrentMain}
-          >
-            <Icon name="star" size="md" color={isCurrentMain ? colors.primary : colors.white} />
-            <Text style={[styles.galleryActionText, isCurrentMain && styles.galleryActionTextActive]}>
-              {isCurrentMain ? 'Main Photo' : 'Set as Main'}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.galleryAction}
-            onPress={() => onDelete(currentPhotoKey)}
-          >
-            <Icon name="delete" size="md" color={colors.white} />
-            <Text style={styles.galleryActionText}>Delete</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </RNModal>
-  );
-}
-
-function GalleryImage({ photoKey, width, height }: { photoKey: string; width: number; height: number }) {
-  const { data: url, isLoading } = usePhotoUrl(photoKey);
-
-  if (isLoading || !url) {
-    return (
-      <View style={[styles.galleryImageContainer, { width, height }]}>
-        <Icon name="image" size="xl" color={colors.dustyMauve} />
-      </View>
-    );
-  }
-
-  return (
-    <View style={[styles.galleryImageContainer, { width, height }]}>
-      <Image
-        source={{ uri: url }}
-        style={styles.galleryImage}
-        resizeMode="contain"
-      />
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -1256,58 +1153,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     borderRadius: borderRadius.full,
     padding: spacing[1],
-  },
-  galleryContainer: {
-    flex: 1,
-    justifyContent: 'space-between',
-  },
-  galleryHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing[4],
-    paddingBottom: spacing[2],
-  },
-  galleryCloseButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  galleryCounter: {
-    fontFamily: fontFamily.medium,
-    fontSize: fontSize.base,
-    color: colors.white,
-  },
-  galleryImageContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  galleryImage: {
-    width: '100%',
-    height: '100%',
-  },
-  galleryActions: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: spacing[8],
-    paddingTop: spacing[4],
-  },
-  galleryAction: {
-    alignItems: 'center',
-    gap: spacing[1],
-    padding: spacing[2],
-  },
-  galleryActionActive: {
-    opacity: 0.7,
-  },
-  galleryActionText: {
-    fontFamily: fontFamily.medium,
-    fontSize: fontSize.sm,
-    color: colors.white,
-  },
-  galleryActionTextActive: {
-    color: colors.primary,
   },
   bottomAction: {
     position: 'absolute',

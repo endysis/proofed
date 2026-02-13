@@ -131,7 +131,7 @@ export default function HomeScreen() {
                   key={attempt.attemptId}
                   attempt={attempt}
                   onPress={() =>
-                    navigation.navigate('AttemptDetail', { attemptId: attempt.attemptId })
+                    navigation.navigate('EvaluateScreen', { attemptId: attempt.attemptId, openGallery: true })
                   }
                 />
               ))}

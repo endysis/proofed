@@ -24,6 +24,7 @@ import { colors, fontFamily, fontSize, spacing, borderRadius } from '../../theme
 interface LuxuryPhotoGalleryProps {
   photoKeys: string[];
   onClose: () => void;
+  onBack?: () => void;
   onSetMain?: (photoKey: string) => void;
   onDelete?: (photoKey: string) => void;
   onRebake?: () => void;
@@ -68,6 +69,7 @@ function FadeGradient() {
 export default function LuxuryPhotoGallery({
   photoKeys,
   onClose,
+  onBack,
   onSetMain,
   onDelete,
   onRebake,
@@ -212,7 +214,7 @@ export default function LuxuryPhotoGallery({
 
           {/* Header overlay - absolute positioned */}
           <View style={[styles.headerOverlay, { paddingTop: insets.top + spacing[2] }]}>
-            <TouchableOpacity onPress={onClose} style={styles.headerButton}>
+            <TouchableOpacity onPress={onBack ?? onClose} style={styles.headerButton}>
               <Icon name="close" size="md" color={colors.white} />
             </TouchableOpacity>
             <Text style={styles.counter}>
@@ -232,9 +234,9 @@ export default function LuxuryPhotoGallery({
 
         {/* Bottom Buttons */}
         <View style={[styles.bottomButtonsRow, { paddingBottom: insets.bottom + spacing[4] }]}>
-          <TouchableOpacity style={styles.saveExitButton} onPress={onClose}>
-            <Icon name="save" color={colors.primary} size="md" />
-            <Text style={styles.saveExitButtonText}>Save & Exit</Text>
+          <TouchableOpacity style={styles.viewDetailsButton} onPress={onClose}>
+            <Icon name="info" color={colors.primary} size="md" />
+            <Text style={styles.viewDetailsButtonText}>View Details</Text>
           </TouchableOpacity>
           {onRebake && (
             <TouchableOpacity style={styles.rebakeButton} onPress={onRebake}>
@@ -359,7 +361,7 @@ const styles = StyleSheet.create({
     padding: spacing[4],
     backgroundColor: colors.white,
   },
-  saveExitButton: {
+  viewDetailsButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
@@ -371,7 +373,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.xl,
     paddingVertical: spacing[4],
   },
-  saveExitButtonText: {
+  viewDetailsButtonText: {
     fontFamily: fontFamily.bold,
     fontSize: fontSize.base,
     color: colors.primary,

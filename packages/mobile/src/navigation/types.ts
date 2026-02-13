@@ -25,7 +25,7 @@ export type RootStackParamList = {
   AttemptDetail: { attemptId: string };
   PlanScreen: { attemptId: string };
   BakeScreen: { attemptId: string };
-  EvaluateScreen: { attemptId: string };
+  EvaluateScreen: { attemptId: string; openGallery?: boolean };
   NewAttempt: undefined;
   ProofedItemDetail: { proofedItemId: string };
   Settings: undefined;
