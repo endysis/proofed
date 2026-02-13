@@ -6,6 +6,7 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
+  TextInput,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -13,14 +14,15 @@ import { Icon, Modal, Loading, Badge } from '../components/common';
 import { ItemForm } from '../components/items';
 import { RecipeForm } from '../components/recipes';
 import { VariantForm } from '../components/variants';
+import ContainerScaleModal from '../components/scaling/ContainerScaleModal';
 import { useItem, useUpdateItem, useDeleteItem } from '../hooks/useItems';
 import { useRecipes, useCreateRecipe, useUpdateRecipe, useDeleteRecipe } from '../hooks/useRecipes';
 import { useVariants, useCreateVariant, useUpdateVariant, useDeleteVariant } from '../hooks/useVariants';
-import { scaleIngredients, getScaleOptions, formatScaleFactor } from '../utils/scaleRecipe';
+import { scaleIngredients, getScaleOptions, formatScaleFactor, calculateScaleFromIngredient } from '../utils/scaleRecipe';
 import { formatContainer } from '../constants/containers';
 import { colors, fontFamily, fontSize, spacing, borderRadius } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
-import type { Recipe, Variant, Ingredient, CreateItemRequest, CreateRecipeRequest, CreateVariantRequest } from '@proofed/shared';
+import type { Recipe, Variant, Ingredient, CreateItemRequest, CreateRecipeRequest, CreateVariantRequest, ItemType } from '@proofed/shared';
 
 type ItemDetailRouteProp = RouteProp<RootStackParamList, 'ItemDetail'>;
 
@@ -64,6 +66,12 @@ export default function ItemDetailScreen() {
     recipe: Recipe;
   } | null>(null);
   const [showActions, setShowActions] = useState(false);
+
+  // Scale by ingredient/container state
+  const [showScaleByIngredient, setShowScaleByIngredient] = useState(false);
+  const [selectedIngredient, setSelectedIngredient] = useState<Ingredient | null>(null);
+  const [ingredientAmount, setIngredientAmount] = useState('');
+  const [showContainerScale, setShowContainerScale] = useState(false);
 
   useEffect(() => {
     if (recipes && recipes.length > 0 && !selectedRecipeId) {
@@ -261,7 +269,7 @@ export default function ItemDetailScreen() {
                       <Text style={styles.bakeSettingText}>
                         {formatContainer(
                           selectedRecipe.container.type,
-                          selectedRecipe.container.size,
+                          selectedRecipe.container.size ?? 8,
                           selectedRecipe.container.count,
                           viewScale
                         )}
@@ -273,32 +281,62 @@ export default function ItemDetailScreen() {
 
               {/* Scale Selector */}
               <View style={styles.scaleSection}>
-                <Text style={styles.scaleLabel}>SCALE:</Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.scaleButtons}
-                >
-                  {getScaleOptions(selectedRecipe.customScales).map((option) => (
-                    <TouchableOpacity
-                      key={option.value}
-                      style={[
-                        styles.scaleButton,
-                        viewScale === option.value && styles.scaleButtonActive,
-                      ]}
-                      onPress={() => setViewScale(option.value)}
-                    >
-                      <Text
+                <View style={styles.scaleLabelRow}>
+                  <Text style={styles.scaleLabel}>SCALE:</Text>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.scaleButtons}
+                  >
+                    {getScaleOptions(selectedRecipe.customScales).map((option) => (
+                      <TouchableOpacity
+                        key={option.value}
                         style={[
-                          styles.scaleButtonText,
-                          viewScale === option.value && styles.scaleButtonTextActive,
+                          styles.scaleButton,
+                          viewScale === option.value && styles.scaleButtonActive,
                         ]}
+                        onPress={() => setViewScale(option.value)}
                       >
-                        {option.label}
-                      </Text>
+                        <Text
+                          style={[
+                            styles.scaleButtonText,
+                            viewScale === option.value && styles.scaleButtonTextActive,
+                          ]}
+                        >
+                          {option.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+                {/* Scale by ingredient and container buttons */}
+                <View style={styles.scaleByRow}>
+                  <TouchableOpacity
+                    style={styles.scaleByButton}
+                    onPress={() => setShowScaleByIngredient(true)}
+                  >
+                    <Icon name="calculate" size="sm" color={colors.primary} />
+                    <Text style={styles.scaleByText}>I have...</Text>
+                  </TouchableOpacity>
+                  {selectedRecipe.container && (
+                    <TouchableOpacity
+                      style={styles.scaleByButton}
+                      onPress={() => setShowContainerScale(true)}
+                    >
+                      <Icon name="auto_awesome" size="sm" color={colors.primary} />
+                      <Text style={styles.scaleByText}>Container</Text>
                     </TouchableOpacity>
-                  ))}
-                </ScrollView>
+                  )}
+                </View>
+                {/* Show custom scale indicator */}
+                {viewScale !== 1 && !getScaleOptions(selectedRecipe.customScales).some(opt => opt.value === viewScale) && (
+                  <View style={styles.customScaleBadge}>
+                    <Icon name="check_circle" size="sm" color={colors.success} />
+                    <Text style={styles.customScaleBadgeText}>
+                      Custom scale: {formatScaleFactor(viewScale)}
+                    </Text>
+                  </View>
+                )}
               </View>
 
               {/* Ingredients */}
@@ -454,6 +492,125 @@ export default function ItemDetailScreen() {
           recipe={viewVariantModal.recipe}
           viewScale={viewScale}
           onClose={() => setViewVariantModal(null)}
+        />
+      )}
+
+      {/* Scale by Ingredient Modal */}
+      <Modal
+        isOpen={showScaleByIngredient}
+        onClose={() => {
+          setShowScaleByIngredient(false);
+          setSelectedIngredient(null);
+          setIngredientAmount('');
+        }}
+        title="Scale by Ingredient"
+      >
+        {selectedRecipe && (
+          <>
+            <Text style={styles.modalLabel}>Select ingredient</Text>
+            <ScrollView style={styles.ingredientPickerList}>
+              {selectedRecipe.ingredients.map((ing) => (
+                <TouchableOpacity
+                  key={ing.name}
+                  style={[
+                    styles.ingredientPickerOption,
+                    selectedIngredient?.name === ing.name && styles.ingredientPickerOptionActive,
+                  ]}
+                  onPress={() => setSelectedIngredient(ing)}
+                >
+                  <Text style={styles.ingredientPickerName}>{ing.name}</Text>
+                  <Text style={styles.ingredientPickerAmount}>
+                    {ing.quantity} {ing.unit}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            {selectedIngredient && (
+              <>
+                <Text style={styles.modalLabel}>
+                  How much {selectedIngredient.name.toLowerCase()} do you have?
+                </Text>
+                <View style={styles.amountInputRow}>
+                  <TextInput
+                    style={styles.amountInput}
+                    value={ingredientAmount}
+                    onChangeText={setIngredientAmount}
+                    keyboardType="decimal-pad"
+                    placeholder="0"
+                    placeholderTextColor={colors.dustyMauve}
+                  />
+                  <Text style={styles.unitLabel}>{selectedIngredient.unit}</Text>
+                </View>
+
+                {ingredientAmount && parseFloat(ingredientAmount) > 0 && (
+                  <View style={styles.scalePreview}>
+                    <Text style={styles.scalePreviewLabel}>Recipe will scale to:</Text>
+                    <Text style={styles.scalePreviewValue}>
+                      {formatScaleFactor(calculateScaleFromIngredient(
+                        selectedIngredient.quantity,
+                        parseFloat(ingredientAmount)
+                      ))}
+                    </Text>
+                  </View>
+                )}
+              </>
+            )}
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={() => {
+                  setShowScaleByIngredient(false);
+                  setSelectedIngredient(null);
+                  setIngredientAmount('');
+                }}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.modalSubmitButton,
+                  (!selectedIngredient || !ingredientAmount || parseFloat(ingredientAmount) <= 0) && styles.modalButtonDisabled,
+                ]}
+                onPress={() => {
+                  const scale = calculateScaleFromIngredient(
+                    selectedIngredient!.quantity,
+                    parseFloat(ingredientAmount)
+                  );
+                  setViewScale(scale);
+                  setShowScaleByIngredient(false);
+                  setSelectedIngredient(null);
+                  setIngredientAmount('');
+                }}
+                disabled={!selectedIngredient || !ingredientAmount || parseFloat(ingredientAmount) <= 0}
+              >
+                <Text style={styles.modalSubmitText}>Apply Scale</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
+      </Modal>
+
+      {/* Scale by Container Modal */}
+      {selectedRecipe?.container && item && (
+        <ContainerScaleModal
+          isOpen={showContainerScale}
+          onClose={() => setShowContainerScale(false)}
+          onApply={(scaleFactor) => {
+            setViewScale(scaleFactor);
+          }}
+          sourceContainer={selectedRecipe.container}
+          recipeId={selectedRecipe.recipeId}
+          context={{
+            itemName: item.name,
+            itemType: item.type as ItemType,
+            recipeName: selectedRecipe.name,
+            ingredients: selectedRecipe.ingredients,
+            bakeTime: selectedRecipe.bakeTime,
+            bakeTemp: selectedRecipe.bakeTemp,
+            bakeTempUnit: selectedRecipe.bakeTempUnit,
+          }}
         />
       )}
     </View>
@@ -822,12 +979,15 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   scaleSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'column',
     marginBottom: spacing[4],
     paddingBottom: spacing[4],
     borderBottomWidth: 1,
     borderBottomColor: colors.bgLight,
+  },
+  scaleLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   scaleLabel: {
     fontFamily: fontFamily.bold,
@@ -857,6 +1017,152 @@ const styles = StyleSheet.create({
   },
   scaleButtonTextActive: {
     color: colors.white,
+  },
+  scaleByRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: spacing[3],
+  },
+  scaleByButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[1],
+    paddingVertical: spacing[2],
+    paddingHorizontal: spacing[3],
+    borderRadius: borderRadius.lg,
+    backgroundColor: 'rgba(229, 52, 78, 0.08)',
+  },
+  scaleByText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: colors.primary,
+  },
+  customScaleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[1],
+    marginTop: spacing[2],
+    paddingVertical: spacing[1],
+    paddingHorizontal: spacing[2],
+    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+    borderRadius: borderRadius.lg,
+    alignSelf: 'flex-start',
+  },
+  customScaleBadgeText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.xs,
+    color: colors.success,
+  },
+  modalLabel: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.sm,
+    color: colors.text,
+    marginBottom: spacing[2],
+    marginTop: spacing[3],
+  },
+  ingredientPickerList: {
+    maxHeight: 200,
+  },
+  ingredientPickerOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: spacing[3],
+    paddingHorizontal: spacing[4],
+    borderRadius: borderRadius.lg,
+    marginBottom: spacing[1],
+    backgroundColor: colors.bgLight,
+  },
+  ingredientPickerOptionActive: {
+    backgroundColor: 'rgba(229, 52, 78, 0.15)',
+  },
+  ingredientPickerName: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: colors.text,
+  },
+  ingredientPickerAmount: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.dustyMauve,
+  },
+  amountInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+    marginTop: spacing[2],
+  },
+  amountInput: {
+    flex: 1,
+    height: 48,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+    borderRadius: borderRadius.xl,
+    paddingHorizontal: spacing[4],
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.lg,
+    color: colors.text,
+    textAlign: 'center',
+  },
+  unitLabel: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.base,
+    color: colors.dustyMauve,
+    minWidth: 40,
+  },
+  scalePreview: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: spacing[4],
+    paddingVertical: spacing[3],
+    paddingHorizontal: spacing[4],
+    backgroundColor: 'rgba(229, 52, 78, 0.1)',
+    borderRadius: borderRadius.lg,
+  },
+  scalePreviewLabel: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: colors.text,
+  },
+  scalePreviewValue: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.lg,
+    color: colors.primary,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: spacing[3],
+    marginTop: spacing[4],
+  },
+  modalCancelButton: {
+    flex: 1,
+    paddingVertical: spacing[3],
+    borderRadius: borderRadius.xl,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+    alignItems: 'center',
+  },
+  modalCancelText: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.base,
+    color: colors.text,
+  },
+  modalSubmitButton: {
+    flex: 1,
+    paddingVertical: spacing[3],
+    borderRadius: borderRadius.xl,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+  },
+  modalSubmitText: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.base,
+    color: colors.white,
+  },
+  modalButtonDisabled: {
+    opacity: 0.5,
   },
   ingredients: {
     gap: spacing[3],
