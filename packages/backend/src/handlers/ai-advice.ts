@@ -2,6 +2,73 @@ import OpenAI from 'openai';
 import type { AiAdviceRequest, AiAdviceResponse, AiAdviceTip } from '@proofed/shared';
 import { getOpenAIApiKey } from '../lib/secrets';
 
+/**
+ * Validates and filters AI tips to ensure they only reference components that exist in the bake.
+ * Also corrects itemUsageIndex if a tip mentions a different component than assigned.
+ */
+function validateTips(
+  tips: AiAdviceTip[],
+  itemUsages: Array<{ itemName: string }>
+): AiAdviceTip[] {
+  const itemNames = itemUsages.map((u) => u.itemName.toLowerCase());
+  const itemKeywords = itemUsages.map((u) =>
+    u.itemName
+      .toLowerCase()
+      .split(' ')
+      .filter((w) => w.length > 3)
+  );
+
+  // Common baking items that might be mentioned but not in this bake
+  const commonItems = [
+    'ganache',
+    'buttercream',
+    'frosting',
+    'glaze',
+    'filling',
+    'sponge',
+    'cake',
+    'meringue',
+    'caramel',
+    'custard',
+    'mousse',
+    'cream',
+    'icing',
+    'fondant',
+  ];
+
+  return tips
+    .filter((tip) => {
+      const tipText = `${tip.title} ${tip.suggestion}`.toLowerCase();
+
+      for (const item of commonItems) {
+        if (tipText.includes(item)) {
+          // Check if this item is actually in our bake
+          const isInBake =
+            itemNames.some((name) => name.includes(item)) ||
+            itemKeywords.some((keywords) => keywords.includes(item));
+          if (!isInBake) {
+            // Tip mentions an item not in this bake - filter it out
+            console.log(`Filtering out tip "${tip.title}" - mentions "${item}" which is not in the bake`);
+            return false;
+          }
+        }
+      }
+      return true;
+    })
+    .map((tip) => {
+      // Correct index if tip mentions a different component than assigned
+      const tipText = `${tip.title} ${tip.suggestion}`.toLowerCase();
+      for (let i = 0; i < itemUsages.length; i++) {
+        const keywords = itemKeywords[i];
+        if (keywords.some((kw) => tipText.includes(kw)) && i !== tip.itemUsageIndex) {
+          console.log(`Correcting tip "${tip.title}" index from ${tip.itemUsageIndex} to ${i}`);
+          return { ...tip, itemUsageIndex: i };
+        }
+      }
+      return tip;
+    });
+}
+
 export async function getAiAdvice(request: AiAdviceRequest): Promise<AiAdviceResponse> {
   const { outcomeNotes, photoUrl, context } = request;
 
@@ -86,6 +153,8 @@ CRITICAL RULES:
 - Do NOT suggest moving ingredients from one component to another (e.g., don't suggest adding chocolate from a ganache to a sponge)
 - If Component 0 has butter, sugar, eggs - you can ONLY modify butter, sugar, or eggs for tips targeting Component 0
 - If you want to suggest changes to different components, create separate tips with the correct itemUsageIndex for each
+- ONLY provide tips for the components listed above - do NOT suggest adding entirely new items
+- If the baker mentions wanting to add something new in their notes, acknowledge it in your overview but do NOT create a tip for it
 
 Other guidelines:
 - Keep the overview chill and real - no corporate speak or over-the-top praise, just genuine baker-to-baker vibes
@@ -133,10 +202,11 @@ Other guidelines:
     }
 
     const parsed = JSON.parse(responseContent) as { overview: string; tips: AiAdviceTip[] };
+    const validatedTips = validateTips(parsed.tips, context.itemUsages);
 
     return {
       overview: parsed.overview,
-      tips: parsed.tips,
+      tips: validatedTips,
       generatedAt: new Date().toISOString(),
     };
   } catch (error: any) {
