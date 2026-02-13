@@ -533,7 +533,7 @@ function ItemUsageRow({
                 <View style={styles.customScaleBadge}>
                   <Icon name="check_circle" size="sm" color={colors.success} />
                   <Text style={styles.customScaleBadgeText}>
-                    Custom scale applied: {formatScaleFactor(usage.scaleFactor)}
+                    Bespoke scale applied: {formatScaleFactor(usage.scaleFactor)}
                   </Text>
                 </View>
               )}

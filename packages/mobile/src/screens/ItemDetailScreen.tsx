@@ -333,7 +333,7 @@ export default function ItemDetailScreen() {
                   <View style={styles.customScaleBadge}>
                     <Icon name="check_circle" size="sm" color={colors.success} />
                     <Text style={styles.customScaleBadgeText}>
-                      Custom scale: {formatScaleFactor(viewScale)}
+                      Bespoke scale: {formatScaleFactor(viewScale)}
                     </Text>
                   </View>
                 )}
