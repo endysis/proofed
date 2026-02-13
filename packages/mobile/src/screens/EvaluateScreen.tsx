@@ -310,7 +310,7 @@ export default function EvaluateScreen() {
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <Icon name="arrow_back_ios" color={colors.text} size="md" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Session Result</Text>
+        <Text style={styles.headerTitle}>Bake Result</Text>
         <TouchableOpacity
           style={styles.menuButton}
           onPress={() => setShowActions(true)}
