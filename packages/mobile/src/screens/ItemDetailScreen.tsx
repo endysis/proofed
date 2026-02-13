@@ -424,6 +424,7 @@ export default function ItemDetailScreen() {
         title={recipeModal.recipe ? 'Edit Recipe' : 'New Recipe'}
       >
         <RecipeForm
+          key={recipeModal.recipe?.recipeId || 'new'}
           recipe={recipeModal.recipe}
           onSubmit={recipeModal.recipe ? handleUpdateRecipe : handleCreateRecipe}
           onCancel={() => setRecipeModal({ isOpen: false })}

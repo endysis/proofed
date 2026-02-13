@@ -92,31 +92,53 @@ export async function updateItem<T>(
   key: Record<string, string>,
   updates: Partial<T>
 ): Promise<T | null> {
-  const updateExpressionParts: string[] = [];
+  const setExpressionParts: string[] = [];
+  const removeExpressionParts: string[] = [];
   const expressionAttributeNames: Record<string, string> = {};
   const expressionAttributeValues: Record<string, unknown> = {};
 
   Object.entries(updates).forEach(([field, value], index) => {
-    if (value !== undefined) {
-      const attrName = `#field${index}`;
+    if (value === undefined) {
+      // Skip undefined values entirely
+      return;
+    }
+
+    const attrName = `#field${index}`;
+    expressionAttributeNames[attrName] = field;
+
+    if (value === null) {
+      // null means remove the attribute
+      removeExpressionParts.push(attrName);
+    } else {
+      // Non-null value means set the attribute
       const attrValue = `:value${index}`;
-      updateExpressionParts.push(`${attrName} = ${attrValue}`);
-      expressionAttributeNames[attrName] = field;
+      setExpressionParts.push(`${attrName} = ${attrValue}`);
       expressionAttributeValues[attrValue] = value;
     }
   });
 
-  if (updateExpressionParts.length === 0) {
+  if (setExpressionParts.length === 0 && removeExpressionParts.length === 0) {
     return getItem<T>(tableName, key);
+  }
+
+  // Build update expression with SET and/or REMOVE clauses
+  const expressionParts: string[] = [];
+  if (setExpressionParts.length > 0) {
+    expressionParts.push(`SET ${setExpressionParts.join(', ')}`);
+  }
+  if (removeExpressionParts.length > 0) {
+    expressionParts.push(`REMOVE ${removeExpressionParts.join(', ')}`);
   }
 
   const result = await docClient.send(
     new UpdateCommand({
       TableName: tableName,
       Key: key,
-      UpdateExpression: `SET ${updateExpressionParts.join(', ')}`,
+      UpdateExpression: expressionParts.join(' '),
       ExpressionAttributeNames: expressionAttributeNames,
-      ExpressionAttributeValues: expressionAttributeValues,
+      ...(Object.keys(expressionAttributeValues).length > 0 && {
+        ExpressionAttributeValues: expressionAttributeValues,
+      }),
       ReturnValues: 'ALL_NEW',
     })
   );

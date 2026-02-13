@@ -23,6 +23,11 @@ interface ModalProps {
 export default function Modal({ isOpen, onClose, title, children }: ModalProps) {
   const insets = useSafeAreaInsets();
 
+  // Don't render anything if not open - ensures children unmount and remount fresh
+  if (!isOpen) {
+    return null;
+  }
+
   return (
     <RNModal
       visible={isOpen}

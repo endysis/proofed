@@ -36,8 +36,8 @@ export default function RecipeForm({
   const [bakeTime, setBakeTime] = useState<string>(recipe?.bakeTime?.toString() ?? '');
   const [bakeTemp, setBakeTemp] = useState<string>(recipe?.bakeTemp?.toString() ?? '');
   const [bakeTempUnit, setBakeTempUnit] = useState<'F' | 'C'>(recipe?.bakeTempUnit ?? 'F');
-  const [customScales, setCustomScales] = useState<string>(
-    recipe?.customScales?.join(', ') || ''
+  const [customScale, setCustomScale] = useState<string>(
+    recipe?.customScales?.[0]?.toString() || ''
   );
   const [showPasteModal, setShowPasteModal] = useState(false);
   const [hasContainer, setHasContainer] = useState(!!recipe?.container);
@@ -53,28 +53,40 @@ export default function RecipeForm({
 
   const handleSubmit = () => {
     const validIngredients = ingredients.filter((i) => i.name.trim());
-    const parsedCustomScales = customScales
-      .split(',')
-      .map((s) => parseFloat(s.trim()))
-      .filter((n) => !isNaN(n) && n > 0);
+    const parsedCustomScale = parseFloat(customScale);
     const parsedCount = parseInt(containerCount) || 1;
+
+    // Determine custom scales value:
+    // - Valid number > 0: save as array with single element
+    // - Empty/invalid when editing: send null to remove
+    // - Empty/invalid when creating: send undefined (don't include)
+    let customScalesValue: number[] | null | undefined;
+    if (!isNaN(parsedCustomScale) && parsedCustomScale > 0) {
+      customScalesValue = [parsedCustomScale];
+    } else if (recipe) {
+      // Editing and field is empty - explicitly remove
+      customScalesValue = null;
+    } else {
+      // Creating new - just don't include
+      customScalesValue = undefined;
+    }
 
     onSubmit({
       name,
       ingredients: validIngredients,
-      prepNotes: prepNotes || undefined,
-      bakeTime: bakeTime ? parseInt(bakeTime) : undefined,
-      bakeTemp: bakeTemp ? parseInt(bakeTemp) : undefined,
+      prepNotes: prepNotes || (recipe ? null : undefined),
+      bakeTime: bakeTime ? parseInt(bakeTime) : (recipe ? null : undefined),
+      bakeTemp: bakeTemp ? parseInt(bakeTemp) : (recipe ? null : undefined),
       bakeTempUnit: bakeTemp ? bakeTempUnit : undefined,
-      customScales: parsedCustomScales.length > 0 ? parsedCustomScales : undefined,
+      customScales: customScalesValue,
       container: hasContainer && parsedCount
         ? {
             type: containerType,
             size: containerSize,
             count: parsedCount,
           }
-        : undefined,
-    });
+        : (recipe ? null : undefined),
+    } as any);
   };
 
   const updateIngredient = (index: number, field: keyof Ingredient, value: string | number) => {
@@ -239,16 +251,17 @@ export default function RecipeForm({
 
       <View style={styles.field}>
         <Text style={styles.label}>
-          Custom Scales <Text style={styles.optional}>(optional)</Text>
+          Custom Scale <Text style={styles.optional}>(optional)</Text>
         </Text>
         <TextInput
           style={styles.input}
-          value={customScales}
-          onChangeText={setCustomScales}
-          placeholder="e.g., 0.75, 1.25, 3"
+          value={customScale}
+          onChangeText={setCustomScale}
+          placeholder="e.g., 0.75 or 1.5"
           placeholderTextColor={colors.dustyMauve}
+          keyboardType="decimal-pad"
         />
-        <Text style={styles.hint}>Comma-separated scale factors for this recipe</Text>
+        <Text style={styles.hint}>Add a custom scale factor for this recipe</Text>
       </View>
 
       <View style={styles.field}>
