@@ -6,6 +6,12 @@ import { AiAdviceCard } from './AiAdviceCard';
 import { colors, fontFamily, fontSize, spacing, borderRadius } from '../../theme';
 import type { AiAdviceResponse, AiAdviceTip } from '@proofed/shared';
 
+interface ItemUsageDetail {
+  itemName: string;
+  recipeName: string;
+  variantName?: string;
+}
+
 interface AiAdviceSectionProps {
   advice: AiAdviceResponse | null;
   isLoading: boolean;
@@ -14,6 +20,7 @@ interface AiAdviceSectionProps {
   onCreateVariantFromTip?: (tip: AiAdviceTip) => void;
   canRequest: boolean;
   hasPhoto?: boolean;
+  itemUsageDetails?: ItemUsageDetail[];
 }
 
 export function AiAdviceSection({
@@ -24,6 +31,7 @@ export function AiAdviceSection({
   onCreateVariantFromTip,
   canRequest,
   hasPhoto,
+  itemUsageDetails,
 }: AiAdviceSectionProps) {
   // Loading state
   if (isLoading) {
@@ -73,13 +81,20 @@ export function AiAdviceSection({
         {/* Tips section header */}
         <Text style={styles.tipsHeader}>Suggestions</Text>
 
-        {advice.tips.map((tip, index) => (
-          <AiAdviceCard
-            key={index}
-            tip={tip}
-            onCreateVariant={onCreateVariantFromTip ? () => onCreateVariantFromTip(tip) : undefined}
-          />
-        ))}
+        {advice.tips.map((tip, index) => {
+          const targetItemName =
+            typeof tip.itemUsageIndex === 'number' && itemUsageDetails?.[tip.itemUsageIndex]
+              ? itemUsageDetails[tip.itemUsageIndex].itemName
+              : undefined;
+          return (
+            <AiAdviceCard
+              key={index}
+              tip={tip}
+              targetItemName={targetItemName}
+              onCreateVariant={onCreateVariantFromTip ? () => onCreateVariantFromTip(tip) : undefined}
+            />
+          );
+        })}
 
         <TouchableOpacity style={styles.reaskButton} onPress={onRequestAdvice}>
           <Icon name="refresh" size="sm" color={colors.primary} />

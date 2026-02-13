@@ -187,6 +187,7 @@ export default function EvaluateScreen() {
     if (!attempt || !attempt.outcomeNotes?.trim()) return;
 
     // Build the request with full context from item usage details
+    // Use baseIngredients (unscaled) so AI suggestions can be saved as variants correctly
     const request: AiAdviceRequest = {
       outcomeNotes: attempt.outcomeNotes,
       photoUrl: mainPhotoUrl || undefined,  // Include main photo URL if available
@@ -197,7 +198,7 @@ export default function EvaluateScreen() {
           recipeName: detail.recipeName,
           variantName: detail.variantName,
           scaleFactor: detail.scaleFactor,
-          ingredients: detail.ingredients,
+          ingredients: detail.baseIngredients,
           bakeTime: detail.bakeTime,
           bakeTemp: detail.bakeTemp,
           bakeTempUnit: detail.bakeTempUnit,
@@ -442,6 +443,7 @@ export default function EvaluateScreen() {
             onCreateVariantFromTip={handleCreateVariantFromTip}
             canRequest={!!attempt.outcomeNotes?.trim()}
             hasPhoto={!!attempt.mainPhotoKey}
+            itemUsageDetails={itemUsageDetails}
           />
         </View>
 

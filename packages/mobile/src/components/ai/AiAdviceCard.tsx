@@ -6,12 +6,19 @@ import type { AiAdviceTip } from '@proofed/shared';
 
 interface AiAdviceCardProps {
   tip: AiAdviceTip;
+  targetItemName?: string;
   onCreateVariant?: () => void;
 }
 
-export function AiAdviceCard({ tip, onCreateVariant }: AiAdviceCardProps) {
+export function AiAdviceCard({ tip, targetItemName, onCreateVariant }: AiAdviceCardProps) {
   return (
     <View style={styles.card}>
+      {targetItemName && (
+        <View style={styles.targetBadge}>
+          <Icon name="cake" size="sm" color={colors.primary} />
+          <Text style={styles.targetText}>For: {targetItemName}</Text>
+        </View>
+      )}
       <Text style={styles.title}>{tip.title}</Text>
       <Text style={styles.suggestion}>{tip.suggestion}</Text>
       {onCreateVariant && (
@@ -32,6 +39,17 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(0, 0, 0, 0.05)',
     padding: spacing[4],
     marginBottom: spacing[2],
+  },
+  targetBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[1],
+    marginBottom: spacing[2],
+  },
+  targetText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.xs,
+    color: colors.primary,
   },
   title: {
     fontFamily: fontFamily.bold,

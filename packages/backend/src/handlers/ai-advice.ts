@@ -79,10 +79,17 @@ Respond with a JSON object in this exact format:
   ]
 }
 
-Important:
+CRITICAL RULES:
+- Each tip MUST include itemUsageIndex (0, 1, 2... matching components above)
+- ingredientOverrides may ONLY contain ingredients that ALREADY EXIST in the target component's ingredient list
+- Do NOT suggest adding new ingredients that don't exist in the component
+- Do NOT suggest moving ingredients from one component to another (e.g., don't suggest adding chocolate from a ganache to a sponge)
+- If Component 0 has butter, sugar, eggs - you can ONLY modify butter, sugar, or eggs for tips targeting Component 0
+- If you want to suggest changes to different components, create separate tips with the correct itemUsageIndex for each
+
+Other guidelines:
 - Keep the overview chill and real - no corporate speak or over-the-top praise, just genuine baker-to-baker vibes
 - If there's a photo, always mention the color/browning you see
-- itemUsageIndex is REQUIRED for each tip (use the component index shown above)
 - ingredientOverrides should contain only the ingredients being changed, with their new absolute values
 - Only include bakeTemp/bakeTime if you're suggesting a change to those values
 - Be specific and practical with quantities based on the original recipe`;
