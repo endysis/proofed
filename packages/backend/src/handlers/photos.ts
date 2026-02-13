@@ -4,10 +4,9 @@ import type { PhotoUploadRequest, PhotoUploadResponse, PhotoDownloadRequest, Pho
 
 const s3Client = new S3Client({});
 const PHOTOS_BUCKET = process.env.PHOTOS_BUCKET!;
-const DEFAULT_USER_ID = 'default-user';
 
-export async function getUploadUrl(request: PhotoUploadRequest): Promise<PhotoUploadResponse> {
-  const key = `${DEFAULT_USER_ID}/attempts/${request.attemptId}/${Date.now()}-${request.fileName}`;
+export async function getUploadUrl(userId: string, request: PhotoUploadRequest): Promise<PhotoUploadResponse> {
+  const key = `${userId}/attempts/${request.attemptId}/${Date.now()}-${request.fileName}`;
 
   const command = new PutObjectCommand({
     Bucket: PHOTOS_BUCKET,

@@ -3,22 +3,22 @@ import { putItem, getItem, queryItemsWithFilter, deleteItem, updateItem } from '
 import type { Variant, CreateVariantRequest, UpdateVariantRequest } from '@proofed/shared';
 
 const TABLE_NAME = process.env.VARIANTS_TABLE!;
-const DEFAULT_USER_ID = 'default-user';
 
-export async function listVariants(recipeId: string): Promise<Variant[]> {
+export async function listVariants(userId: string, recipeId: string): Promise<Variant[]> {
   return queryItemsWithFilter<Variant>(
     TABLE_NAME,
-    DEFAULT_USER_ID,
+    userId,
     'recipeId = :recipeId',
     { ':recipeId': recipeId }
   );
 }
 
-export async function getVariantById(variantId: string): Promise<Variant | null> {
-  return getItem<Variant>(TABLE_NAME, { userId: DEFAULT_USER_ID, variantId });
+export async function getVariantById(userId: string, variantId: string): Promise<Variant | null> {
+  return getItem<Variant>(TABLE_NAME, { userId, variantId });
 }
 
 export async function createVariant(
+  userId: string,
   itemId: string,
   recipeId: string,
   request: CreateVariantRequest
@@ -26,7 +26,7 @@ export async function createVariant(
   const now = new Date().toISOString();
   const variant: Variant = {
     variantId: ulid(),
-    userId: DEFAULT_USER_ID,
+    userId,
     recipeId,
     itemId,
     name: request.name,
@@ -39,6 +39,7 @@ export async function createVariant(
 }
 
 export async function updateVariantById(
+  userId: string,
   variantId: string,
   request: UpdateVariantRequest
 ): Promise<Variant | null> {
@@ -46,9 +47,9 @@ export async function updateVariantById(
     ...request,
     updatedAt: new Date().toISOString(),
   };
-  return updateItem<Variant>(TABLE_NAME, { userId: DEFAULT_USER_ID, variantId }, updates);
+  return updateItem<Variant>(TABLE_NAME, { userId, variantId }, updates);
 }
 
-export async function deleteVariantById(variantId: string): Promise<void> {
-  return deleteItem(TABLE_NAME, { userId: DEFAULT_USER_ID, variantId });
+export async function deleteVariantById(userId: string, variantId: string): Promise<void> {
+  return deleteItem(TABLE_NAME, { userId, variantId });
 }

@@ -3,6 +3,8 @@ import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as apigateway from 'aws-cdk-lib/aws-apigatewayv2';
 import * as apigatewayIntegrations from 'aws-cdk-lib/aws-apigatewayv2-integrations';
+import * as apigatewayAuthorizers from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
+import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import * as iam from 'aws-cdk-lib/aws-iam';
@@ -52,6 +54,45 @@ export class ProofedStack extends cdk.Stack {
       sortKey: { name: 'proofedItemId', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    // Cognito User Pool
+    const userPool = new cognito.UserPool(this, 'ProofedUserPool', {
+      userPoolName: 'proofed-users',
+      selfSignUpEnabled: true,
+      signInAliases: { email: true },
+      autoVerify: { email: true },
+      standardAttributes: {
+        email: { required: true, mutable: true },
+      },
+      passwordPolicy: {
+        minLength: 8,
+        requireLowercase: true,
+        requireUppercase: true,
+        requireDigits: true,
+        requireSymbols: false,
+      },
+      accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
+
+    // Cognito App Client for mobile app
+    const userPoolClient = userPool.addClient('ProofedMobileClient', {
+      userPoolClientName: 'proofed-mobile',
+      authFlows: {
+        userPassword: true,
+        userSrp: true,
+      },
+      oAuth: {
+        flows: { authorizationCodeGrant: true },
+        scopes: [
+          cognito.OAuthScope.EMAIL,
+          cognito.OAuthScope.OPENID,
+          cognito.OAuthScope.PROFILE,
+        ],
+        callbackUrls: ['proofed://callback'],
+        logoutUrls: ['proofed://signout'],
+      },
     });
 
     // S3 Bucket for Photos
@@ -112,6 +153,7 @@ export class ProofedStack extends cdk.Stack {
         ATTEMPTS_TABLE: attemptsTable.tableName,
         PROOFED_ITEMS_TABLE: proofedItemsTable.tableName,
         PHOTOS_BUCKET: photosBucket.bucketName,
+        OPENAI_API_KEY: process.env.OPENAI_API_KEY || '',
       },
     });
 
@@ -154,16 +196,27 @@ export class ProofedStack extends cdk.Stack {
       apiHandler
     );
 
+    // JWT Authorizer for Cognito
+    const authorizer = new apigatewayAuthorizers.HttpJwtAuthorizer(
+      'CognitoAuthorizer',
+      `https://cognito-idp.${this.region}.amazonaws.com/${userPool.userPoolId}`,
+      {
+        jwtAudience: [userPoolClient.userPoolClientId],
+      }
+    );
+
     // Items routes
     httpApi.addRoutes({
       path: '/items',
       methods: [apigateway.HttpMethod.GET, apigateway.HttpMethod.POST],
       integration,
+      authorizer,
     });
     httpApi.addRoutes({
       path: '/items/{itemId}',
       methods: [apigateway.HttpMethod.GET, apigateway.HttpMethod.PUT, apigateway.HttpMethod.DELETE],
       integration,
+      authorizer,
     });
 
     // Recipes routes
@@ -171,11 +224,13 @@ export class ProofedStack extends cdk.Stack {
       path: '/items/{itemId}/recipes',
       methods: [apigateway.HttpMethod.GET, apigateway.HttpMethod.POST],
       integration,
+      authorizer,
     });
     httpApi.addRoutes({
       path: '/items/{itemId}/recipes/{recipeId}',
       methods: [apigateway.HttpMethod.GET, apigateway.HttpMethod.PUT, apigateway.HttpMethod.DELETE],
       integration,
+      authorizer,
     });
 
     // Variants routes
@@ -183,11 +238,13 @@ export class ProofedStack extends cdk.Stack {
       path: '/items/{itemId}/recipes/{recipeId}/variants',
       methods: [apigateway.HttpMethod.GET, apigateway.HttpMethod.POST],
       integration,
+      authorizer,
     });
     httpApi.addRoutes({
       path: '/items/{itemId}/recipes/{recipeId}/variants/{variantId}',
       methods: [apigateway.HttpMethod.GET, apigateway.HttpMethod.PUT, apigateway.HttpMethod.DELETE],
       integration,
+      authorizer,
     });
 
     // Attempts routes
@@ -195,16 +252,33 @@ export class ProofedStack extends cdk.Stack {
       path: '/attempts',
       methods: [apigateway.HttpMethod.GET, apigateway.HttpMethod.POST],
       integration,
+      authorizer,
     });
     httpApi.addRoutes({
       path: '/attempts/{attemptId}',
       methods: [apigateway.HttpMethod.GET, apigateway.HttpMethod.PUT, apigateway.HttpMethod.DELETE],
       integration,
+      authorizer,
     });
     httpApi.addRoutes({
       path: '/attempts/{attemptId}/capture',
       methods: [apigateway.HttpMethod.POST],
       integration,
+      authorizer,
+    });
+    httpApi.addRoutes({
+      path: '/attempts/{attemptId}/ai-advice',
+      methods: [apigateway.HttpMethod.POST],
+      integration,
+      authorizer,
+    });
+
+    // AI Container Scale route
+    httpApi.addRoutes({
+      path: '/recipes/{recipeId}/ai-container-scale',
+      methods: [apigateway.HttpMethod.POST],
+      integration,
+      authorizer,
     });
 
     // Proofed Items routes
@@ -212,11 +286,13 @@ export class ProofedStack extends cdk.Stack {
       path: '/proofed-items',
       methods: [apigateway.HttpMethod.GET],
       integration,
+      authorizer,
     });
     httpApi.addRoutes({
       path: '/proofed-items/{proofedItemId}',
       methods: [apigateway.HttpMethod.GET, apigateway.HttpMethod.PUT, apigateway.HttpMethod.DELETE],
       integration,
+      authorizer,
     });
 
     // Photos routes
@@ -224,11 +300,21 @@ export class ProofedStack extends cdk.Stack {
       path: '/photos/upload-url',
       methods: [apigateway.HttpMethod.POST],
       integration,
+      authorizer,
     });
     httpApi.addRoutes({
       path: '/photos/download-url',
       methods: [apigateway.HttpMethod.POST],
       integration,
+      authorizer,
+    });
+
+    // Account routes
+    httpApi.addRoutes({
+      path: '/account',
+      methods: [apigateway.HttpMethod.DELETE],
+      integration,
+      authorizer,
     });
 
     // Outputs
@@ -245,6 +331,21 @@ export class ProofedStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'PhotosBucketName', {
       value: photosBucket.bucketName,
       description: 'Photos S3 bucket name',
+    });
+
+    new cdk.CfnOutput(this, 'UserPoolId', {
+      value: userPool.userPoolId,
+      description: 'Cognito User Pool ID',
+    });
+
+    new cdk.CfnOutput(this, 'UserPoolClientId', {
+      value: userPoolClient.userPoolClientId,
+      description: 'Cognito User Pool Client ID',
+    });
+
+    new cdk.CfnOutput(this, 'CognitoRegion', {
+      value: this.region,
+      description: 'AWS Region for Cognito',
     });
   }
 }

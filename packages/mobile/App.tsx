@@ -16,12 +16,13 @@ import * as SplashScreen from 'expo-splash-screen';
 import AppNavigator from './src/navigation/AppNavigator';
 import { Loading } from './src/components/common';
 import { colors } from './src/theme';
+import { AuthProvider } from './src/contexts/AuthContext';
 
 // Keep the splash screen visible while we fetch fonts
 SplashScreen.preventAutoHideAsync();
 
 // Create a client
-const queryClient = new QueryClient({
+export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 1000 * 60 * 5, // 5 minutes
@@ -55,10 +56,12 @@ export default function App() {
   return (
     <GestureHandlerRootView style={styles.container} onLayout={onLayoutRootView}>
       <SafeAreaProvider>
-        <QueryClientProvider client={queryClient}>
-          <StatusBar style="dark" />
-          <AppNavigator />
-        </QueryClientProvider>
+        <AuthProvider>
+          <QueryClientProvider client={queryClient}>
+            <StatusBar style="dark" />
+            <AppNavigator />
+          </QueryClientProvider>
+        </AuthProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

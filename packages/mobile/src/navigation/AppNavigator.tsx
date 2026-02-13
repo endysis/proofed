@@ -3,13 +3,13 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { View, StyleSheet } from 'react-native';
 
-import { Icon } from '../components/common';
+import { Icon, Loading } from '../components/common';
 import { colors, fontFamily, fontSize, spacing } from '../theme';
-import type { RootStackParamList, TabParamList } from './types';
+import { useAuth } from '../contexts/AuthContext';
+import type { RootStackParamList, TabParamList, AuthStackParamList } from './types';
 
-// Screens
+// Main App Screens
 import HomeScreen from '../screens/HomeScreen';
 import PantryScreen from '../screens/PantryScreen';
 import BakesScreen from '../screens/BakesScreen';
@@ -21,9 +21,35 @@ import BakeScreen from '../screens/BakeScreen';
 import EvaluateScreen from '../screens/EvaluateScreen';
 import NewAttemptScreen from '../screens/NewAttemptScreen';
 import ProofedItemDetailScreen from '../screens/ProofedItemDetailScreen';
+import SettingsScreen from '../screens/SettingsScreen';
+
+// Auth Screens
+import {
+  SignInScreen,
+  SignUpScreen,
+  ConfirmSignUpScreen,
+  ForgotPasswordScreen,
+} from '../screens/auth';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
+const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 const Tab = createBottomTabNavigator<TabParamList>();
+
+function AuthNavigator() {
+  return (
+    <AuthStack.Navigator
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: colors.bgLight },
+      }}
+    >
+      <AuthStack.Screen name="SignIn" component={SignInScreen} />
+      <AuthStack.Screen name="SignUp" component={SignUpScreen} />
+      <AuthStack.Screen name="ConfirmSignUp" component={ConfirmSignUpScreen} />
+      <AuthStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+    </AuthStack.Navigator>
+  );
+}
 
 function TabNavigator() {
   const insets = useSafeAreaInsets();
@@ -53,7 +79,7 @@ function TabNavigator() {
         name="Home"
         component={HomeScreen}
         options={{
-          tabBarIcon: ({ color, focused }) => (
+          tabBarIcon: ({ color }) => (
             <Icon name="home" color={color} size="md" />
           ),
         }}
@@ -62,7 +88,7 @@ function TabNavigator() {
         name="Pantry"
         component={PantryScreen}
         options={{
-          tabBarIcon: ({ color, focused }) => (
+          tabBarIcon: ({ color }) => (
             <Icon name="restaurant_menu" color={color} size="md" />
           ),
         }}
@@ -71,7 +97,7 @@ function TabNavigator() {
         name="Bakes"
         component={BakesScreen}
         options={{
-          tabBarIcon: ({ color, focused }) => (
+          tabBarIcon: ({ color }) => (
             <Icon name="bakery_dining" color={color} size="md" />
           ),
         }}
@@ -80,7 +106,7 @@ function TabNavigator() {
         name="Starred"
         component={StarredScreen}
         options={{
-          tabBarIcon: ({ color, focused }) => (
+          tabBarIcon: ({ color }) => (
             <Icon name="favorite" color={color} size="md" />
           ),
         }}
@@ -89,24 +115,41 @@ function TabNavigator() {
   );
 }
 
+function MainNavigator() {
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: colors.bgLight },
+      }}
+    >
+      <Stack.Screen name="Tabs" component={TabNavigator} />
+      <Stack.Screen name="ItemDetail" component={ItemDetailScreen} />
+      <Stack.Screen name="AttemptDetail" component={AttemptRouter} />
+      <Stack.Screen name="PlanScreen" component={PlanScreen} />
+      <Stack.Screen name="BakeScreen" component={BakeScreen} />
+      <Stack.Screen name="EvaluateScreen" component={EvaluateScreen} />
+      <Stack.Screen name="NewAttempt" component={NewAttemptScreen} />
+      <Stack.Screen name="ProofedItemDetail" component={ProofedItemDetailScreen} />
+      <Stack.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{ animation: 'slide_from_left' }}
+      />
+    </Stack.Navigator>
+  );
+}
+
 export default function AppNavigator() {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <Loading message="Loading..." />;
+  }
+
   return (
     <NavigationContainer>
-      <Stack.Navigator
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: colors.bgLight },
-        }}
-      >
-        <Stack.Screen name="Tabs" component={TabNavigator} />
-        <Stack.Screen name="ItemDetail" component={ItemDetailScreen} />
-        <Stack.Screen name="AttemptDetail" component={AttemptRouter} />
-        <Stack.Screen name="PlanScreen" component={PlanScreen} />
-        <Stack.Screen name="BakeScreen" component={BakeScreen} />
-        <Stack.Screen name="EvaluateScreen" component={EvaluateScreen} />
-        <Stack.Screen name="NewAttempt" component={NewAttemptScreen} />
-        <Stack.Screen name="ProofedItemDetail" component={ProofedItemDetailScreen} />
-      </Stack.Navigator>
+      {isAuthenticated ? <MainNavigator /> : <AuthNavigator />}
     </NavigationContainer>
   );
 }

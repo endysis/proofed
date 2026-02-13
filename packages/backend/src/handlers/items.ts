@@ -3,21 +3,20 @@ import { putItem, getItem, queryItems, deleteItem, updateItem } from '../lib/dyn
 import type { Item, CreateItemRequest, UpdateItemRequest } from '@proofed/shared';
 
 const TABLE_NAME = process.env.ITEMS_TABLE!;
-const DEFAULT_USER_ID = 'default-user';
 
-export async function listItems(): Promise<Item[]> {
-  return queryItems<Item>(TABLE_NAME, DEFAULT_USER_ID);
+export async function listItems(userId: string): Promise<Item[]> {
+  return queryItems<Item>(TABLE_NAME, userId);
 }
 
-export async function getItemById(itemId: string): Promise<Item | null> {
-  return getItem<Item>(TABLE_NAME, { userId: DEFAULT_USER_ID, itemId });
+export async function getItemById(userId: string, itemId: string): Promise<Item | null> {
+  return getItem<Item>(TABLE_NAME, { userId, itemId });
 }
 
-export async function createItem(request: CreateItemRequest): Promise<Item> {
+export async function createItem(userId: string, request: CreateItemRequest): Promise<Item> {
   const now = new Date().toISOString();
   const item: Item = {
     itemId: ulid(),
-    userId: DEFAULT_USER_ID,
+    userId,
     name: request.name,
     type: request.type,
     notes: request.notes,
@@ -31,6 +30,7 @@ export async function createItem(request: CreateItemRequest): Promise<Item> {
 }
 
 export async function updateItemById(
+  userId: string,
   itemId: string,
   request: UpdateItemRequest
 ): Promise<Item | null> {
@@ -38,9 +38,9 @@ export async function updateItemById(
     ...request,
     updatedAt: new Date().toISOString(),
   };
-  return updateItem<Item>(TABLE_NAME, { userId: DEFAULT_USER_ID, itemId }, updates);
+  return updateItem<Item>(TABLE_NAME, { userId, itemId }, updates);
 }
 
-export async function deleteItemById(itemId: string): Promise<void> {
-  return deleteItem(TABLE_NAME, { userId: DEFAULT_USER_ID, itemId });
+export async function deleteItemById(userId: string, itemId: string): Promise<void> {
+  return deleteItem(TABLE_NAME, { userId, itemId });
 }
