@@ -176,7 +176,7 @@ export default function ItemDetailScreen() {
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <Icon name="arrow_back_ios" color={colors.text} size="md" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Recipe Log</Text>
+        <Text style={styles.headerTitle}>Pantry Item</Text>
         <TouchableOpacity style={styles.menuButton} onPress={() => setShowActions(true)}>
           <Icon name="more_vert" color={colors.text} size="md" />
         </TouchableOpacity>
