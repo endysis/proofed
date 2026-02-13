@@ -23,8 +23,9 @@ import { useVariants, useVariant } from '../hooks/useVariants';
 import { formatScaleFactor, getScaleOptions, calculateScaleFromIngredient } from '../utils/scaleRecipe';
 import { mergeIngredients } from '../utils/mergeIngredients';
 import { colors, fontFamily, fontSize, spacing, borderRadius } from '../theme';
+import ContainerScaleModal from '../components/scaling/ContainerScaleModal';
 import type { RootStackParamList } from '../navigation/types';
-import type { ItemUsage, Item, Ingredient } from '@proofed/shared';
+import type { ItemUsage, Item, Ingredient, ItemType } from '@proofed/shared';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type PlanScreenRouteProp = RouteProp<RootStackParamList, 'PlanScreen'>;
@@ -413,6 +414,7 @@ function ItemUsageRow({
   const [showScaleByIngredient, setShowScaleByIngredient] = useState(false);
   const [selectedIngredient, setSelectedIngredient] = useState<Ingredient | null>(null);
   const [ingredientAmount, setIngredientAmount] = useState('');
+  const [showContainerScale, setShowContainerScale] = useState(false);
 
   const selectedItem = items.find((i) => i.itemId === usage.itemId);
   const selectedVariant = variants?.find((v) => v.variantId === usage.variantId);
@@ -505,7 +507,9 @@ function ItemUsageRow({
                     </Text>
                   </TouchableOpacity>
                 ))}
-                {/* Scale by ingredient button */}
+              </View>
+              {/* Scale by ingredient and container buttons */}
+              <View style={styles.scaleByRow}>
                 <TouchableOpacity
                   style={styles.scaleByIngredientButton}
                   onPress={() => setShowScaleByIngredient(true)}
@@ -513,6 +517,16 @@ function ItemUsageRow({
                   <Icon name="calculate" size="sm" color={colors.primary} />
                   <Text style={styles.scaleByIngredientText}>I have...</Text>
                 </TouchableOpacity>
+                {/* Scale by container button - only show if recipe has container */}
+                {selectedRecipe?.container && (
+                  <TouchableOpacity
+                    style={styles.scaleByIngredientButton}
+                    onPress={() => setShowContainerScale(true)}
+                  >
+                    <Icon name="auto_awesome" size="sm" color={colors.primary} />
+                    <Text style={styles.scaleByIngredientText}>Container</Text>
+                  </TouchableOpacity>
+                )}
               </View>
               {/* Show applied custom scale indicator */}
               {usage.scaleFactor && !getScaleOptions(selectedRecipe?.customScales).some(opt => opt.value === usage.scaleFactor) && (
@@ -755,6 +769,28 @@ function ItemUsageRow({
           </TouchableOpacity>
         </View>
       </Modal>
+
+      {/* Scale by Container Modal */}
+      {selectedRecipe?.container && (
+        <ContainerScaleModal
+          isOpen={showContainerScale}
+          onClose={() => setShowContainerScale(false)}
+          onApply={(scaleFactor) => {
+            onUpdate({ scaleFactor: scaleFactor === 1 ? undefined : scaleFactor });
+          }}
+          sourceContainer={selectedRecipe.container}
+          recipeId={selectedRecipe.recipeId}
+          context={{
+            itemName: selectedItem?.name || '',
+            itemType: (selectedItem?.type || 'batter') as ItemType,
+            recipeName: selectedRecipe.name,
+            ingredients: mergedIngredients,
+            bakeTime: selectedRecipe.bakeTime,
+            bakeTemp: selectedRecipe.bakeTemp,
+            bakeTempUnit: selectedRecipe.bakeTempUnit,
+          }}
+        />
+      )}
     </View>
   );
 }
@@ -1006,6 +1042,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing[1],
+  },
+  scaleByRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: spacing[2],
   },
   scaleButton: {
     paddingHorizontal: spacing[3],

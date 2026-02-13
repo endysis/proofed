@@ -18,17 +18,43 @@ import type {
   PhotoUploadResponse,
   PhotoDownloadRequest,
   PhotoDownloadResponse,
+  AiAdviceRequest,
+  AiAdviceResponse,
+  AiContainerScaleRequest,
+  AiContainerScaleResponse,
 } from '@proofed/shared';
 import { API_BASE, USE_MOCK } from './config';
 
+// Auth token getter - will be set by AuthContext
+let getAuthToken: (() => Promise<string | null>) | null = null;
+
+export function setAuthTokenGetter(getter: () => Promise<string | null>) {
+  getAuthToken = getter;
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options?.headers as Record<string, string>),
+  };
+
+  // Add auth token if available
+  if (getAuthToken) {
+    const token = await getAuthToken();
+    console.log('[API] Token available:', !!token, 'for path:', path);
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+  } else {
+    console.log('[API] No token getter set for path:', path);
+  }
+
   const response = await fetch(`${API_BASE}${path}`, {
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options?.headers,
-    },
+    headers,
   });
+
+  console.log('[API] Response status:', response.status, 'for path:', path);
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: 'Request failed' }));
@@ -39,7 +65,9 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     return null as T;
   }
 
-  return response.json();
+  const data = await response.json();
+  console.log('[API] Response data for', path, ':', JSON.stringify(data).slice(0, 200));
+  return data;
 }
 
 // Items
@@ -71,6 +99,11 @@ export const recipesApi = {
     }),
   delete: (itemId: string, recipeId: string) =>
     request<void>(`/items/${itemId}/recipes/${recipeId}`, { method: 'DELETE' }),
+  getAiContainerScale: (recipeId: string, data: AiContainerScaleRequest) =>
+    request<AiContainerScaleResponse>(`/recipes/${recipeId}/ai-container-scale`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 };
 
 // Variants
@@ -117,6 +150,11 @@ export const attemptsApi = {
     request<void>(`/attempts/${attemptId}`, { method: 'DELETE' }),
   capture: (attemptId: string, data: CaptureAttemptRequest) =>
     request<ProofedItem>(`/attempts/${attemptId}/capture`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  getAiAdvice: (attemptId: string, data: AiAdviceRequest) =>
+    request<AiAdviceResponse>(`/attempts/${attemptId}/ai-advice`, {
       method: 'POST',
       body: JSON.stringify(data),
     }),

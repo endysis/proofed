@@ -42,11 +42,10 @@ export function formatScaleFactor(scale: number): string {
  * Available scale presets
  */
 export const SCALE_PRESETS: { value: number; label: string }[] = [
-  { value: 0.5, label: '÷2' },
-  { value: 0.75, label: '×0.75' },
-  { value: 1, label: '1×' },
-  { value: 1.5, label: '×1.5' },
-  { value: 2, label: '×2' },
+  { value: 0.5, label: 'Half' },
+  { value: 1, label: 'Normal' },
+  { value: 2, label: 'Double' },
+  { value: 3, label: 'Triple' },
 ];
 
 /**

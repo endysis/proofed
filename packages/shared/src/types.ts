@@ -2,12 +2,28 @@ export type ItemType = 'batter' | 'frosting' | 'filling' | 'dough' | 'glaze' | '
 
 export type ContainerType = 'round_cake_tin' | 'square_cake_tin' | 'loaf_tin' | 'bundt_tin' | 'sheet_pan' | 'muffin_tin' | 'other';
 
+export type MuffinCupSize = 'mini' | 'standard' | 'jumbo';
+
 export type AttemptStatus = 'planning' | 'baking' | 'done';
 
 export interface ContainerInfo {
   type: ContainerType;
-  size: number;      // in inches
-  count: number;     // number of containers
+  count: number;     // number of containers/trays
+
+  // Type-specific sizing (use the appropriate one based on type):
+  // For round_cake_tin, square_cake_tin, other: diameter/side in inches
+  size?: number;
+
+  // For loaf_tin, sheet_pan: length × width in inches
+  length?: number;
+  width?: number;
+
+  // For bundt_tin: capacity in cups
+  capacity?: number;
+
+  // For muffin_tin: cup size and cups per tray
+  cupSize?: MuffinCupSize;
+  cupsPerTray?: number;  // 6, 12, 24 cups per tray
 }
 
 export interface Item {
@@ -224,6 +240,38 @@ export interface AiAdviceRequest {
 export interface AiAdviceResponse {
   overview: string;  // Friendly, informal reaction to the bake
   tips: AiAdviceTip[];
+  generatedAt: string;
+}
+
+// AI Container Scale types
+export interface AiContainerScaleRequest {
+  sourceContainer: ContainerInfo;
+  targetContainer: ContainerInfo;
+  context: {
+    itemName: string;
+    itemType: ItemType;
+    recipeName: string;
+    ingredients: Ingredient[];
+    bakeTime?: number;
+    bakeTemp?: number;
+    bakeTempUnit?: 'F' | 'C';
+  };
+}
+
+export interface AiContainerScaleTip {
+  title: string;
+  suggestion: string;
+}
+
+export interface AiContainerScaleResponse {
+  scaleFactor: number;
+  scaleFactorDisplay: string;    // "x1.78" or "almost double"
+  explanation: string;           // Crumb's friendly explanation
+  tips: AiContainerScaleTip[];
+  adjustedBakeTime?: number;
+  adjustedBakeTemp?: number;
+  adjustedBakeTempUnit?: 'F' | 'C';
+  warning?: string;              // For extreme scaling
   generatedAt: string;
 }
 
