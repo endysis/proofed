@@ -8,6 +8,7 @@ import {
   TextInput,
   Alert,
   Platform,
+  Switch,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -29,8 +30,17 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 type PlanScreenRouteProp = RouteProp<RootStackParamList, 'PlanScreen'>;
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-interface ItemUsageInput extends ItemUsage {
+interface ItemUsageInput {
   _key: string;
+  itemId: string;
+  recipeId: string;
+  variantId?: string;
+  scaleFactor?: number;
+  notes?: string;
+  shoppingListEnabled?: boolean;
+  stockedIngredients?: string[];
+  measurementEnabled?: boolean;
+  measuredIngredients?: string[];
 }
 
 // Map item types to icons and section headers
@@ -72,16 +82,38 @@ export default function PlanScreen() {
     editedUsages.filter(u => u.itemId && u.recipeId)
   );
 
+  // Track if we've initialized from the attempt
+  const hasInitialized = useRef(false);
+
   // Initialize editable fields from attempt
   useEffect(() => {
-    if (attempt) {
+    if (attempt && !hasInitialized.current) {
       setEditedUsages(
         attempt.itemUsages.map((u, i) => ({ ...u, _key: `existing-${i}` }))
       );
       setName(attempt.name);
       setDate(new Date(attempt.date));
+      hasInitialized.current = true;
     }
   }, [attempt]);
+
+  // Auto-save changes to DB (debounced)
+  useEffect(() => {
+    if (!hasInitialized.current || !hasChanges) return;
+
+    const validUsages = editedUsages
+      .filter((u) => u.itemId && u.recipeId)
+      .map(({ _key, ...usage }) => usage);
+
+    const timer = setTimeout(() => {
+      updateAttempt.mutate(
+        { attemptId, data: { itemUsages: validUsages, name, date: date.toISOString() } },
+        { onSuccess: () => setHasChanges(false) }
+      );
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [editedUsages, name, date, hasChanges, attemptId]);
 
   const addItemUsage = (usage: ItemUsageInput) => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -187,6 +219,24 @@ export default function PlanScreen() {
   const handleOpenEditModal = (key: string) => {
     setEditingUsageKey(key);
     setShowAddItemModal(true);
+  };
+
+  const handleToggleIngredient = (usageKey: string, ingredientName: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setEditedUsages((prev) =>
+      prev.map((usage) => {
+        if (usage._key !== usageKey) return usage;
+        const current = usage.stockedIngredients ?? [];
+        const isStocked = current.includes(ingredientName);
+        return {
+          ...usage,
+          stockedIngredients: isStocked
+            ? current.filter((n: string) => n !== ingredientName)
+            : [...current, ingredientName],
+        };
+      })
+    );
+    setHasChanges(true);
   };
 
   const handleModalSave = (usage: ItemUsageInput) => {
@@ -301,6 +351,9 @@ export default function PlanScreen() {
                     usage={usage}
                     detail={detail}
                     onEdit={() => handleOpenEditModal(usage._key)}
+                    onToggleIngredient={(ingredientName) =>
+                      handleToggleIngredient(usage._key, ingredientName)
+                    }
                   />
                 );
               })
@@ -417,10 +470,12 @@ function PlanItemTile({
   usage,
   detail,
   onEdit,
+  onToggleIngredient,
 }: {
   usage: ItemUsageInput;
   detail?: ItemUsageDetail;
   onEdit: () => void;
+  onToggleIngredient: (ingredientName: string) => void;
 }) {
   const [notesExpanded, setNotesExpanded] = useState(false);
 
@@ -434,6 +489,8 @@ function PlanItemTile({
 
   const { itemName, itemType, recipeName, variantName, scaleFactor, ingredients } = detail;
   const typeConfig = ITEM_TYPE_CONFIG[itemType] || ITEM_TYPE_CONFIG.other;
+  const shoppingListEnabled = usage.shoppingListEnabled ?? false;
+  const stockedIngredients = usage.stockedIngredients ?? [];
 
   return (
     <View style={styles.itemTile}>
@@ -461,14 +518,51 @@ function PlanItemTile({
 
       {/* Ingredients List */}
       <View style={styles.ingredientsList}>
-        {ingredients.map((ing) => (
-          <View key={ing.name} style={styles.ingredientRow}>
-            <Text style={styles.ingredientName}>{ing.name}</Text>
-            <Text style={styles.ingredientQuantity}>
-              {ing.quantity}{ing.unit}
-            </Text>
-          </View>
-        ))}
+        {ingredients.map((ing) => {
+          const isStocked = stockedIngredients.includes(ing.name);
+
+          if (shoppingListEnabled) {
+            return (
+              <TouchableOpacity
+                key={ing.name}
+                style={styles.ingredientRowCheckable}
+                onPress={() => onToggleIngredient(ing.name)}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.checkbox, isStocked && styles.checkboxChecked]}>
+                  {isStocked && (
+                    <Icon name="check" size="sm" color={colors.white} />
+                  )}
+                </View>
+                <Text
+                  style={[
+                    styles.ingredientName,
+                    isStocked && styles.ingredientNameStocked,
+                  ]}
+                >
+                  {ing.name}
+                </Text>
+                <Text
+                  style={[
+                    styles.ingredientQuantity,
+                    isStocked && styles.ingredientQuantityStocked,
+                  ]}
+                >
+                  {ing.quantity}{ing.unit}
+                </Text>
+              </TouchableOpacity>
+            );
+          }
+
+          return (
+            <View key={ing.name} style={styles.ingredientRow}>
+              <Text style={styles.ingredientName}>{ing.name}</Text>
+              <Text style={styles.ingredientQuantity}>
+                {ing.quantity}{ing.unit}
+              </Text>
+            </View>
+          );
+        })}
       </View>
 
       {/* Collapsible Notes Section */}
@@ -522,6 +616,8 @@ function AddItemModal({
   const [variantId, setVariantId] = useState<string | undefined>();
   const [scaleFactor, setScaleFactor] = useState<number | undefined>();
   const [notes, setNotes] = useState('');
+  const [shoppingListEnabled, setShoppingListEnabled] = useState(false);
+  const [measurementEnabled, setMeasurementEnabled] = useState(false);
 
   // Sub-modal states
   const [showItemPicker, setShowItemPicker] = useState(false);
@@ -550,28 +646,32 @@ function AddItemModal({
         setVariantId(editingUsage.variantId);
         setScaleFactor(editingUsage.scaleFactor);
         setNotes(editingUsage.notes || '');
+        setShoppingListEnabled(editingUsage.shoppingListEnabled ?? false);
+        setMeasurementEnabled(editingUsage.measurementEnabled ?? false);
       } else {
         setItemId('');
         setRecipeId('');
         setVariantId(undefined);
         setScaleFactor(undefined);
         setNotes('');
+        setShoppingListEnabled(false);
+        setMeasurementEnabled(false);
       }
       setItemSearch('');
     }
   }, [isOpen, editingUsage]);
 
-  // Reset recipe/variant when item changes
+  // Reset recipe/variant when item changes (but not on initial load)
   useEffect(() => {
-    if (!editingUsage || itemId !== editingUsage.itemId) {
+    if (itemId && (!editingUsage || itemId !== editingUsage.itemId)) {
       setRecipeId('');
       setVariantId(undefined);
     }
   }, [itemId, editingUsage]);
 
-  // Reset variant when recipe changes
+  // Reset variant when recipe changes (but not on initial load)
   useEffect(() => {
-    if (!editingUsage || recipeId !== editingUsage.recipeId) {
+    if (recipeId && (!editingUsage || recipeId !== editingUsage.recipeId)) {
       setVariantId(undefined);
     }
   }, [recipeId, editingUsage]);
@@ -589,6 +689,10 @@ function AddItemModal({
       variantId,
       scaleFactor,
       notes: notes || undefined,
+      shoppingListEnabled,
+      stockedIngredients: editingUsage?.stockedIngredients,
+      measurementEnabled,
+      measuredIngredients: editingUsage?.measuredIngredients,
     });
   };
 
@@ -727,6 +831,42 @@ function AddItemModal({
           numberOfLines={3}
           textAlignVertical="top"
         />
+      </View>
+
+      {/* Shopping List Mode */}
+      <View style={styles.modalField}>
+        <View style={styles.shoppingListToggleRow}>
+          <View style={styles.shoppingListToggleContent}>
+            <Text style={styles.modalLabel}>Shopping List Mode</Text>
+            <Text style={styles.shoppingListHint}>
+              Track which ingredients you have in stock
+            </Text>
+          </View>
+          <Switch
+            value={shoppingListEnabled}
+            onValueChange={setShoppingListEnabled}
+            trackColor={{ false: colors.bgLight, true: colors.pastelPink }}
+            thumbColor={shoppingListEnabled ? colors.primary : colors.dustyMauve}
+          />
+        </View>
+      </View>
+
+      {/* Measurement Mode */}
+      <View style={styles.modalField}>
+        <View style={styles.shoppingListToggleRow}>
+          <View style={styles.shoppingListToggleContent}>
+            <Text style={styles.modalLabel}>Measurement Mode</Text>
+            <Text style={styles.shoppingListHint}>
+              Track ingredients as you measure them during baking
+            </Text>
+          </View>
+          <Switch
+            value={measurementEnabled}
+            onValueChange={setMeasurementEnabled}
+            trackColor={{ false: colors.bgLight, true: colors.pastelPink }}
+            thumbColor={measurementEnabled ? colors.primary : colors.dustyMauve}
+          />
+        </View>
       </View>
 
       {/* Action Buttons */}
@@ -1172,16 +1312,42 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing[2],
   },
+  ingredientRowCheckable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing[2],
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: colors.dustyMauve,
+    marginRight: spacing[3],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: colors.success,
+    borderColor: colors.success,
+  },
   ingredientName: {
     flex: 1,
     fontFamily: fontFamily.regular,
     fontSize: fontSize.sm,
     color: colors.text,
   },
+  ingredientNameStocked: {
+    textDecorationLine: 'line-through',
+    color: colors.dustyMauve,
+  },
   ingredientQuantity: {
     fontFamily: fontFamily.medium,
     fontSize: fontSize.sm,
     color: colors.dustyMauve,
+  },
+  ingredientQuantityStocked: {
+    textDecorationLine: 'line-through',
   },
   loadingText: {
     fontFamily: fontFamily.regular,
@@ -1317,6 +1483,21 @@ const styles = StyleSheet.create({
     color: colors.text,
     minHeight: 80,
     textAlignVertical: 'top',
+  },
+  shoppingListToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  shoppingListToggleContent: {
+    flex: 1,
+    marginRight: spacing[3],
+  },
+  shoppingListHint: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: colors.dustyMauve,
+    marginTop: spacing[1],
   },
   modalButtons: {
     flexDirection: 'row',

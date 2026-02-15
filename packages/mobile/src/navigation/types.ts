@@ -29,6 +29,12 @@ export type RootStackParamList = {
   NewAttempt: undefined;
   ProofedItemDetail: { proofedItemId: string };
   Settings: undefined;
+  TimerScreen: {
+    itemName: string;
+    bakeTimeMinutes: number;
+    bakeTemp?: number;
+    bakeTempUnit?: 'F' | 'C';
+  };
 };
 
 // Screen props types

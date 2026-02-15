@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,7 +6,10 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
+  Animated,
 } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
+import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Icon, Modal, Loading } from '../components/common';
@@ -38,6 +41,46 @@ export default function BakeScreen() {
     const now = new Date();
     return now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
   });
+
+  // Track edited usages locally for measurement mode
+  const [editedUsages, setEditedUsages] = useState<ItemUsage[]>([]);
+  const hasInitialized = useRef(false);
+
+  // Initialize from attempt
+  useEffect(() => {
+    if (attempt && !hasInitialized.current) {
+      setEditedUsages(attempt.itemUsages);
+      hasInitialized.current = true;
+    }
+  }, [attempt]);
+
+  // Toggle measured ingredient
+  const handleToggleMeasured = useCallback((usageIndex: number, ingredientName: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setEditedUsages((prev) =>
+      prev.map((usage, idx) => {
+        if (idx !== usageIndex) return usage;
+        const current = usage.measuredIngredients ?? [];
+        const isMeasured = current.includes(ingredientName);
+        return {
+          ...usage,
+          measuredIngredients: isMeasured
+            ? current.filter((n) => n !== ingredientName)
+            : [...current, ingredientName],
+        };
+      })
+    );
+  }, []);
+
+  // Auto-save when usages change (debounced)
+  useEffect(() => {
+    if (editedUsages.length > 0 && hasInitialized.current) {
+      const timer = setTimeout(() => {
+        updateAttempt.mutate({ attemptId, data: { itemUsages: editedUsages } });
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [editedUsages, attemptId]);
 
   const handleDelete = () => {
     Alert.alert('Delete Attempt', 'Are you sure you want to delete this attempt?', [
@@ -120,9 +163,23 @@ export default function BakeScreen() {
         {/* Ingredients Checklist */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>INGREDIENTS CHECKLIST</Text>
-          {attempt.itemUsages.length > 0 ? (
-            attempt.itemUsages.map((usage, index) => (
-              <BakingChecklist key={index} usage={usage} />
+          {editedUsages.length > 0 ? (
+            editedUsages.map((usage, index) => (
+              <BakingChecklist
+                key={index}
+                usage={usage}
+                onToggleIngredient={(ingredientName) =>
+                  handleToggleMeasured(index, ingredientName)
+                }
+                onNavigateToTimer={(itemName, bakeTimeMinutes, bakeTemp, bakeTempUnit) => {
+                  navigation.navigate('TimerScreen', {
+                    itemName,
+                    bakeTimeMinutes,
+                    bakeTemp,
+                    bakeTempUnit,
+                  });
+                }}
+              />
             ))
           ) : (
             <View style={styles.card}>
@@ -185,13 +242,29 @@ export default function BakeScreen() {
   );
 }
 
-function BakingChecklist({ usage }: { usage: ItemUsage }) {
+function BakingChecklist({
+  usage,
+  onToggleIngredient,
+  onNavigateToTimer,
+}: {
+  usage: ItemUsage;
+  onToggleIngredient: (ingredientName: string) => void;
+  onNavigateToTimer: (itemName: string, bakeTime: number, bakeTemp?: number, bakeTempUnit?: 'F' | 'C') => void;
+}) {
   const [notesExpanded, setNotesExpanded] = useState(false);
+  const swipeableRef = useRef<Swipeable>(null);
   const { data: item } = useItem(usage.itemId);
   const { data: recipe } = useRecipe(usage.itemId, usage.recipeId);
   const { data: variant } = useVariant(usage.itemId, usage.recipeId, usage.variantId || '');
 
   const scaleFactor = usage.scaleFactor ?? 1;
+  const measurementEnabled = usage.measurementEnabled ?? false;
+  const measuredIngredients = usage.measuredIngredients ?? [];
+
+  // Get bake temp/time from variant (if set) or recipe
+  const bakeTemp = variant?.bakeTemp ?? recipe?.bakeTemp;
+  const bakeTime = variant?.bakeTime ?? recipe?.bakeTime;
+  const bakeTempUnit = variant?.bakeTempUnit ?? recipe?.bakeTempUnit ?? 'C';
 
   if (!recipe) {
     return (
@@ -203,7 +276,38 @@ function BakingChecklist({ usage }: { usage: ItemUsage }) {
 
   const ingredients = mergeIngredients(recipe, variant);
 
-  return (
+  const handleTimerPress = () => {
+    swipeableRef.current?.close();
+    if (bakeTime && item) {
+      onNavigateToTimer(item.name, bakeTime, bakeTemp, bakeTempUnit);
+    }
+  };
+
+  const renderRightActions = (
+    _progress: Animated.AnimatedInterpolation<number>,
+    dragX: Animated.AnimatedInterpolation<number>
+  ) => {
+    if (!bakeTime) return null;
+
+    const translateX = dragX.interpolate({
+      inputRange: [-80, 0],
+      outputRange: [0, 80],
+      extrapolate: 'clamp',
+    });
+
+    return (
+      <View style={styles.timerActionContainer}>
+        <Animated.View style={[styles.timerAction, { transform: [{ translateX }] }]}>
+          <TouchableOpacity style={styles.timerButton} onPress={handleTimerPress}>
+            <Icon name="timer" color={colors.white} size="md" />
+            <Text style={styles.timerButtonText}>Timer</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      </View>
+    );
+  };
+
+  const cardContent = (
     <View style={styles.checklistCard}>
       {/* Header with icon */}
       <View style={styles.checklistHeader}>
@@ -216,14 +320,67 @@ function BakingChecklist({ usage }: { usage: ItemUsage }) {
             <Text style={scaleFactor !== 1 ? styles.scaledLabel : styles.standardBatchLabel}>
               {scaleFactor !== 1 ? `Scaled ×${scaleFactor}` : 'STANDARD BATCH'}
             </Text>
+            {/* Bake temp and time */}
+            {(bakeTemp || bakeTime) && (
+              <View style={styles.bakeInfoRow}>
+                {bakeTemp && (
+                  <View style={styles.bakeInfoItem}>
+                    <Icon name="thermostat" size="sm" color={colors.dustyMauve} />
+                    <Text style={styles.bakeInfoText}>
+                      {bakeTemp}°{bakeTempUnit}
+                    </Text>
+                  </View>
+                )}
+                {bakeTime && (
+                  <View style={styles.bakeInfoItem}>
+                    <Icon name="timer" size="sm" color={colors.dustyMauve} />
+                    <Text style={styles.bakeInfoText}>{bakeTime} min</Text>
+                  </View>
+                )}
+              </View>
+            )}
           </View>
         </View>
       </View>
 
-      {/* Ingredients - clean two-column layout */}
+      {/* Ingredients list */}
       <View style={styles.ingredientsList}>
         {ingredients.map((ing) => {
           const scaledQuantity = Math.round(ing.quantity * scaleFactor * 100) / 100;
+          const isMeasured = measuredIngredients.includes(ing.name);
+
+          if (measurementEnabled) {
+            return (
+              <TouchableOpacity
+                key={ing.name}
+                style={styles.ingredientRowCheckable}
+                onPress={() => onToggleIngredient(ing.name)}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.checkbox, isMeasured && styles.checkboxChecked]}>
+                  {isMeasured && (
+                    <Icon name="check" size="sm" color={colors.white} />
+                  )}
+                </View>
+                <Text
+                  style={[
+                    styles.ingredientName,
+                    isMeasured && styles.ingredientNameMeasured,
+                  ]}
+                >
+                  {ing.name}
+                </Text>
+                <Text
+                  style={[
+                    styles.ingredientQuantity,
+                    isMeasured && styles.ingredientQuantityMeasured,
+                  ]}
+                >
+                  {scaledQuantity}{ing.unit}
+                </Text>
+              </TouchableOpacity>
+            );
+          }
 
           return (
             <View key={ing.name} style={styles.ingredientRow}>
@@ -261,6 +418,24 @@ function BakingChecklist({ usage }: { usage: ItemUsage }) {
       )}
     </View>
   );
+
+  // Wrap with Swipeable if bakeTime exists
+  if (bakeTime) {
+    return (
+      <View style={styles.swipeableWrapper}>
+        <Swipeable
+          ref={swipeableRef}
+          renderRightActions={renderRightActions}
+          rightThreshold={40}
+          overshootRight={false}
+        >
+          {cardContent}
+        </Swipeable>
+      </View>
+    );
+  }
+
+  return cardContent;
 }
 
 const styles = StyleSheet.create({
@@ -426,13 +601,55 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing[2],
   },
+  ingredientRowCheckable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing[2],
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: colors.dustyMauve,
+    marginRight: spacing[3],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: colors.success,
+    borderColor: colors.success,
+  },
   ingredientName: {
     flex: 1,
     fontFamily: fontFamily.regular,
     fontSize: fontSize.sm,
     color: colors.text,
   },
+  ingredientNameMeasured: {
+    textDecorationLine: 'line-through',
+    color: colors.dustyMauve,
+  },
   ingredientQuantity: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: colors.dustyMauve,
+  },
+  ingredientQuantityMeasured: {
+    textDecorationLine: 'line-through',
+  },
+  bakeInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[3],
+    marginTop: spacing[1],
+  },
+  bakeInfoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[1],
+  },
+  bakeInfoText: {
     fontFamily: fontFamily.medium,
     fontSize: fontSize.sm,
     color: colors.dustyMauve,
@@ -507,5 +724,35 @@ const styles = StyleSheet.create({
     fontSize: fontSize.base,
     color: colors.error,
     padding: spacing[4],
+  },
+  swipeableWrapper: {
+    overflow: 'hidden',
+    borderRadius: borderRadius.xl,
+  },
+  timerActionContainer: {
+    width: 80,
+    justifyContent: 'center',
+    alignItems: 'flex-end',
+  },
+  timerAction: {
+    width: 80,
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  timerButton: {
+    width: 72,
+    height: '100%',
+    backgroundColor: colors.success,
+    borderRadius: borderRadius.xl,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: spacing[2],
+  },
+  timerButtonText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.xs,
+    color: colors.white,
+    marginTop: spacing[1],
   },
 });

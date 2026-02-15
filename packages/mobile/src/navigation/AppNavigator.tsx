@@ -22,6 +22,7 @@ import EvaluateScreen from '../screens/EvaluateScreen';
 import NewAttemptScreen from '../screens/NewAttemptScreen';
 import ProofedItemDetailScreen from '../screens/ProofedItemDetailScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import TimerScreen from '../screens/TimerScreen';
 
 // Auth Screens
 import {
@@ -136,6 +137,7 @@ function MainNavigator() {
         component={SettingsScreen}
         options={{ animation: 'slide_from_left' }}
       />
+      <Stack.Screen name="TimerScreen" component={TimerScreen} />
     </Stack.Navigator>
   );
 }
