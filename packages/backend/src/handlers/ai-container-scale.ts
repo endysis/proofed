@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import type { AiContainerScaleRequest, AiContainerScaleResponse, ContainerInfo, ContainerType, MuffinCupSize } from '@proofed/shared';
 import { getOpenAIApiKey } from '../lib/secrets';
+import { getConversionMultiplier, formatMultiplier } from '../constants/cake-conversions';
 
 // Container type display names
 const CONTAINER_NAMES: Record<ContainerType, string> = {
@@ -87,6 +88,44 @@ function calculateContainerVolume(container: ContainerInfo): number {
   }
 }
 
+// Calculate deterministic scale factor based on area (for round/square tins)
+// or volume (for other container types)
+function calculateDeterministicScaleFactor(
+  sourceContainer: ContainerInfo,
+  targetContainer: ContainerInfo
+): { scaleFactor: number; scaleFactorDisplay: string } {
+  const sourceType = sourceContainer.type;
+  const targetType = targetContainer.type;
+
+  // For round and square cake tins, use area-based calculation
+  if (
+    (sourceType === 'round_cake_tin' || sourceType === 'square_cake_tin') &&
+    (targetType === 'round_cake_tin' || targetType === 'square_cake_tin')
+  ) {
+    const sourceSize = sourceContainer.size || 8;
+    const targetSize = targetContainer.size || 8;
+    const sourceShape = sourceType === 'round_cake_tin' ? 'round' : 'square';
+    const targetShape = targetType === 'round_cake_tin' ? 'round' : 'square';
+
+    // Calculate base multiplier for single tin
+    const baseMultiplier = getConversionMultiplier(sourceSize, targetSize, sourceShape, targetShape);
+
+    // Adjust for container count
+    const scaleFactor = Math.round((baseMultiplier * targetContainer.count / sourceContainer.count) * 100) / 100;
+    const scaleFactorDisplay = `${formatMultiplier(scaleFactor)} (${scaleFactor}×)`;
+
+    return { scaleFactor, scaleFactorDisplay };
+  }
+
+  // For other container types, fall back to volume-based calculation
+  const sourceVolume = calculateContainerVolume(sourceContainer);
+  const targetVolume = calculateContainerVolume(targetContainer);
+  const scaleFactor = Math.round((targetVolume / sourceVolume) * 100) / 100;
+  const scaleFactorDisplay = `${formatMultiplier(scaleFactor)} (${scaleFactor}×)`;
+
+  return { scaleFactor, scaleFactorDisplay };
+}
+
 function formatContainer(container: ContainerInfo): string {
   const typeName = CONTAINER_NAMES[container.type];
   const plural = container.count > 1 ? 's' : '';
@@ -120,57 +159,47 @@ export async function getAiContainerScale(request: AiContainerScaleRequest): Pro
 
   console.log('AI Container Scale Request:', JSON.stringify(request, null, 2));
 
+  // Calculate deterministic scale factor based on area/volume
+  const { scaleFactor, scaleFactorDisplay } = calculateDeterministicScaleFactor(sourceContainer, targetContainer);
+
+  console.log('Deterministic scale calculation:', {
+    sourceContainer,
+    targetContainer,
+    scaleFactor,
+    scaleFactorDisplay,
+  });
+
   // Get OpenAI API key from Secrets Manager
   const apiKey = await getOpenAIApiKey();
   const openai = new OpenAI({ apiKey });
-
-  // Calculate volume ratio for AI context (all in cups)
-  const sourceVolume = calculateContainerVolume(sourceContainer);
-  const targetVolume = calculateContainerVolume(targetContainer);
-  const volumeRatio = targetVolume / sourceVolume;
-
-  console.log('Volume calculations:', {
-    sourceContainer,
-    targetContainer,
-    sourceVolume: `${sourceVolume} cups`,
-    targetVolume: `${targetVolume} cups`,
-    volumeRatio,
-  });
 
   const ingredientList = context.ingredients
     .map((ing) => `${ing.quantity} ${ing.unit} ${ing.name}`)
     .join(', ');
 
+  // AI prompt focuses only on baking tips, not scale factor calculation
   const prompt = `You are "Crumb", a chill, laid-back baker who genuinely loves talking about bakes. You've got that relaxed vibe - think of a talented baker friend who's seen it all but never judges.
 
-A baker wants to scale their recipe from one container to another:
+A baker is scaling their recipe from one container to another. The scale factor has already been calculated:
 
 **Recipe**: ${context.recipeName} for ${context.itemName}
 **Item Type**: ${context.itemType}
 **Current Container**: ${formatContainer(sourceContainer)}
 **Target Container**: ${formatContainer(targetContainer)}
+**Scale Factor**: ${scaleFactorDisplay}
 **Ingredients**: ${ingredientList}
 ${context.bakeTime ? `**Current Bake Time**: ${context.bakeTime} minutes` : ''}
 ${context.bakeTemp ? `**Current Bake Temp**: ${context.bakeTemp}°${context.bakeTempUnit || 'F'}` : ''}
 
-**Volume Calculation**: The target container holds ${(volumeRatio * 100).toFixed(0)}% of the source container's volume (ratio: ${volumeRatio.toFixed(3)}, source: ${sourceVolume.toFixed(1)} cups, target: ${targetVolume.toFixed(1)} cups)
-
-Your job is to recommend a scale factor, considering:
-1. Volume difference (already calculated above in cups)
-2. Batter depth implications - deeper batter cooks differently than shallow
-3. Rise patterns - different item types rise differently, depth affects dome
-4. Heat distribution - container shape affects how heat reaches the center
-5. Recipe type - ${context.itemType}s have specific characteristics
-
-The volume ratio is ${volumeRatio.toFixed(3)}. Use this as your starting point for the scale factor, then adjust slightly based on the factors above. For example, if the ratio is 0.42, the scale factor should be close to 0.42 (scaling down to ~42% of original). If the ratio is 2.5, the scale factor should be close to 2.5 (scaling up to 250% of original).
-
-IMPORTANT: Based on the volume calculation above (${volumeRatio.toFixed(3)}), the scale factor should be approximately ${volumeRatio.toFixed(2)}. You may adjust slightly based on baking considerations, but stay close to this ratio.
+Your job is to provide baking recommendations for this container change, considering:
+1. Batter depth implications - deeper batter cooks differently than shallow
+2. Rise patterns - different item types rise differently, depth affects dome
+3. Heat distribution - container shape affects how heat reaches the center
+4. Recipe type - ${context.itemType}s have specific characteristics
 
 Respond with a JSON object in this exact format:
 {
-  "scaleFactor": <calculated decimal number based on area ratio, e.g., 0.35 for scaling down, 2.5 for scaling up>,
-  "scaleFactorDisplay": "<human-friendly version like 'x0.35' or 'about 1/3' or 'x2.5'>",
-  "explanation": "Your chill, casual explanation of the scaling recommendation (2-3 sentences). Mention key considerations like batter depth or heat distribution.",
+  "explanation": "Your chill, casual explanation of what to expect with this container change (2-3 sentences). Mention key considerations like batter depth or heat distribution.",
   "tips": [
     {
       "title": "Short tip title",
@@ -184,10 +213,7 @@ Respond with a JSON object in this exact format:
 }
 
 Important:
-- scaleFactor MUST be based on the volume ratio (${volumeRatio.toFixed(3)}) - do not make up arbitrary numbers
-- If volume ratio is less than 1 (e.g., 0.42), you are scaling DOWN - scaleFactor should be close to 0.42
-- If volume ratio is greater than 1 (e.g., 2.5), you are scaling UP - scaleFactor should be close to 2.5
-- scaleFactorDisplay should be human-friendly (e.g., "x0.35", "about 1/3", "x2.5", "almost double")
+- DO NOT include scaleFactor or scaleFactorDisplay - those are already calculated
 - Keep the explanation chill and conversational - no corporate speak
 - Include 1-2 practical tips specific to this container change
 - Only include adjustedBakeTime/adjustedBakeTemp if you're suggesting changes
@@ -196,7 +222,7 @@ Important:
   console.log('Prompt being sent to AI:', prompt);
 
   try {
-    console.log('Calling OpenAI API for container scale...');
+    console.log('Calling OpenAI API for baking tips...');
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
@@ -212,7 +238,7 @@ Important:
       ],
       response_format: { type: 'json_object' },
       temperature: 0.7,
-      max_tokens: 600,
+      max_tokens: 500,
     });
 
     console.log('OpenAI response received:', JSON.stringify(completion, null, 2));
@@ -222,10 +248,25 @@ Important:
       throw new Error('No response from AI');
     }
 
-    const parsed = JSON.parse(responseContent) as Omit<AiContainerScaleResponse, 'generatedAt'>;
+    const parsed = JSON.parse(responseContent) as {
+      explanation: string;
+      tips: Array<{ title: string; suggestion: string }>;
+      adjustedBakeTime?: number;
+      adjustedBakeTemp?: number;
+      adjustedBakeTempUnit?: 'F' | 'C';
+      warning?: string;
+    };
 
+    // Combine deterministic scale factor with AI-generated tips
     return {
-      ...parsed,
+      scaleFactor,
+      scaleFactorDisplay,
+      explanation: parsed.explanation,
+      tips: parsed.tips,
+      adjustedBakeTime: parsed.adjustedBakeTime,
+      adjustedBakeTemp: parsed.adjustedBakeTemp,
+      adjustedBakeTempUnit: parsed.adjustedBakeTempUnit,
+      warning: parsed.warning,
       generatedAt: new Date().toISOString(),
     };
   } catch (error: any) {
