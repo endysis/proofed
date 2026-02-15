@@ -1,10 +1,11 @@
 import { useQueries } from '@tanstack/react-query';
 import { itemsApi, recipesApi, variantsApi } from '../api/client';
 import { scaleIngredients } from '../utils/scaleRecipe';
-import type { ItemUsage, Ingredient } from '@proofed/shared';
+import type { ItemUsage, Ingredient, ItemType } from '@proofed/shared';
 
 export interface ItemUsageDetail {
   itemName: string;
+  itemType: ItemType;
   recipeName: string;
   variantName?: string;
   scaleFactor: number;
@@ -69,6 +70,7 @@ export function useItemUsageDetails(itemUsages: ItemUsage[]) {
 
     return {
       itemName: item?.name || 'Unknown Item',
+      itemType: item?.type || 'other',
       recipeName: recipe?.name || 'Unknown Recipe',
       variantName: variant?.name,
       scaleFactor,

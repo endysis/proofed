@@ -206,7 +206,7 @@ export default function PlanScreen() {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.mainContent}>
+      <ScrollView style={styles.mainContent} contentContainerStyle={styles.mainContentContainer} showsVerticalScrollIndicator={false}>
         {/* Status Badge */}
         <View style={styles.statusBadgeRow}>
           <View style={[styles.statusBadge, { backgroundColor: colors.pastelPink }]}>
@@ -301,7 +301,7 @@ export default function PlanScreen() {
             </View>
           </View>
         </View>
-      </View>
+      </ScrollView>
 
       {/* Bottom Action Area - Two Buttons */}
       <View style={[styles.bottomAction, { paddingBottom: insets.bottom + spacing[4] }]}>
@@ -804,6 +804,9 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: spacing[4],
   },
+  mainContentContainer: {
+    paddingBottom: 120, // Space for bottom buttons
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -870,7 +873,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   section: {
-    flex: 1,
     marginTop: spacing[4],
   },
   sectionTitle: {

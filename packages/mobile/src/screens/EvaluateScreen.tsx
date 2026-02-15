@@ -32,6 +32,15 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 type EvaluateScreenRouteProp = RouteProp<RootStackParamList, 'EvaluateScreen'>;
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
+const typeIcons: Record<string, string> = {
+  batter: 'cake',
+  frosting: 'water_drop',
+  filling: 'icecream',
+  dough: 'cookie',
+  glaze: 'format_paint',
+  other: 'category',
+};
+
 export default function EvaluateScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp>();
@@ -564,7 +573,7 @@ export default function EvaluateScreen() {
                   onPress={() => handleSelectItemForVariant(index)}
                 >
                   <View style={styles.itemPickerIcon}>
-                    <Icon name="cake" size="sm" color={colors.primary} />
+                    <Icon name={typeIcons[detail?.itemType || 'other'] || 'category'} size="sm" color={colors.primary} />
                   </View>
                   <View style={styles.itemPickerInfo}>
                     <Text style={styles.itemPickerName}>{detail?.itemName || 'Loading...'}</Text>
@@ -697,7 +706,7 @@ function ItemUsageDisplay({ usage }: { usage: ItemUsage }) {
       onPress={() => navigation.navigate('ItemDetail', { itemId: usage.itemId })}
     >
       <View style={styles.usageIcon}>
-        <Icon name="cake" size="sm" color={colors.primary} />
+        <Icon name={typeIcons[item?.type || 'other'] || 'category'} size="sm" color={colors.primary} />
       </View>
       <View style={styles.usageInfo}>
         <Text style={styles.usageName}>{item?.name || 'Loading...'}</Text>
