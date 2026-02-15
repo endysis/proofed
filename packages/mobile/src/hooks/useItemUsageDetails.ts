@@ -1,6 +1,7 @@
 import { useQueries } from '@tanstack/react-query';
 import { itemsApi, recipesApi, variantsApi } from '../api/client';
 import { scaleIngredients } from '../utils/scaleRecipe';
+import { mergeIngredients } from '../utils/mergeIngredients';
 import type { ItemUsage, Ingredient, ItemType } from '@proofed/shared';
 
 export interface ItemUsageDetail {
@@ -53,12 +54,8 @@ export function useItemUsageDetails(itemUsages: ItemUsage[]) {
     const variant = variantQueries[index]?.data;
     const scaleFactor = usage.scaleFactor ?? 1;
 
-    // Get base ingredients from recipe, apply variant overrides if present
-    let baseIngredients = recipe?.ingredients || [];
-    if (variant?.ingredientOverrides && variant.ingredientOverrides.length > 0) {
-      // Variant overrides completely replace recipe ingredients
-      baseIngredients = variant.ingredientOverrides;
-    }
+    // Get merged ingredients from recipe and variant
+    const baseIngredients = recipe ? mergeIngredients(recipe, variant) : [];
 
     // Scale ingredients for display
     const scaledIngredients = scaleIngredients(baseIngredients, scaleFactor);

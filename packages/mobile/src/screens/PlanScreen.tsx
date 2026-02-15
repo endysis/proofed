@@ -8,38 +8,40 @@ import {
   TextInput,
   Alert,
   Platform,
-  Dimensions,
 } from 'react-native';
-import Animated, { ZoomIn } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Icon, Modal, Loading } from '../components/common';
 import { useAttempt, useUpdateAttempt, useDeleteAttempt } from '../hooks/useAttempts';
-import { useItems, useItem } from '../hooks/useItems';
-import { useRecipes, useRecipe } from '../hooks/useRecipes';
-import { useVariants, useVariant } from '../hooks/useVariants';
+import { useItems } from '../hooks/useItems';
+import { useRecipes } from '../hooks/useRecipes';
+import { useVariants } from '../hooks/useVariants';
+import { useItemUsageDetails, ItemUsageDetail } from '../hooks/useItemUsageDetails';
 import { formatScaleFactor, getScaleOptions, calculateScaleFromIngredient } from '../utils/scaleRecipe';
-import { mergeIngredients } from '../utils/mergeIngredients';
 import { colors, fontFamily, fontSize, spacing, borderRadius } from '../theme';
 import ContainerScaleModal from '../components/scaling/ContainerScaleModal';
 import type { RootStackParamList } from '../navigation/types';
-import type { ItemUsage, Item, Ingredient, ItemType } from '@proofed/shared';
+import type { ItemUsage, Item, Recipe, Variant, Ingredient, ItemType } from '@proofed/shared';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type PlanScreenRouteProp = RouteProp<RootStackParamList, 'PlanScreen'>;
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-const { width: screenWidth } = Dimensions.get('window');
-const CARD_WIDTH = screenWidth - spacing[4] * 2;
-const CARD_MARGIN = spacing[2];
-const SNAP_INTERVAL = CARD_WIDTH + CARD_MARGIN * 2;
-const SIDE_PADDING = (screenWidth - CARD_WIDTH) / 2 - CARD_MARGIN;
-
 interface ItemUsageInput extends ItemUsage {
   _key: string;
 }
+
+// Map item types to icons and section headers
+const ITEM_TYPE_CONFIG: Record<ItemType, { icon: string; sectionName: string }> = {
+  batter: { icon: 'cake', sectionName: 'SPONGES' },
+  frosting: { icon: 'water_drop', sectionName: 'FROSTINGS' },
+  filling: { icon: 'icecream', sectionName: 'FILLINGS' },
+  dough: { icon: 'cookie', sectionName: 'DOUGHS' },
+  glaze: { icon: 'format_paint', sectionName: 'GLAZES' },
+  other: { icon: 'category', sectionName: 'OTHER' },
+};
 
 export default function PlanScreen() {
   const insets = useSafeAreaInsets();
@@ -60,8 +62,15 @@ export default function PlanScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [tempDate, setTempDate] = useState<Date>(new Date());
   const tempDateRef = useRef<Date>(new Date());
-  const [activeIndex, setActiveIndex] = useState(0);
-  const carouselRef = useRef<ScrollView>(null);
+
+  // Add/Edit Item Modal State
+  const [showAddItemModal, setShowAddItemModal] = useState(false);
+  const [editingUsageKey, setEditingUsageKey] = useState<string | null>(null);
+
+  // Get details for all item usages (for displaying ingredients)
+  const { details: usageDetails, isLoading: detailsLoading } = useItemUsageDetails(
+    editedUsages.filter(u => u.itemId && u.recipeId)
+  );
 
   // Initialize editable fields from attempt
   useEffect(() => {
@@ -74,23 +83,10 @@ export default function PlanScreen() {
     }
   }, [attempt]);
 
-  const addItemUsage = () => {
+  const addItemUsage = (usage: ItemUsageInput) => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    const newKey = Date.now().toString();
-    setEditedUsages([
-      ...editedUsages,
-      { _key: newKey, itemId: '', recipeId: '' },
-    ]);
+    setEditedUsages([...editedUsages, usage]);
     setHasChanges(true);
-
-    // Auto-scroll to the new item (which will be at editedUsages.length position)
-    setTimeout(() => {
-      carouselRef.current?.scrollTo({
-        x: editedUsages.length * SNAP_INTERVAL,
-        animated: true,
-      });
-      setActiveIndex(editedUsages.length);
-    }, 100);
   };
 
   const updateItemUsage = (key: string, updates: Partial<ItemUsageInput>) => {
@@ -154,7 +150,6 @@ export default function PlanScreen() {
       {
         onSuccess: () => {
           setHasChanges(false);
-          // Navigate back to the Bakes tab, not just goBack()
           navigation.navigate('Tabs', { screen: 'Bakes' });
         },
       }
@@ -184,6 +179,38 @@ export default function PlanScreen() {
     );
   };
 
+  const handleOpenAddModal = () => {
+    setEditingUsageKey(null);
+    setShowAddItemModal(true);
+  };
+
+  const handleOpenEditModal = (key: string) => {
+    setEditingUsageKey(key);
+    setShowAddItemModal(true);
+  };
+
+  const handleModalSave = (usage: ItemUsageInput) => {
+    if (editingUsageKey) {
+      updateItemUsage(editingUsageKey, usage);
+    } else {
+      addItemUsage(usage);
+    }
+    setShowAddItemModal(false);
+    setEditingUsageKey(null);
+  };
+
+  const handleModalRemove = () => {
+    if (editingUsageKey) {
+      removeItemUsage(editingUsageKey);
+    }
+    setShowAddItemModal(false);
+    setEditingUsageKey(null);
+  };
+
+  const editingUsage = editingUsageKey
+    ? editedUsages.find((u) => u._key === editingUsageKey)
+    : undefined;
+
   if (isLoading || itemsLoading) return <Loading />;
   if (!attempt) {
     return (
@@ -192,6 +219,15 @@ export default function PlanScreen() {
       </View>
     );
   }
+
+  // Build a map from usage key to details
+  const validUsages = editedUsages.filter(u => u.itemId && u.recipeId);
+  const usageDetailMap: Record<string, ItemUsageDetail> = {};
+  validUsages.forEach((usage, index) => {
+    if (usageDetails[index]) {
+      usageDetailMap[usage._key] = usageDetails[index];
+    }
+  });
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -239,71 +275,40 @@ export default function PlanScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Items Used - Carousel */}
+        {/* Items Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Items Used</Text>
-
-          <View style={styles.carouselContainer}>
-            <ScrollView
-              ref={carouselRef}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              decelerationRate="fast"
-              snapToInterval={SNAP_INTERVAL}
-              snapToAlignment="center"
-              contentContainerStyle={[styles.carouselContent, { paddingHorizontal: SIDE_PADDING }]}
-              onMomentumScrollEnd={(e) => {
-                const index = Math.round(e.nativeEvent.contentOffset.x / SNAP_INTERVAL);
-                setActiveIndex(index);
-              }}
-            >
-              {editedUsages.map((usage) => (
-                <Animated.View
-                  key={usage._key}
-                  style={[styles.carouselCard, { width: CARD_WIDTH, marginHorizontal: CARD_MARGIN }]}
-                  entering={ZoomIn.duration(300).springify().damping(15)}
-                >
-                  <ItemUsageRow
-                    usage={usage}
-                    items={items || []}
-                    onUpdate={(updates) => updateItemUsage(usage._key, updates)}
-                    onRemove={() => removeItemUsage(usage._key)}
-                  />
-                </Animated.View>
-              ))}
-              {/* Add button as last card */}
-              <TouchableOpacity
-                style={[styles.addCard, { width: CARD_WIDTH, marginHorizontal: CARD_MARGIN }]}
-                onPress={addItemUsage}
-              >
-                <Icon name="add_circle" size="xl" color={colors.primary} />
-                <Text style={styles.addCardText}>
-                  {editedUsages.length === 0 ? 'Add Item' : 'Add Another Item'}
-                </Text>
-              </TouchableOpacity>
-            </ScrollView>
-
-            {/* Page Indicators */}
-            <View style={styles.indicators}>
-              {editedUsages.map((_, index) => (
-                <View
-                  key={index}
-                  style={[styles.indicator, activeIndex === index && styles.indicatorActive]}
-                />
-              ))}
-              <View
-                style={[
-                  styles.indicator,
-                  styles.indicatorAdd,
-                  activeIndex === editedUsages.length && styles.indicatorActive,
-                ]}
-              />
-            </View>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Items</Text>
+            <TouchableOpacity style={styles.addButton} onPress={handleOpenAddModal}>
+              <Icon name="add" size="sm" color={colors.primary} />
+              <Text style={styles.addButtonText}>Add</Text>
+            </TouchableOpacity>
           </View>
+
+          {editedUsages.length === 0 ? (
+            <TouchableOpacity style={styles.emptyCard} onPress={handleOpenAddModal}>
+              <Icon name="add_circle" size="xl" color={colors.primary} />
+              <Text style={styles.emptyCardText}>Add your first item</Text>
+            </TouchableOpacity>
+          ) : (
+            editedUsages
+              .filter((u) => u.itemId && u.recipeId)
+              .map((usage) => {
+                const detail = usageDetailMap[usage._key];
+                return (
+                  <PlanItemTile
+                    key={usage._key}
+                    usage={usage}
+                    detail={detail}
+                    onEdit={() => handleOpenEditModal(usage._key)}
+                  />
+                );
+              })
+          )}
         </View>
       </ScrollView>
 
-      {/* Bottom Action Area - Two Buttons */}
+      {/* Bottom Action Area */}
       <View style={[styles.bottomAction, { paddingBottom: insets.bottom + spacing[4] }]}>
         <TouchableOpacity
           style={styles.secondaryButton}
@@ -387,204 +392,422 @@ export default function PlanScreen() {
           }}
         />
       )}
+
+      {/* Add/Edit Item Modal */}
+      <AddItemModal
+        isOpen={showAddItemModal}
+        onClose={() => {
+          setShowAddItemModal(false);
+          setEditingUsageKey(null);
+        }}
+        onSave={handleModalSave}
+        onRemove={editingUsageKey ? handleModalRemove : undefined}
+        editingUsage={editingUsage}
+        items={items || []}
+      />
     </View>
   );
 }
 
-function ItemUsageRow({
+// ============================================================================
+// PlanItemTile Component - Shows item with ingredients
+// ============================================================================
+
+function PlanItemTile({
   usage,
-  items,
-  onUpdate,
-  onRemove,
+  detail,
+  onEdit,
 }: {
   usage: ItemUsageInput;
-  items: Item[];
-  onUpdate: (updates: Partial<ItemUsageInput>) => void;
-  onRemove: () => void;
+  detail?: ItemUsageDetail;
+  onEdit: () => void;
 }) {
-  const { data: recipes } = useRecipes(usage.itemId);
-  const { data: variants } = useVariants(usage.itemId, usage.recipeId);
-  const { data: selectedRecipe } = useRecipe(usage.itemId, usage.recipeId);
-  const { data: selectedVariantData } = useVariant(usage.itemId, usage.recipeId, usage.variantId || '');
+  const [notesExpanded, setNotesExpanded] = useState(false);
+
+  if (!detail) {
+    return (
+      <View style={styles.itemTile}>
+        <Text style={styles.loadingText}>Loading...</Text>
+      </View>
+    );
+  }
+
+  const { itemName, itemType, recipeName, variantName, scaleFactor, ingredients } = detail;
+  const typeConfig = ITEM_TYPE_CONFIG[itemType] || ITEM_TYPE_CONFIG.other;
+
+  return (
+    <View style={styles.itemTile}>
+      {/* Header */}
+      <View style={styles.tileHeader}>
+        <View style={styles.tileIconRow}>
+          <View style={styles.tileIcon}>
+            <Icon name={typeConfig.icon} size="sm" color={colors.primary} />
+          </View>
+          <View style={styles.tileTitleContent}>
+            <Text style={styles.tileTitle}>{itemName}</Text>
+            <Text style={styles.tileSubtitle}>
+              {recipeName}
+              {variantName ? ` • ${variantName}` : ''}
+            </Text>
+            <Text style={scaleFactor !== 1 ? styles.scaledLabel : styles.standardBatchLabel}>
+              {scaleFactor !== 1 ? `Scaled ${formatScaleFactor(scaleFactor)}` : 'STANDARD BATCH'}
+            </Text>
+          </View>
+          <TouchableOpacity style={styles.editButton} onPress={onEdit}>
+            <Icon name="edit" size="sm" color={colors.dustyMauve} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Ingredients List */}
+      <View style={styles.ingredientsList}>
+        {ingredients.map((ing) => (
+          <View key={ing.name} style={styles.ingredientRow}>
+            <Text style={styles.ingredientName}>{ing.name}</Text>
+            <Text style={styles.ingredientQuantity}>
+              {ing.quantity}{ing.unit}
+            </Text>
+          </View>
+        ))}
+      </View>
+
+      {/* Collapsible Notes Section */}
+      {usage.notes && (
+        <View style={styles.notesSection}>
+          <TouchableOpacity
+            style={styles.notesToggle}
+            onPress={() => setNotesExpanded(!notesExpanded)}
+          >
+            <Icon name="notes" size="sm" color={colors.dustyMauve} />
+            <Text style={styles.notesToggleText}>Notes</Text>
+            <Icon
+              name={notesExpanded ? 'expand_less' : 'expand_more'}
+              size="sm"
+              color={colors.dustyMauve}
+            />
+          </TouchableOpacity>
+
+          {notesExpanded && (
+            <View style={styles.notesContent}>
+              <Text style={styles.notesText}>{usage.notes}</Text>
+            </View>
+          )}
+        </View>
+      )}
+    </View>
+  );
+}
+
+// ============================================================================
+// AddItemModal Component - Modal for adding/editing items
+// ============================================================================
+
+function AddItemModal({
+  isOpen,
+  onClose,
+  onSave,
+  onRemove,
+  editingUsage,
+  items,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (usage: ItemUsageInput) => void;
+  onRemove?: () => void;
+  editingUsage?: ItemUsageInput;
+  items: Item[];
+}) {
+  const [itemId, setItemId] = useState('');
+  const [recipeId, setRecipeId] = useState('');
+  const [variantId, setVariantId] = useState<string | undefined>();
+  const [scaleFactor, setScaleFactor] = useState<number | undefined>();
+  const [notes, setNotes] = useState('');
+
+  // Sub-modal states
   const [showItemPicker, setShowItemPicker] = useState(false);
   const [showRecipePicker, setShowRecipePicker] = useState(false);
   const [showVariantPicker, setShowVariantPicker] = useState(false);
-  const [showNotesModal, setShowNotesModal] = useState(false);
-  const [editingNotes, setEditingNotes] = useState('');
   const [showScaleByIngredient, setShowScaleByIngredient] = useState(false);
+  const [showContainerScale, setShowContainerScale] = useState(false);
   const [selectedIngredient, setSelectedIngredient] = useState<Ingredient | null>(null);
   const [ingredientAmount, setIngredientAmount] = useState('');
-  const [showContainerScale, setShowContainerScale] = useState(false);
+  const [itemSearch, setItemSearch] = useState('');
 
-  const selectedItem = items.find((i) => i.itemId === usage.itemId);
-  const selectedVariant = variants?.find((v) => v.variantId === usage.variantId);
-  const mergedIngredients = selectedRecipe
-    ? mergeIngredients(selectedRecipe, selectedVariantData)
-    : [];
+  // Fetch recipes and variants based on selection
+  const { data: recipes } = useRecipes(itemId);
+  const { data: variants } = useVariants(itemId, recipeId);
+  const { details } = useItemUsageDetails(
+    itemId && recipeId ? [{ itemId, recipeId, variantId }] : []
+  );
+  const currentDetail = details[0];
+
+  // Initialize form when editing
+  useEffect(() => {
+    if (isOpen) {
+      if (editingUsage) {
+        setItemId(editingUsage.itemId);
+        setRecipeId(editingUsage.recipeId);
+        setVariantId(editingUsage.variantId);
+        setScaleFactor(editingUsage.scaleFactor);
+        setNotes(editingUsage.notes || '');
+      } else {
+        setItemId('');
+        setRecipeId('');
+        setVariantId(undefined);
+        setScaleFactor(undefined);
+        setNotes('');
+      }
+      setItemSearch('');
+    }
+  }, [isOpen, editingUsage]);
+
+  // Reset recipe/variant when item changes
+  useEffect(() => {
+    if (!editingUsage || itemId !== editingUsage.itemId) {
+      setRecipeId('');
+      setVariantId(undefined);
+    }
+  }, [itemId, editingUsage]);
+
+  // Reset variant when recipe changes
+  useEffect(() => {
+    if (!editingUsage || recipeId !== editingUsage.recipeId) {
+      setVariantId(undefined);
+    }
+  }, [recipeId, editingUsage]);
+
+  const selectedItem = items.find((i) => i.itemId === itemId);
+  const selectedRecipe = recipes?.find((r) => r.recipeId === recipeId);
+  const selectedVariant = variants?.find((v) => v.variantId === variantId);
+
+  const handleSave = () => {
+    const key = editingUsage?._key || Date.now().toString();
+    onSave({
+      _key: key,
+      itemId,
+      recipeId,
+      variantId,
+      scaleFactor,
+      notes: notes || undefined,
+    });
+  };
+
+  // Group items by type for the picker
+  const groupedItems = items.reduce((acc, item) => {
+    const type = item.type || 'other';
+    if (!acc[type]) acc[type] = [];
+    acc[type].push(item);
+    return acc;
+  }, {} as Record<ItemType, Item[]>);
+
+  // Filter items by search
+  const filteredGroupedItems = Object.entries(groupedItems).reduce((acc, [type, typeItems]) => {
+    const filtered = typeItems.filter((item) =>
+      item.name.toLowerCase().includes(itemSearch.toLowerCase())
+    );
+    if (filtered.length > 0) {
+      acc[type as ItemType] = filtered;
+    }
+    return acc;
+  }, {} as Record<ItemType, Item[]>);
+
+  const canSave = itemId && recipeId;
+
+  if (!isOpen) return null;
 
   return (
-    <View style={styles.usageCard}>
-      <View style={styles.usageHeader}>
-        <View style={styles.usageContent}>
-          {/* Item Picker */}
-          <View style={styles.pickerField}>
-            <Text style={styles.pickerLabel}>Item</Text>
-            <TouchableOpacity
-              style={styles.picker}
-              onPress={() => setShowItemPicker(true)}
-            >
-              <Text
-                style={[styles.pickerText, !selectedItem && styles.pickerPlaceholder]}
-                numberOfLines={1}
-              >
-                {selectedItem?.name || 'Select item...'}
-              </Text>
-              <Icon name="expand_more" size="sm" color={colors.dustyMauve} />
-            </TouchableOpacity>
-          </View>
-
-          {/* Recipe Picker */}
-          {usage.itemId && (
-            <View style={styles.pickerField}>
-              <Text style={styles.pickerLabel}>Recipe</Text>
-              <TouchableOpacity
-                style={styles.picker}
-                onPress={() => setShowRecipePicker(true)}
-              >
-                <Text
-                  style={[styles.pickerText, !selectedRecipe && styles.pickerPlaceholder]}
-                  numberOfLines={1}
-                >
-                  {selectedRecipe?.name || 'Select recipe...'}
-                </Text>
-                <Icon name="expand_more" size="sm" color={colors.dustyMauve} />
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* Variant Picker */}
-          {usage.recipeId && variants && variants.length > 0 && (
-            <View style={styles.pickerField}>
-              <Text style={styles.pickerLabel}>Variant (optional)</Text>
-              <TouchableOpacity
-                style={styles.picker}
-                onPress={() => setShowVariantPicker(true)}
-              >
-                <Text
-                  style={[styles.pickerText, !selectedVariant && styles.pickerPlaceholder]}
-                  numberOfLines={1}
-                >
-                  {selectedVariant?.name || 'Base recipe'}
-                </Text>
-                <Icon name="expand_more" size="sm" color={colors.dustyMauve} />
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* Scale Selector */}
-          {usage.recipeId && (
-            <View style={styles.pickerField}>
-              <Text style={styles.pickerLabel}>Scale</Text>
-              <View style={styles.scaleButtons}>
-                {getScaleOptions(selectedRecipe?.customScales).map((option) => (
-                  <TouchableOpacity
-                    key={option.value}
-                    style={[
-                      styles.scaleButton,
-                      (usage.scaleFactor ?? 1) === option.value && styles.scaleButtonActive,
-                    ]}
-                    onPress={() =>
-                      onUpdate({ scaleFactor: option.value === 1 ? undefined : option.value })
-                    }
-                  >
-                    <Text
-                      style={[
-                        styles.scaleButtonText,
-                        (usage.scaleFactor ?? 1) === option.value && styles.scaleButtonTextActive,
-                      ]}
-                    >
-                      {option.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              {/* Scale by ingredient and container buttons */}
-              <View style={styles.scaleByRow}>
-                <TouchableOpacity
-                  style={styles.scaleByIngredientButton}
-                  onPress={() => setShowScaleByIngredient(true)}
-                >
-                  <Icon name="calculate" size="sm" color={colors.primary} />
-                  <Text style={styles.scaleByIngredientText}>By Ingredient</Text>
-                </TouchableOpacity>
-                {/* Scale by container button - only show if recipe has container */}
-                {selectedRecipe?.container && (
-                  <TouchableOpacity
-                    style={styles.scaleByIngredientButton}
-                    onPress={() => setShowContainerScale(true)}
-                  >
-                    <Icon name="auto_awesome" size="sm" color={colors.primary} />
-                    <Text style={styles.scaleByIngredientText}>By Container</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-              {/* Show applied custom scale indicator */}
-              {usage.scaleFactor && !getScaleOptions(selectedRecipe?.customScales).some(opt => opt.value === usage.scaleFactor) && (
-                <View style={styles.customScaleBadge}>
-                  <Icon name="check_circle" size="sm" color={colors.success} />
-                  <Text style={styles.customScaleBadgeText}>
-                    Bespoke scale applied: {formatScaleFactor(usage.scaleFactor)}
-                  </Text>
-                </View>
-              )}
-            </View>
-          )}
-
-          {/* Notes */}
-          <View style={styles.pickerField}>
-            <Text style={styles.pickerLabel}>Notes for this item</Text>
-            <TouchableOpacity
-              style={[styles.picker, styles.notesPreview]}
-              onPress={() => {
-                setEditingNotes(usage.notes || '');
-                setShowNotesModal(true);
-              }}
-            >
-              <Text
-                style={[styles.pickerText, !usage.notes && styles.pickerPlaceholder]}
-                numberOfLines={2}
-              >
-                {usage.notes || 'Tap to add notes...'}
-              </Text>
-              <Icon name="edit" size="sm" color={colors.dustyMauve} />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <TouchableOpacity style={styles.removeButton} onPress={onRemove}>
-          <Icon name="close" color={colors.dustyMauve} size="md" />
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={editingUsage ? 'Edit Item' : 'Add Item'}
+    >
+      {/* Item Picker */}
+      <View style={styles.modalField}>
+        <Text style={styles.modalLabel}>Item</Text>
+        <TouchableOpacity style={styles.modalPicker} onPress={() => setShowItemPicker(true)}>
+          <Text style={[styles.modalPickerText, !selectedItem && styles.modalPickerPlaceholder]}>
+            {selectedItem?.name || 'Select item...'}
+          </Text>
+          <Icon name="expand_more" size="sm" color={colors.dustyMauve} />
         </TouchableOpacity>
       </View>
 
-      {/* Item Picker Modal */}
-      <Modal isOpen={showItemPicker} onClose={() => setShowItemPicker(false)} title="Select Item">
-        <ScrollView style={styles.pickerList}>
-          {items.map((item) => (
+      {/* Recipe Picker */}
+      {itemId && (
+        <View style={styles.modalField}>
+          <Text style={styles.modalLabel}>Recipe</Text>
+          <TouchableOpacity style={styles.modalPicker} onPress={() => setShowRecipePicker(true)}>
+            <Text style={[styles.modalPickerText, !selectedRecipe && styles.modalPickerPlaceholder]}>
+              {selectedRecipe?.name || 'Select recipe...'}
+            </Text>
+            <Icon name="expand_more" size="sm" color={colors.dustyMauve} />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Variant Picker */}
+      {recipeId && variants && variants.length > 0 && (
+        <View style={styles.modalField}>
+          <Text style={styles.modalLabel}>Variant (optional)</Text>
+          <TouchableOpacity style={styles.modalPicker} onPress={() => setShowVariantPicker(true)}>
+            <Text style={[styles.modalPickerText, !selectedVariant && styles.modalPickerPlaceholder]}>
+              {selectedVariant?.name || 'Base recipe'}
+            </Text>
+            <Icon name="expand_more" size="sm" color={colors.dustyMauve} />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Scale Selector */}
+      {recipeId && (
+        <View style={styles.modalField}>
+          <Text style={styles.modalLabel}>Scale</Text>
+          <View style={styles.scaleButtons}>
+            {getScaleOptions(selectedRecipe?.customScales).map((option) => (
+              <TouchableOpacity
+                key={option.value}
+                style={[
+                  styles.scaleButton,
+                  (scaleFactor ?? 1) === option.value && styles.scaleButtonActive,
+                ]}
+                onPress={() => setScaleFactor(option.value === 1 ? undefined : option.value)}
+              >
+                <Text
+                  style={[
+                    styles.scaleButtonText,
+                    (scaleFactor ?? 1) === option.value && styles.scaleButtonTextActive,
+                  ]}
+                >
+                  {option.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          {/* Scale by ingredient and container buttons */}
+          <View style={styles.scaleByRow}>
             <TouchableOpacity
-              key={item.itemId}
-              style={styles.pickerOption}
-              onPress={() => {
-                onUpdate({ itemId: item.itemId, recipeId: '', variantId: undefined });
-                setShowItemPicker(false);
-              }}
+              style={styles.scaleByButton}
+              onPress={() => setShowScaleByIngredient(true)}
             >
-              <Text style={styles.pickerOptionText}>{item.name}</Text>
+              <Icon name="calculate" size="sm" color={colors.primary} />
+              <Text style={styles.scaleByButtonText}>By Ingredient</Text>
             </TouchableOpacity>
-          ))}
+            {selectedRecipe?.container && (
+              <TouchableOpacity
+                style={styles.scaleByButton}
+                onPress={() => setShowContainerScale(true)}
+              >
+                <Icon name="auto_awesome" size="sm" color={colors.primary} />
+                <Text style={styles.scaleByButtonText}>By Container</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          {/* Show applied custom scale indicator */}
+          {scaleFactor && !getScaleOptions(selectedRecipe?.customScales).some(opt => opt.value === scaleFactor) && (
+            <View style={styles.customScaleBadge}>
+              <Icon name="check_circle" size="sm" color={colors.success} />
+              <Text style={styles.customScaleBadgeText}>
+                Bespoke scale applied: {formatScaleFactor(scaleFactor)}
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* Notes */}
+      <View style={styles.modalField}>
+        <Text style={styles.modalLabel}>Notes for this item</Text>
+        <TextInput
+          style={styles.notesInput}
+          value={notes}
+          onChangeText={setNotes}
+          placeholder="Tap to add notes..."
+          placeholderTextColor={colors.dustyMauve}
+          multiline
+          numberOfLines={3}
+          textAlignVertical="top"
+        />
+      </View>
+
+      {/* Action Buttons */}
+      <View style={styles.modalButtons}>
+        {onRemove && (
+          <TouchableOpacity style={styles.removeItemButton} onPress={onRemove}>
+            <Icon name="delete" size="sm" color={colors.primary} />
+            <Text style={styles.removeItemButtonText}>Remove</Text>
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity
+          style={styles.modalCancelButton}
+          onPress={onClose}
+        >
+          <Text style={styles.modalCancelButtonText}>Cancel</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.modalSaveButton, !canSave && styles.buttonDisabled]}
+          onPress={handleSave}
+          disabled={!canSave}
+        >
+          <Text style={styles.modalSaveButtonText}>
+            {editingUsage ? 'Save Changes' : 'Add Item'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Item Picker Sub-Modal */}
+      <Modal
+        isOpen={showItemPicker}
+        onClose={() => {
+          setShowItemPicker(false);
+          setItemSearch('');
+        }}
+        title="Select Item"
+      >
+        {/* Search Input */}
+        <View style={styles.searchContainer}>
+          <Icon name="search" size="sm" color={colors.dustyMauve} />
+          <TextInput
+            style={styles.searchInput}
+            value={itemSearch}
+            onChangeText={setItemSearch}
+            placeholder="Search items..."
+            placeholderTextColor={colors.dustyMauve}
+            autoFocus
+          />
+          {itemSearch.length > 0 && (
+            <TouchableOpacity onPress={() => setItemSearch('')}>
+              <Icon name="close" size="sm" color={colors.dustyMauve} />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        <ScrollView style={styles.pickerList}>
+          {Object.entries(filteredGroupedItems).map(([type, typeItems]) => {
+            const typeConfig = ITEM_TYPE_CONFIG[type as ItemType];
+            return (
+              <View key={type}>
+                <Text style={styles.pickerSectionHeader}>{typeConfig.sectionName}</Text>
+                {typeItems.map((item) => (
+                  <TouchableOpacity
+                    key={item.itemId}
+                    style={styles.pickerOption}
+                    onPress={() => {
+                      setItemId(item.itemId);
+                      setShowItemPicker(false);
+                      setItemSearch('');
+                    }}
+                  >
+                    <Icon name={typeConfig.icon} size="sm" color={colors.dustyMauve} />
+                    <Text style={styles.pickerOptionText}>{item.name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            );
+          })}
         </ScrollView>
       </Modal>
 
-      {/* Recipe Picker Modal */}
+      {/* Recipe Picker Sub-Modal */}
       <Modal
         isOpen={showRecipePicker}
         onClose={() => setShowRecipePicker(false)}
@@ -596,7 +819,7 @@ function ItemUsageRow({
               key={recipe.recipeId}
               style={styles.pickerOption}
               onPress={() => {
-                onUpdate({ recipeId: recipe.recipeId, variantId: undefined });
+                setRecipeId(recipe.recipeId);
                 setShowRecipePicker(false);
               }}
             >
@@ -606,7 +829,7 @@ function ItemUsageRow({
         </ScrollView>
       </Modal>
 
-      {/* Variant Picker Modal */}
+      {/* Variant Picker Sub-Modal */}
       <Modal
         isOpen={showVariantPicker}
         onClose={() => setShowVariantPicker(false)}
@@ -616,7 +839,7 @@ function ItemUsageRow({
           <TouchableOpacity
             style={styles.pickerOption}
             onPress={() => {
-              onUpdate({ variantId: undefined });
+              setVariantId(undefined);
               setShowVariantPicker(false);
             }}
           >
@@ -627,7 +850,7 @@ function ItemUsageRow({
               key={variant.variantId}
               style={styles.pickerOption}
               onPress={() => {
-                onUpdate({ variantId: variant.variantId });
+                setVariantId(variant.variantId);
                 setShowVariantPicker(false);
               }}
             >
@@ -637,43 +860,7 @@ function ItemUsageRow({
         </ScrollView>
       </Modal>
 
-      {/* Notes Modal */}
-      <Modal
-        isOpen={showNotesModal}
-        onClose={() => setShowNotesModal(false)}
-        title="Notes for this item"
-      >
-        <TextInput
-          style={styles.notesModalInput}
-          value={editingNotes}
-          onChangeText={setEditingNotes}
-          placeholder="Add any specific notes for this item..."
-          placeholderTextColor={colors.dustyMauve}
-          multiline
-          numberOfLines={6}
-          textAlignVertical="top"
-          autoFocus
-        />
-        <View style={styles.notesModalButtons}>
-          <TouchableOpacity
-            style={styles.cancelButton}
-            onPress={() => setShowNotesModal(false)}
-          >
-            <Text style={styles.cancelButtonText}>Cancel</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.submitButton}
-            onPress={() => {
-              onUpdate({ notes: editingNotes || undefined });
-              setShowNotesModal(false);
-            }}
-          >
-            <Text style={styles.submitButtonText}>Save</Text>
-          </TouchableOpacity>
-        </View>
-      </Modal>
-
-      {/* Scale by Ingredient Modal */}
+      {/* Scale by Ingredient Sub-Modal */}
       <Modal
         isOpen={showScaleByIngredient}
         onClose={() => {
@@ -683,10 +870,9 @@ function ItemUsageRow({
         }}
         title="Scale by Ingredient"
       >
-        {/* Step 1: Select Ingredient */}
         <Text style={styles.modalLabel}>Select ingredient</Text>
         <ScrollView style={styles.ingredientList}>
-          {mergedIngredients.map((ing) => (
+          {(currentDetail?.baseIngredients || []).map((ing) => (
             <TouchableOpacity
               key={ing.name}
               style={[
@@ -703,7 +889,6 @@ function ItemUsageRow({
           ))}
         </ScrollView>
 
-        {/* Step 2: Enter Amount (shown when ingredient selected) */}
         {selectedIngredient && (
           <>
             <Text style={styles.modalLabel}>
@@ -721,7 +906,6 @@ function ItemUsageRow({
               <Text style={styles.unitLabel}>{selectedIngredient.unit}</Text>
             </View>
 
-            {/* Preview calculated scale */}
             {ingredientAmount && parseFloat(ingredientAmount) > 0 && (
               <View style={styles.scalePreview}>
                 <Text style={styles.scalePreviewLabel}>Recipe will scale to:</Text>
@@ -736,21 +920,20 @@ function ItemUsageRow({
           </>
         )}
 
-        {/* Action Buttons */}
         <View style={styles.modalButtons}>
           <TouchableOpacity
-            style={styles.cancelButton}
+            style={styles.modalCancelButton}
             onPress={() => {
               setShowScaleByIngredient(false);
               setSelectedIngredient(null);
               setIngredientAmount('');
             }}
           >
-            <Text style={styles.cancelButtonText}>Cancel</Text>
+            <Text style={styles.modalCancelButtonText}>Cancel</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[
-              styles.submitButton,
+              styles.modalSaveButton,
               (!selectedIngredient || !ingredientAmount || parseFloat(ingredientAmount) <= 0) && styles.buttonDisabled,
             ]}
             onPress={() => {
@@ -758,25 +941,25 @@ function ItemUsageRow({
                 selectedIngredient!.quantity,
                 parseFloat(ingredientAmount)
               );
-              onUpdate({ scaleFactor: scale === 1 ? undefined : scale });
+              setScaleFactor(scale === 1 ? undefined : scale);
               setShowScaleByIngredient(false);
               setSelectedIngredient(null);
               setIngredientAmount('');
             }}
             disabled={!selectedIngredient || !ingredientAmount || parseFloat(ingredientAmount) <= 0}
           >
-            <Text style={styles.submitButtonText}>Apply Scale</Text>
+            <Text style={styles.modalSaveButtonText}>Apply Scale</Text>
           </TouchableOpacity>
         </View>
       </Modal>
 
       {/* Scale by Container Modal */}
-      {selectedRecipe?.container && (
+      {selectedRecipe?.container && currentDetail && (
         <ContainerScaleModal
           isOpen={showContainerScale}
           onClose={() => setShowContainerScale(false)}
-          onApply={(scaleFactor) => {
-            onUpdate({ scaleFactor: scaleFactor === 1 ? undefined : scaleFactor });
+          onApply={(newScaleFactor) => {
+            setScaleFactor(newScaleFactor === 1 ? undefined : newScaleFactor);
           }}
           sourceContainer={selectedRecipe.container}
           recipeId={selectedRecipe.recipeId}
@@ -784,16 +967,20 @@ function ItemUsageRow({
             itemName: selectedItem?.name || '',
             itemType: (selectedItem?.type || 'batter') as ItemType,
             recipeName: selectedRecipe.name,
-            ingredients: mergedIngredients,
+            ingredients: currentDetail.baseIngredients,
             bakeTime: selectedRecipe.bakeTime,
             bakeTemp: selectedRecipe.bakeTemp,
             bakeTempUnit: selectedRecipe.bakeTempUnit,
           }}
         />
       )}
-    </View>
+    </Modal>
   );
 }
+
+// ============================================================================
+// Styles
+// ============================================================================
 
 const styles = StyleSheet.create({
   container: {
@@ -805,7 +992,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[4],
   },
   mainContentContainer: {
-    paddingBottom: 120, // Space for bottom buttons
+    paddingBottom: 120,
   },
   header: {
     flexDirection: 'row',
@@ -873,7 +1060,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   section: {
-    marginTop: spacing[4],
+    marginTop: spacing[6],
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing[3],
   },
   sectionTitle: {
     fontFamily: fontFamily.bold,
@@ -881,18 +1074,22 @@ const styles = StyleSheet.create({
     color: colors.text,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: spacing[3],
   },
-  carouselContainer: {
-    marginHorizontal: -spacing[4], // Extend to screen edges
+  addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[1],
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[2],
+    borderRadius: borderRadius.lg,
+    backgroundColor: 'rgba(229, 52, 78, 0.1)',
   },
-  carouselContent: {
-    alignItems: 'flex-start',
+  addButtonText: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.sm,
+    color: colors.primary,
   },
-  carouselCard: {
-    // Height determined by content
-  },
-  addCard: {
+  emptyCard: {
     backgroundColor: colors.white,
     borderRadius: borderRadius.xl,
     borderWidth: 2,
@@ -902,78 +1099,136 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing[3],
-    // Height determined by content - matches carouselCard
   },
-  addCardText: {
+  emptyCardText: {
     fontFamily: fontFamily.medium,
     fontSize: fontSize.base,
     color: colors.primary,
   },
-  indicators: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: spacing[2],
-    marginTop: spacing[3],
-    marginBottom: spacing[4],
-  },
-  indicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.pastelPink,
-  },
-  indicatorActive: {
-    backgroundColor: colors.primary,
-    width: 24,
-  },
-  indicatorAdd: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: colors.pastelPink,
-  },
-  card: {
+  // Item Tile Styles
+  itemTile: {
     backgroundColor: colors.white,
     borderRadius: borderRadius.xl,
     borderWidth: 1,
     borderColor: 'rgba(0, 0, 0, 0.05)',
     padding: spacing[4],
+    marginBottom: spacing[3],
   },
-  cardText: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.sm,
-    color: colors.textMuted,
+  tileHeader: {
+    marginBottom: spacing[3],
   },
-  usageCard: {
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.xl,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.05)',
-    padding: spacing[4],
-  },
-  usageHeader: {
+  tileIconRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
   },
-  usageContent: {
+  tileIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.lg,
+    backgroundColor: 'rgba(229, 52, 78, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing[3],
+  },
+  tileTitleContent: {
     flex: 1,
   },
-  removeButton: {
+  tileTitle: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.base,
+    color: colors.text,
+  },
+  tileSubtitle: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.dustyMauve,
+    marginTop: spacing[1],
+  },
+  scaledLabel: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: colors.primary,
+    marginTop: spacing[1],
+  },
+  standardBatchLabel: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.xs,
+    color: colors.dustyMauve,
+    marginTop: spacing[1],
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  editButton: {
     padding: spacing[2],
-    marginLeft: spacing[2],
-    marginTop: -spacing[2],
-    marginRight: -spacing[2],
   },
-  pickerField: {
-    marginBottom: spacing[3],
+  ingredientsList: {
+    paddingTop: spacing[2],
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0, 0, 0, 0.05)',
   },
-  pickerLabel: {
+  ingredientRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: spacing[2],
+  },
+  ingredientName: {
+    flex: 1,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.text,
+  },
+  ingredientQuantity: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: colors.dustyMauve,
+  },
+  loadingText: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.dustyMauve,
+    textAlign: 'center',
+  },
+  notesSection: {
+    marginTop: spacing[3],
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0, 0, 0, 0.05)',
+    paddingTop: spacing[3],
+  },
+  notesToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+  },
+  notesToggleText: {
+    flex: 1,
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: colors.dustyMauve,
+  },
+  notesContent: {
+    marginTop: spacing[2],
+    backgroundColor: colors.bgLight,
+    borderRadius: borderRadius.lg,
+    padding: spacing[3],
+  },
+  notesText: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.text,
+    lineHeight: fontSize.sm * 1.5,
+  },
+  // Modal Styles
+  modalField: {
+    marginBottom: spacing[4],
+  },
+  modalLabel: {
     fontFamily: fontFamily.medium,
     fontSize: fontSize.sm,
     color: colors.text,
     marginBottom: spacing[2],
   },
-  picker: {
+  modalPicker: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -984,71 +1239,19 @@ const styles = StyleSheet.create({
     height: 48,
     paddingHorizontal: spacing[4],
   },
-  pickerText: {
+  modalPickerText: {
     flex: 1,
     fontFamily: fontFamily.regular,
     fontSize: fontSize.base,
     color: colors.text,
   },
-  pickerPlaceholder: {
+  modalPickerPlaceholder: {
     color: colors.dustyMauve,
-  },
-  notesPreview: {
-    height: 60,
-    alignItems: 'flex-start',
-    paddingTop: spacing[3],
-  },
-  notesModalInput: {
-    backgroundColor: colors.bgLight,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.1)',
-    borderRadius: borderRadius.xl,
-    padding: spacing[4],
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.sm,
-    color: colors.text,
-    minHeight: 150,
-    textAlignVertical: 'top',
-    marginBottom: spacing[4],
-  },
-  notesModalButtons: {
-    flexDirection: 'row',
-    gap: spacing[3],
-  },
-  cancelButton: {
-    flex: 1,
-    paddingVertical: spacing[3],
-    borderRadius: borderRadius.xl,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.1)',
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    fontFamily: fontFamily.bold,
-    fontSize: fontSize.base,
-    color: colors.text,
-  },
-  submitButton: {
-    flex: 1,
-    paddingVertical: spacing[3],
-    borderRadius: borderRadius.xl,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-  },
-  submitButtonText: {
-    fontFamily: fontFamily.bold,
-    fontSize: fontSize.base,
-    color: colors.white,
   },
   scaleButtons: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing[1],
-  },
-  scaleByRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: spacing[2],
   },
   scaleButton: {
     paddingHorizontal: spacing[3],
@@ -1067,7 +1270,12 @@ const styles = StyleSheet.create({
   scaleButtonTextActive: {
     color: colors.white,
   },
-  scaleByIngredientButton: {
+  scaleByRow: {
+    flexDirection: 'row',
+    gap: spacing[2],
+    marginTop: spacing[2],
+  },
+  scaleByButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing[1],
@@ -1078,7 +1286,7 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
     borderStyle: 'dashed',
   },
-  scaleByIngredientText: {
+  scaleByButtonText: {
     fontFamily: fontFamily.medium,
     fontSize: fontSize.sm,
     color: colors.primary,
@@ -1098,12 +1306,112 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.success,
   },
-  modalLabel: {
-    fontFamily: fontFamily.medium,
+  notesInput: {
+    backgroundColor: colors.bgLight,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+    borderRadius: borderRadius.xl,
+    padding: spacing[4],
+    fontFamily: fontFamily.regular,
     fontSize: fontSize.sm,
     color: colors.text,
-    marginBottom: spacing[2],
+    minHeight: 80,
+    textAlignVertical: 'top',
   },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: spacing[3],
+    marginTop: spacing[2],
+  },
+  modalCancelButton: {
+    flex: 1,
+    paddingVertical: spacing[3],
+    borderRadius: borderRadius.xl,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+    alignItems: 'center',
+  },
+  modalCancelButtonText: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.base,
+    color: colors.text,
+  },
+  modalSaveButton: {
+    flex: 2,
+    paddingVertical: spacing[3],
+    borderRadius: borderRadius.xl,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+  },
+  modalSaveButtonText: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.base,
+    color: colors.white,
+  },
+  removeItemButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing[1],
+    paddingVertical: spacing[3],
+    paddingHorizontal: spacing[3],
+    borderRadius: borderRadius.xl,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  removeItemButtonText: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.sm,
+    color: colors.primary,
+  },
+  buttonDisabled: {
+    opacity: 0.5,
+  },
+  // Picker Styles
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.bgLight,
+    borderRadius: borderRadius.xl,
+    paddingHorizontal: spacing[4],
+    height: 48,
+    marginBottom: spacing[4],
+    gap: spacing[2],
+  },
+  searchInput: {
+    flex: 1,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.base,
+    color: colors.text,
+  },
+  pickerList: {
+    maxHeight: 300,
+  },
+  pickerSectionHeader: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.xs,
+    color: colors.dustyMauve,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    paddingVertical: spacing[2],
+    paddingHorizontal: spacing[4],
+    backgroundColor: colors.bgLight,
+  },
+  pickerOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[3],
+    paddingVertical: spacing[3],
+    paddingHorizontal: spacing[4],
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
+  },
+  pickerOptionText: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.base,
+    color: colors.text,
+  },
+  // Scale by Ingredient Styles
   ingredientList: {
     maxHeight: 200,
     marginBottom: spacing[4],
@@ -1175,27 +1483,7 @@ const styles = StyleSheet.create({
     fontSize: fontSize.lg,
     color: colors.primary,
   },
-  modalButtons: {
-    flexDirection: 'row',
-    gap: spacing[3],
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  pickerList: {
-    maxHeight: 300,
-  },
-  pickerOption: {
-    paddingVertical: spacing[3],
-    paddingHorizontal: spacing[4],
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
-  },
-  pickerOptionText: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.base,
-    color: colors.text,
-  },
+  // Bottom Actions
   bottomAction: {
     padding: spacing[4],
     backgroundColor: colors.bgLight,
@@ -1236,6 +1524,7 @@ const styles = StyleSheet.create({
     fontSize: fontSize.base,
     color: colors.white,
   },
+  // Action Sheet
   actionOption: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1254,6 +1543,7 @@ const styles = StyleSheet.create({
     color: colors.error,
     padding: spacing[4],
   },
+  // Date Picker
   datePickerBackdrop: {
     position: 'absolute',
     top: 0,
