@@ -21,6 +21,12 @@ import { Icon } from '../common';
 import { usePhotoUrl } from '../../hooks/usePhotos';
 import { colors, fontFamily, fontSize, spacing, borderRadius } from '../../theme';
 
+interface BakeParam {
+  bakeTime?: number;
+  bakeTemp?: number;
+  bakeTempUnit?: 'F' | 'C';
+}
+
 interface LuxuryPhotoGalleryProps {
   photoKeys: string[];
   onClose: () => void;
@@ -32,6 +38,7 @@ interface LuxuryPhotoGalleryProps {
   date: string;
   mainPhotoKey?: string;
   initialIndex?: number;
+  bakeParams?: BakeParam[];
 }
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -46,6 +53,49 @@ function formatBakeDate(dateString: string): string {
       year: 'numeric',
     })
     .toUpperCase();
+}
+
+function formatBakeTime(minutes: number): string {
+  if (minutes >= 60) {
+    const hrs = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return mins > 0 ? `${hrs} hr ${mins} min` : `${hrs} hr`;
+  }
+  return `${minutes} min`;
+}
+
+function formatBakeTemp(temp: number, unit: 'F' | 'C'): string {
+  return `${temp}°${unit}`;
+}
+
+function formatBakeParamsDisplay(bakeParams?: BakeParam[]): string | null {
+  if (!bakeParams || bakeParams.length === 0) return null;
+
+  // Extract unique times
+  const uniqueTimes = [...new Set(
+    bakeParams
+      .filter((p) => p.bakeTime !== undefined)
+      .map((p) => p.bakeTime as number)
+  )];
+
+  // Extract unique temp+unit combinations
+  const uniqueTemps = [...new Set(
+    bakeParams
+      .filter((p) => p.bakeTemp !== undefined && p.bakeTempUnit !== undefined)
+      .map((p) => formatBakeTemp(p.bakeTemp as number, p.bakeTempUnit as 'F' | 'C'))
+  )];
+
+  if (uniqueTimes.length === 0 && uniqueTemps.length === 0) return null;
+
+  const parts: string[] = [];
+  if (uniqueTimes.length > 0) {
+    parts.push(`⏱ ${uniqueTimes.map(formatBakeTime).join(', ')}`);
+  }
+  if (uniqueTemps.length > 0) {
+    parts.push(`🌡 ${uniqueTemps.join(', ')}`);
+  }
+
+  return parts.join('  •  ');
 }
 
 // Smooth gradient fade to white using expo-linear-gradient
@@ -77,6 +127,7 @@ export default function LuxuryPhotoGallery({
   date,
   mainPhotoKey,
   initialIndex = 0,
+  bakeParams,
 }: LuxuryPhotoGalleryProps) {
   const insets = useSafeAreaInsets();
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
@@ -85,6 +136,7 @@ export default function LuxuryPhotoGallery({
   const safeIndex = Math.min(currentIndex, photoKeys.length - 1);
   const currentPhotoKey = photoKeys[safeIndex];
   const isCurrentMain = currentPhotoKey === mainPhotoKey;
+  const bakeParamsDisplay = formatBakeParamsDisplay(bakeParams);
 
   // Update index if photos are deleted
   React.useEffect(() => {
@@ -230,6 +282,9 @@ export default function LuxuryPhotoGallery({
         <View style={styles.contentSection}>
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.dateLabel}>BAKED ON {formatBakeDate(date)}</Text>
+          {bakeParamsDisplay && (
+            <Text style={styles.bakeParamsLabel}>{bakeParamsDisplay}</Text>
+          )}
         </View>
 
         {/* Bottom Buttons */}
@@ -342,6 +397,13 @@ const styles = StyleSheet.create({
     color: colors.primary,
     letterSpacing: 1.4,
     marginTop: spacing[2],
+  },
+  bakeParamsLabel: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.xs,
+    color: colors.dustyMauve,
+    letterSpacing: 1.4,
+    marginTop: spacing[1],
   },
   galleryImageContainer: {
     alignItems: 'center',
