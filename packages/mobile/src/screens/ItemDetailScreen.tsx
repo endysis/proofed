@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { Icon, Modal, Loading, Badge } from '../components/common';
+import { Icon, Modal, Loading, Badge, SupplierFavicon } from '../components/common';
 import { ItemForm } from '../components/items';
 import { RecipeForm } from '../components/recipes';
 import { VariantForm } from '../components/variants';
@@ -238,7 +238,10 @@ export default function ItemDetailScreen() {
           {selectedRecipe ? (
             <View style={styles.recipeCard}>
               <View style={styles.recipeHeader}>
-                <Text style={styles.recipeName}>{selectedRecipe.name}</Text>
+                <View style={styles.recipeNameRow}>
+                  <SupplierFavicon supplierId={selectedRecipe.supplierId} size={24} />
+                  <Text style={styles.recipeName}>{selectedRecipe.name}</Text>
+                </View>
                 <TouchableOpacity
                   onPress={() => setRecipeModal({ isOpen: true, recipe: selectedRecipe })}
                 >
@@ -479,6 +482,7 @@ export default function ItemDetailScreen() {
         <VariantForm
           variant={variantModal.variant}
           recipeIngredients={selectedRecipe?.ingredients}
+          scaleFactor={viewScale}
           onSubmit={variantModal.variant ? handleUpdateVariant : handleCreateVariant}
           onCancel={() => setVariantModal({ isOpen: false })}
           isLoading={createVariant.isPending || updateVariant.isPending}
@@ -953,6 +957,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: spacing[2],
+  },
+  recipeNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+    flex: 1,
   },
   recipeName: {
     fontFamily: fontFamily.bold,

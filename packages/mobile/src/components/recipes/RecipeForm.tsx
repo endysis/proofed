@@ -10,9 +10,11 @@ import {
 } from 'react-native';
 import { Icon } from '../common';
 import PasteIngredientsModal from './PasteIngredientsModal';
+import SupplierPicker from './SupplierPicker';
 import { UNIT_PRESETS } from '../../constants/units';
 import { CONTAINER_TYPES, CONTAINER_SIZES } from '../../constants/containers';
 import { colors, spacing, borderRadius, fontFamily, fontSize } from '../../theme';
+import { useTemperatureUnit } from '../../hooks/usePreferences';
 import type { Recipe, Ingredient, CreateRecipeRequest, ContainerType } from '@proofed/shared';
 
 interface RecipeFormProps {
@@ -28,6 +30,7 @@ export default function RecipeForm({
   onCancel,
   isLoading,
 }: RecipeFormProps) {
+  const preferredTempUnit = useTemperatureUnit();
   const [name, setName] = useState(recipe?.name || '');
   const [ingredients, setIngredients] = useState<Ingredient[]>(
     recipe?.ingredients || [{ name: '', quantity: 0, unit: '' }]
@@ -35,11 +38,12 @@ export default function RecipeForm({
   const [prepNotes, setPrepNotes] = useState(recipe?.prepNotes || '');
   const [bakeTime, setBakeTime] = useState<string>(recipe?.bakeTime?.toString() ?? '');
   const [bakeTemp, setBakeTemp] = useState<string>(recipe?.bakeTemp?.toString() ?? '');
-  const [bakeTempUnit, setBakeTempUnit] = useState<'F' | 'C'>(recipe?.bakeTempUnit ?? 'F');
+  const [bakeTempUnit, setBakeTempUnit] = useState<'F' | 'C'>(recipe?.bakeTempUnit ?? preferredTempUnit);
   const [customScale, setCustomScale] = useState<string>(
     recipe?.customScales?.[0]?.toString() || ''
   );
   const [showPasteModal, setShowPasteModal] = useState(false);
+  const [supplierId, setSupplierId] = useState<string | null>(recipe?.supplierId ?? null);
   const [hasContainer, setHasContainer] = useState(!!recipe?.container);
   const [containerType, setContainerType] = useState<ContainerType>(
     recipe?.container?.type ?? 'round_cake_tin'
@@ -86,6 +90,7 @@ export default function RecipeForm({
             count: parsedCount,
           }
         : (recipe ? null : undefined),
+      supplierId: supplierId || (recipe ? null : undefined),
     } as any);
   };
 
@@ -124,6 +129,13 @@ export default function RecipeForm({
           placeholderTextColor={colors.dustyMauve}
           autoFocus
         />
+      </View>
+
+      <View style={styles.field}>
+        <Text style={styles.label}>
+          Recipe Source <Text style={styles.optional}>(optional)</Text>
+        </Text>
+        <SupplierPicker value={supplierId} onChange={setSupplierId} />
       </View>
 
       <View style={styles.field}>
