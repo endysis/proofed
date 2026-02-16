@@ -430,6 +430,11 @@ export default function EvaluateScreen() {
               onSetMain={handleSetMainPhoto}
               onDelete={handleDeletePhoto}
               onRebake={handleRebake}
+              bakeParams={itemUsageDetails.map((d) => ({
+                bakeTime: d.bakeTime,
+                bakeTemp: d.bakeTemp,
+                bakeTempUnit: d.bakeTempUnit,
+              }))}
             />
           )}
         </View>
@@ -592,7 +597,8 @@ export default function EvaluateScreen() {
           variantCreation.selectedUsageIndex !== null &&
           variantCreation.tip && (
             <VariantForm
-              recipeIngredients={itemUsageDetails[variantCreation.selectedUsageIndex]?.ingredients || []}
+              recipeIngredients={itemUsageDetails[variantCreation.selectedUsageIndex]?.baseIngredients || []}
+              scaleFactor={itemUsageDetails[variantCreation.selectedUsageIndex]?.scaleFactor || 1}
               onSubmit={handleSubmitVariant}
               onCancel={handleCloseVariantCreation}
               isLoading={createVariantMutation.isPending}

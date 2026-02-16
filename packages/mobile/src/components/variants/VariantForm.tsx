@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,11 +10,15 @@ import {
 import { Icon, Modal } from '../common';
 import { UNIT_PRESETS } from '../../constants/units';
 import { colors, spacing, borderRadius, fontFamily, fontSize } from '../../theme';
-import type { Variant, Ingredient, CreateVariantRequest } from '@proofed/shared';
+import { useTemperatureUnit } from '../../hooks/usePreferences';
+import { formatScaleFactor } from '../../utils/scaleRecipe';
+import type { Variant, Ingredient, CreateVariantRequest, Recipe } from '@proofed/shared';
 
 interface VariantFormProps {
   variant?: Variant;
+  recipe?: Recipe;
   recipeIngredients?: Ingredient[];
+  scaleFactor?: number;
   onSubmit: (data: CreateVariantRequest) => void;
   onCancel: () => void;
   isLoading?: boolean;
@@ -22,26 +26,49 @@ interface VariantFormProps {
 
 export default function VariantForm({
   variant,
+  recipe,
   recipeIngredients = [],
+  scaleFactor = 1,
   onSubmit,
   onCancel,
   isLoading,
 }: VariantFormProps) {
+  const preferredTempUnit = useTemperatureUnit();
   const [name, setName] = useState(variant?.name || '');
   const [ingredientOverrides, setIngredientOverrides] = useState<Ingredient[]>(
     variant?.ingredientOverrides || [{ name: '', quantity: 0, unit: '' }]
   );
   const [bakeTime, setBakeTime] = useState<string>(variant?.bakeTime?.toString() ?? '');
   const [bakeTemp, setBakeTemp] = useState<string>(variant?.bakeTemp?.toString() ?? '');
-  const [bakeTempUnit, setBakeTempUnit] = useState<'F' | 'C'>(variant?.bakeTempUnit ?? 'F');
+  const [bakeTempUnit, setBakeTempUnit] = useState<'F' | 'C'>(variant?.bakeTempUnit ?? preferredTempUnit);
   const [notes, setNotes] = useState(variant?.notes || '');
   const [ingredientPickerIndex, setIngredientPickerIndex] = useState<number | null>(null);
+
+  // Track which override indices are custom (new) ingredients not in the recipe
+  const [customIngredientIndices, setCustomIngredientIndices] = useState<Set<number>>(new Set());
+
+  // When editing an existing variant, detect which overrides are custom (not in recipe)
+  useEffect(() => {
+    if (variant && (recipe || recipeIngredients.length > 0)) {
+      const ingredients = recipe?.ingredients || recipeIngredients;
+      const recipeIngredientNames = new Set(ingredients.map(i => i.name));
+      const customIndices = new Set<number>();
+      variant.ingredientOverrides.forEach((override, index) => {
+        if (!recipeIngredientNames.has(override.name)) {
+          customIndices.add(index);
+        }
+      });
+      setCustomIngredientIndices(customIndices);
+    }
+  }, [variant, recipe, recipeIngredients]);
 
   const handleIngredientSelect = (index: number, ingredientName: string) => {
     const recipeIngredient = recipeIngredients.find((i) => i.name === ingredientName);
     if (recipeIngredient) {
       const updated = [...ingredientOverrides];
-      updated[index] = { ...recipeIngredient };
+      // Apply scale factor to quantity
+      const scaledQuantity = Math.round(recipeIngredient.quantity * scaleFactor * 100) / 100;
+      updated[index] = { ...recipeIngredient, quantity: scaledQuantity };
       setIngredientOverrides(updated);
     }
     setIngredientPickerIndex(null);
@@ -59,9 +86,15 @@ export default function VariantForm({
     });
   };
 
-  const updateOverride = (index: number, field: keyof Ingredient, value: string | number) => {
+  const updateOverride = (index: number, field: keyof Ingredient | Partial<Ingredient>, value?: string | number) => {
     const updated = [...ingredientOverrides];
-    updated[index] = { ...updated[index], [field]: value };
+    if (typeof field === 'object') {
+      // Partial update with object
+      updated[index] = { ...updated[index], ...field };
+    } else {
+      // Single field update
+      updated[index] = { ...updated[index], [field]: value };
+    }
     setIngredientOverrides(updated);
   };
 
@@ -72,6 +105,15 @@ export default function VariantForm({
   const removeOverride = (index: number) => {
     if (ingredientOverrides.length > 1) {
       setIngredientOverrides(ingredientOverrides.filter((_, i) => i !== index));
+      // Rebuild custom indices set with adjusted indices
+      setCustomIngredientIndices(prev => {
+        const newSet = new Set<number>();
+        prev.forEach(i => {
+          if (i < index) newSet.add(i);
+          else if (i > index) newSet.add(i - 1);
+        });
+        return newSet;
+      });
     }
   };
 
@@ -95,10 +137,28 @@ export default function VariantForm({
           <Text style={styles.hint}>Only list ingredients that are different</Text>
         </View>
 
+        {scaleFactor !== 1 && (
+          <View style={styles.scaleWarning}>
+            <Icon name="info" size="sm" color={colors.warning} />
+            <Text style={styles.scaleWarningText}>
+              Overrides use {formatScaleFactor(scaleFactor)} scaled values
+            </Text>
+          </View>
+        )}
+
         {ingredientOverrides.map((override, index) => (
           <View key={index} style={styles.overrideCard}>
             <View style={styles.overrideHeader}>
-              {recipeIngredients.length > 0 ? (
+              {customIngredientIndices.has(index) ? (
+                <TextInput
+                  style={[styles.input, styles.customIngredientInput]}
+                  value={override.name}
+                  onChangeText={(text) => updateOverride(index, 'name', text)}
+                  placeholder="Ingredient name (e.g., Lemon zest)"
+                  placeholderTextColor={colors.dustyMauve}
+                  autoFocus={!override.name}
+                />
+              ) : recipeIngredients.length > 0 ? (
                 <TouchableOpacity
                   style={styles.ingredientPicker}
                   onPress={() => setIngredientPickerIndex(index)}
@@ -131,10 +191,10 @@ export default function VariantForm({
               </TouchableOpacity>
             </View>
 
-            {override.name && (
+            {(override.name || customIngredientIndices.has(index)) && (
               <View style={styles.overrideValues}>
                 <Text style={styles.overrideName} numberOfLines={1}>
-                  {override.name}
+                  {override.name || 'New'}
                 </Text>
                 <TextInput
                   style={[styles.input, styles.qtyInput]}
@@ -279,18 +339,38 @@ export default function VariantForm({
         title="Select Ingredient"
       >
         <ScrollView style={styles.pickerList}>
-          {recipeIngredients.map((ing) => (
-            <TouchableOpacity
-              key={ing.name}
-              style={styles.pickerOption}
-              onPress={() => handleIngredientSelect(ingredientPickerIndex!, ing.name)}
-            >
-              <Text style={styles.pickerOptionName}>{ing.name}</Text>
-              <Text style={styles.pickerOptionValue}>
-                {ing.quantity} {ing.unit}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          {/* Add New Ingredient option */}
+          <TouchableOpacity
+            style={styles.addNewIngredientOption}
+            onPress={() => {
+              if (ingredientPickerIndex !== null) {
+                // Mark this index as custom
+                setCustomIngredientIndices(prev => new Set(prev).add(ingredientPickerIndex));
+                // Clear the name so user can type
+                updateOverride(ingredientPickerIndex, { name: '', quantity: 0, unit: 'g' });
+                setIngredientPickerIndex(null);
+              }
+            }}
+          >
+            <Icon name="add_circle" size="sm" color={colors.primary} />
+            <Text style={styles.addNewIngredientText}>Add New Ingredient</Text>
+          </TouchableOpacity>
+
+          {recipeIngredients.map((ing) => {
+            const displayQty = Math.round(ing.quantity * scaleFactor * 100) / 100;
+            return (
+              <TouchableOpacity
+                key={ing.name}
+                style={styles.pickerOption}
+                onPress={() => handleIngredientSelect(ingredientPickerIndex!, ing.name)}
+              >
+                <Text style={styles.pickerOptionName}>{ing.name}</Text>
+                <Text style={styles.pickerOptionValue}>
+                  {displayQty} {ing.unit}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
       </Modal>
     </ScrollView>
@@ -515,5 +595,40 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     fontSize: fontSize.sm,
     color: colors.dustyMauve,
+  },
+  addNewIngredientOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+    padding: spacing[4],
+    borderBottomWidth: 2,
+    borderBottomColor: colors.pastelPink,
+    backgroundColor: 'rgba(229, 52, 78, 0.05)',
+  },
+  addNewIngredientText: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.base,
+    color: colors.primary,
+  },
+  customIngredientInput: {
+    flex: 1,
+    height: 44,
+    backgroundColor: colors.bgLight,
+  },
+  scaleWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+    padding: spacing[3],
+    marginBottom: spacing[3],
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.3)',
+  },
+  scaleWarningText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: colors.warning,
   },
 });
