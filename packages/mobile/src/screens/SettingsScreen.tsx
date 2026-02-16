@@ -10,13 +10,17 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Icon, Button, Modal } from '../components/common';
 import { colors, spacing, fontFamily, fontSize, borderRadius } from '../theme';
 import { useAuth } from '../contexts/AuthContext';
+import type { RootStackParamList } from '../navigation/types';
+
+type SettingsNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Settings'>;
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation();
+  const navigation = useNavigation<SettingsNavigationProp>();
   const { user, signOut, deleteAccount } = useAuth();
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -82,6 +86,21 @@ export default function SettingsScreen() {
               <Icon name="email" size="sm" color={colors.dustyMauve} />
               <Text style={styles.rowText}>{user?.email || 'Not signed in'}</Text>
             </View>
+          </View>
+        </View>
+
+        {/* Preferences Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>PREFERENCES</Text>
+          <View style={styles.card}>
+            <TouchableOpacity
+              style={styles.row}
+              onPress={() => navigation.navigate('Preferences')}
+            >
+              <Icon name="tune" size="sm" color={colors.dustyMauve} />
+              <Text style={styles.rowText}>Temperature & Units</Text>
+              <Icon name="chevron_right" size="sm" color={colors.dustyMauve} />
+            </TouchableOpacity>
           </View>
         </View>
 

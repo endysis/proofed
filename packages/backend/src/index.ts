@@ -38,6 +38,7 @@ import { getUploadUrl, getDownloadUrl } from './handlers/photos';
 import { getAiAdvice } from './handlers/ai-advice';
 import { getAiContainerScale } from './handlers/ai-container-scale';
 import { deleteAccount } from './handlers/account';
+import { getPreferences, updatePreferences } from './handlers/preferences';
 import { getUserId } from './lib/auth';
 
 function response(statusCode: number, body: unknown): APIGatewayProxyResultV2 {
@@ -69,6 +70,17 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer): P
     if (path === '/account' && method === 'DELETE') {
       await deleteAccount(userId);
       return response(200, { message: 'Account deleted' });
+    }
+
+    // Preferences routes
+    if (path === '/preferences' && method === 'GET') {
+      const preferences = await getPreferences(userId);
+      return response(200, preferences);
+    }
+
+    if (path === '/preferences' && (method === 'PUT' || method === 'PATCH')) {
+      const preferences = await updatePreferences(userId, parseBody(event));
+      return response(200, preferences);
     }
 
     // Items routes

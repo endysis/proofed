@@ -54,6 +54,7 @@ export interface Recipe {
   bakeTempUnit?: 'F' | 'C'; // Fahrenheit or Celsius
   customScales?: number[];  // custom scale factors (e.g., [0.75, 1.25, 3])
   container?: ContainerInfo; // container type, size, and count
+  supplierId?: string;      // key from SUPPLIERS map (e.g., 'cupcake-jemma')
   createdAt: string;
   updatedAt: string;
 }
@@ -79,6 +80,10 @@ export interface ItemUsage {
   variantId?: string;
   scaleFactor?: number;  // e.g., 0.5 for half, 2 for double
   notes?: string;
+  shoppingListEnabled?: boolean;   // Whether shopping list mode is active
+  stockedIngredients?: string[];   // Ingredient names marked as "have it"
+  measurementEnabled?: boolean;    // Whether measurement mode is active
+  measuredIngredients?: string[];  // Ingredient names marked as "measured"
 }
 
 export interface Attempt {
@@ -128,6 +133,7 @@ export interface CreateRecipeRequest {
   bakeTempUnit?: 'F' | 'C';
   customScales?: number[];
   container?: ContainerInfo;
+  supplierId?: string | null;
 }
 
 export interface UpdateRecipeRequest {
@@ -139,6 +145,7 @@ export interface UpdateRecipeRequest {
   bakeTempUnit?: 'F' | 'C';
   customScales?: number[];
   container?: ContainerInfo;
+  supplierId?: string | null;
 }
 
 export interface CreateVariantRequest {
@@ -283,4 +290,21 @@ export interface ApiResponse<T> {
 
 export interface ListResponse<T> {
   items: T[];
+}
+
+// User Preferences types (extensible)
+export interface UserPreferences {
+  userId: string;
+  temperatureUnit: 'F' | 'C';
+  // Future fields (add as needed):
+  // language?: string;
+  // measurementSystem?: 'metric' | 'imperial';
+  // theme?: 'light' | 'dark' | 'system';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpdatePreferencesRequest {
+  temperatureUnit?: 'F' | 'C';
+  // Future: add new preference fields here
 }

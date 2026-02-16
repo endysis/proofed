@@ -8,7 +8,7 @@ import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import * as iam from 'aws-cdk-lib/aws-iam';
-import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import * as path from 'path';
 
@@ -57,6 +57,13 @@ export class ProofedStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
+    const preferencesTable = new dynamodb.Table(this, 'PreferencesTable', {
+      tableName: 'proofed-user-preferences',
+      partitionKey: { name: 'userId', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.RETAIN, // Preserve user preferences
+    });
+
     // Cognito User Pool
     const userPool = new cognito.UserPool(this, 'ProofedUserPool', {
       userPoolName: 'proofed-users',
@@ -96,12 +103,15 @@ export class ProofedStack extends cdk.Stack {
       },
     });
 
-    // Secrets Manager - OpenAI API Key
-    // Create the secret (you'll need to set the value in AWS Console or CLI)
-    const openaiSecret = new secretsmanager.Secret(this, 'OpenAIApiKey', {
-      secretName: 'proofed/openai-api-key',
-      description: 'OpenAI API Key for Proofed AI features',
-    });
+    // SSM Parameter Store - OpenAI API Key
+    // Reference existing parameter (create manually with: aws ssm put-parameter --name "/proofed/openai-api-key" --type "SecureString" --value "sk-your-key")
+    const openaiParameter = ssm.StringParameter.fromSecureStringParameterAttributes(
+      this,
+      'OpenAIApiKey',
+      {
+        parameterName: '/proofed/openai-api-key',
+      }
+    );
 
     // S3 Bucket for Photos
     const photosBucket = new s3.Bucket(this, 'PhotosBucket', {
@@ -160,13 +170,14 @@ export class ProofedStack extends cdk.Stack {
         VARIANTS_TABLE: variantsTable.tableName,
         ATTEMPTS_TABLE: attemptsTable.tableName,
         PROOFED_ITEMS_TABLE: proofedItemsTable.tableName,
+        PREFERENCES_TABLE: preferencesTable.tableName,
         PHOTOS_BUCKET: photosBucket.bucketName,
-        OPENAI_SECRET_ARN: openaiSecret.secretArn,
+        OPENAI_PARAM_NAME: openaiParameter.parameterName,
       },
     });
 
-    // Grant Lambda permission to read the OpenAI secret
-    openaiSecret.grantRead(apiHandler);
+    // Grant Lambda permission to read the OpenAI parameter
+    openaiParameter.grantRead(apiHandler);
 
     // Grant permissions
     itemsTable.grantReadWriteData(apiHandler);
@@ -174,6 +185,7 @@ export class ProofedStack extends cdk.Stack {
     variantsTable.grantReadWriteData(apiHandler);
     attemptsTable.grantReadWriteData(apiHandler);
     proofedItemsTable.grantReadWriteData(apiHandler);
+    preferencesTable.grantReadWriteData(apiHandler);
     photosBucket.grantReadWrite(apiHandler);
     photosBucket.grantPut(apiHandler);
 
@@ -324,6 +336,14 @@ export class ProofedStack extends cdk.Stack {
     httpApi.addRoutes({
       path: '/account',
       methods: [apigateway.HttpMethod.DELETE],
+      integration,
+      authorizer,
+    });
+
+    // Preferences routes
+    httpApi.addRoutes({
+      path: '/preferences',
+      methods: [apigateway.HttpMethod.GET, apigateway.HttpMethod.PUT, apigateway.HttpMethod.PATCH],
       integration,
       authorizer,
     });
