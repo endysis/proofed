@@ -36,8 +36,11 @@ export default function TimerScreen() {
     resumeTimer,
     pauseTimer,
     resetTimer,
+    addMinute,
     setReminder,
     clearReminder,
+    setHalfwayNotification,
+    clearHalfwayNotification,
   } = useTimer();
 
   const totalSeconds = bakeTimeMinutes * 60;
@@ -49,6 +52,7 @@ export default function TimerScreen() {
   const displayTemp = isActiveForThisItem ? activeTimer?.bakeTemp : bakeTemp;
   const displayTempUnit = isActiveForThisItem ? (activeTimer?.bakeTempUnit ?? 'C') : bakeTempUnit;
   const reminderMinutes = isActiveForThisItem ? activeTimer?.reminderMinutes : undefined;
+  const halfwayNotification = isActiveForThisItem ? activeTimer?.halfwayNotification : undefined;
 
   // Format time as MM:SS
   const formatTime = (seconds: number) => {
@@ -67,6 +71,7 @@ export default function TimerScreen() {
   const isFinished = displayState === 'finished';
   const canReset = displayState !== 'idle';
   const canSetReminder = isRunning && displaySeconds > 60; // At least 1 min remaining
+  const canAddMinute = isActiveForThisItem && (isRunning || isPaused || isFinished);
 
   const handleStartOrResume = () => {
     if (displayState === 'idle' || !isActiveForThisItem) {
@@ -89,6 +94,10 @@ export default function TimerScreen() {
     resetTimer();
   };
 
+  const handleAddMinute = () => {
+    addMinute();
+  };
+
   const handleSetReminder = (minutes: number) => {
     setReminder(minutes);
     setShowReminderModal(false);
@@ -99,10 +108,24 @@ export default function TimerScreen() {
     setShowReminderModal(false);
   };
 
+  const handleSetHalfway = () => {
+    setHalfwayNotification();
+    setShowReminderModal(false);
+  };
+
+  const handleClearHalfway = () => {
+    clearHalfwayNotification();
+    setShowReminderModal(false);
+  };
+
   // Filter reminder options to only show those less than remaining time
   const availableReminderOptions = REMINDER_OPTIONS.filter(
     (mins) => mins * 60 < displaySeconds
   );
+
+  // Can set halfway if we haven't passed the halfway point yet
+  const halfwayPoint = (isActiveForThisItem ? activeTimer?.totalSeconds : totalSeconds) ?? totalSeconds;
+  const canSetHalfway = displaySeconds > halfwayPoint / 2;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -175,13 +198,25 @@ export default function TimerScreen() {
           </View>
         </View>
 
-        {/* Reminder Badge */}
-        {reminderMinutes && (
-          <View style={styles.reminderBadge}>
-            <Icon name="notifications_active" size="sm" color={colors.warning} />
-            <Text style={styles.reminderBadgeText}>
-              Reminder set: {reminderMinutes} min before
-            </Text>
+        {/* Reminder Badges */}
+        {(reminderMinutes || halfwayNotification) && (
+          <View style={styles.reminderBadgesContainer}>
+            {reminderMinutes && (
+              <View style={styles.reminderBadge}>
+                <Icon name="notifications_active" size="sm" color={colors.warning} />
+                <Text style={styles.reminderBadgeText}>
+                  {reminderMinutes} min before
+                </Text>
+              </View>
+            )}
+            {halfwayNotification && (
+              <View style={styles.reminderBadge}>
+                <Icon name="timer" size="sm" color={colors.warning} />
+                <Text style={styles.reminderBadgeText}>
+                  Halfway
+                </Text>
+              </View>
+            )}
           </View>
         )}
 
@@ -210,6 +245,17 @@ export default function TimerScreen() {
             />
             <Text style={styles.primaryButtonText}>
               {isRunning ? 'Pause' : isFinished ? 'Done' : 'Start'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.controlButton, styles.addMinuteButton, !canAddMinute && styles.controlButtonDisabled]}
+            onPress={handleAddMinute}
+            disabled={!canAddMinute}
+          >
+            <Icon name="add" size="md" color={canAddMinute ? colors.text : colors.dustyMauve} />
+            <Text style={[styles.controlButtonText, !canAddMinute && styles.controlButtonTextDisabled]}>
+              +1 min
             </Text>
           </TouchableOpacity>
         </View>
@@ -263,19 +309,47 @@ export default function TimerScreen() {
               </Text>
             </TouchableOpacity>
           ))}
+          {canSetHalfway && (
+            <TouchableOpacity
+              style={[
+                styles.reminderOption,
+                halfwayNotification && styles.reminderOptionActive,
+              ]}
+              onPress={handleSetHalfway}
+            >
+              <Text
+                style={[
+                  styles.reminderOptionText,
+                  halfwayNotification && styles.reminderOptionTextActive,
+                ]}
+              >
+                Halfway
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
-        {availableReminderOptions.length === 0 && (
+        {availableReminderOptions.length === 0 && !canSetHalfway && (
           <Text style={styles.noOptionsText}>
             Not enough time remaining for a reminder
           </Text>
         )}
 
-        {reminderMinutes && (
-          <TouchableOpacity style={styles.clearReminderButton} onPress={handleClearReminder}>
-            <Icon name="notifications_off" size="sm" color={colors.primary} />
-            <Text style={styles.clearReminderButtonText}>Clear Reminder</Text>
-          </TouchableOpacity>
+        {(reminderMinutes || halfwayNotification) && (
+          <View style={styles.clearButtonsContainer}>
+            {reminderMinutes && (
+              <TouchableOpacity style={styles.clearReminderButton} onPress={handleClearReminder}>
+                <Icon name="notifications_off" size="sm" color={colors.primary} />
+                <Text style={styles.clearReminderButtonText}>Clear Reminder</Text>
+              </TouchableOpacity>
+            )}
+            {halfwayNotification && (
+              <TouchableOpacity style={styles.clearReminderButton} onPress={handleClearHalfway}>
+                <Icon name="timer_off" size="sm" color={colors.primary} />
+                <Text style={styles.clearReminderButtonText}>Clear Halfway</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         )}
       </Modal>
     </View>
@@ -392,6 +466,13 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 4,
   },
+  reminderBadgesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing[2],
+    marginBottom: spacing[4],
+    justifyContent: 'center',
+  },
   reminderBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -400,7 +481,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[3],
     paddingVertical: spacing[2],
     borderRadius: borderRadius.lg,
-    marginBottom: spacing[4],
   },
   reminderBadgeText: {
     fontFamily: fontFamily.medium,
@@ -423,6 +503,11 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   resetButton: {
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  addMinuteButton: {
     backgroundColor: colors.white,
     borderWidth: 1,
     borderColor: 'rgba(0, 0, 0, 0.1)',
@@ -511,6 +596,9 @@ const styles = StyleSheet.create({
     color: colors.dustyMauve,
     textAlign: 'center',
     marginBottom: spacing[4],
+  },
+  clearButtonsContainer: {
+    gap: spacing[2],
   },
   clearReminderButton: {
     flexDirection: 'row',
