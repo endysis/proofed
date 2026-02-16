@@ -252,6 +252,7 @@ function BakingChecklist({
   onNavigateToTimer: (itemName: string, bakeTime: number, bakeTemp?: number, bakeTempUnit?: 'F' | 'C') => void;
 }) {
   const [notesExpanded, setNotesExpanded] = useState(false);
+  const [showPrepNotes, setShowPrepNotes] = useState(false);
   const swipeableRef = useRef<Swipeable>(null);
   const { data: item } = useItem(usage.itemId);
   const { data: recipe } = useRecipe(usage.itemId, usage.recipeId);
@@ -281,6 +282,35 @@ function BakingChecklist({
     if (bakeTime && item) {
       onNavigateToTimer(item.name, bakeTime, bakeTemp, bakeTempUnit);
     }
+  };
+
+  const handlePrepNotesPress = () => {
+    swipeableRef.current?.close();
+    setShowPrepNotes(true);
+  };
+
+  const renderLeftActions = (
+    _progress: Animated.AnimatedInterpolation<number>,
+    dragX: Animated.AnimatedInterpolation<number>
+  ) => {
+    if (!recipe?.prepNotes) return null;
+
+    const translateX = dragX.interpolate({
+      inputRange: [0, 80],
+      outputRange: [-80, 0],
+      extrapolate: 'clamp',
+    });
+
+    return (
+      <View style={styles.prepNotesActionContainer}>
+        <Animated.View style={[styles.prepNotesAction, { transform: [{ translateX }] }]}>
+          <TouchableOpacity style={styles.prepNotesButton} onPress={handlePrepNotesPress}>
+            <Icon name="description" color={colors.white} size="md" />
+            <Text style={styles.prepNotesButtonText}>Prep</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      </View>
+    );
   };
 
   const renderRightActions = (
@@ -378,6 +408,9 @@ function BakingChecklist({
                 >
                   {scaledQuantity}{ing.unit}
                 </Text>
+                {isMeasured && (
+                  <Text style={styles.measuredLabel}>Measured</Text>
+                )}
               </TouchableOpacity>
             );
           }
@@ -419,19 +452,35 @@ function BakingChecklist({
     </View>
   );
 
-  // Wrap with Swipeable if bakeTime exists
-  if (bakeTime) {
+  const prepNotesModal = (
+    <Modal
+      isOpen={showPrepNotes}
+      onClose={() => setShowPrepNotes(false)}
+      title="Preparation Notes"
+    >
+      <Text style={styles.prepNotesModalText}>{recipe?.prepNotes}</Text>
+    </Modal>
+  );
+
+  // Wrap with Swipeable if bakeTime or prepNotes exists
+  if (bakeTime || recipe?.prepNotes) {
     return (
-      <View style={styles.swipeableWrapper}>
-        <Swipeable
-          ref={swipeableRef}
-          renderRightActions={renderRightActions}
-          rightThreshold={40}
-          overshootRight={false}
-        >
-          {cardContent}
-        </Swipeable>
-      </View>
+      <>
+        <View style={styles.swipeableWrapper}>
+          <Swipeable
+            ref={swipeableRef}
+            renderLeftActions={renderLeftActions}
+            renderRightActions={renderRightActions}
+            leftThreshold={40}
+            rightThreshold={40}
+            overshootLeft={false}
+            overshootRight={false}
+          >
+            {cardContent}
+          </Swipeable>
+        </View>
+        {prepNotesModal}
+      </>
     );
   }
 
@@ -617,8 +666,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   checkboxChecked: {
-    backgroundColor: colors.success,
-    borderColor: colors.success,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   ingredientName: {
     flex: 1,
@@ -627,7 +676,6 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   ingredientNameMeasured: {
-    textDecorationLine: 'line-through',
     color: colors.dustyMauve,
   },
   ingredientQuantity: {
@@ -636,7 +684,13 @@ const styles = StyleSheet.create({
     color: colors.dustyMauve,
   },
   ingredientQuantityMeasured: {
-    textDecorationLine: 'line-through',
+    color: colors.dustyMauve,
+  },
+  measuredLabel: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.xs,
+    color: '#166534',
+    marginLeft: spacing[2],
   },
   bakeInfoRow: {
     flexDirection: 'row',
@@ -754,5 +808,37 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     color: colors.white,
     marginTop: spacing[1],
+  },
+  prepNotesActionContainer: {
+    width: 80,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+  },
+  prepNotesAction: {
+    width: 80,
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  prepNotesButton: {
+    width: 72,
+    height: '100%',
+    backgroundColor: colors.info,
+    borderRadius: borderRadius.xl,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing[2],
+  },
+  prepNotesButtonText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.xs,
+    color: colors.white,
+    marginTop: spacing[1],
+  },
+  prepNotesModalText: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.base,
+    color: colors.text,
+    lineHeight: 24,
   },
 });

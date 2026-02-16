@@ -531,7 +531,7 @@ function PlanItemTile({
               >
                 <View style={[styles.checkbox, isStocked && styles.checkboxChecked]}>
                   {isStocked && (
-                    <Icon name="check" size="sm" color={colors.white} />
+                    <Icon name="close" size="sm" color={colors.white} />
                   )}
                 </View>
                 <Text
@@ -550,6 +550,9 @@ function PlanItemTile({
                 >
                   {ing.quantity}{ing.unit}
                 </Text>
+                {isStocked && (
+                  <Text style={styles.stockedLabel}>Stocked</Text>
+                )}
               </TouchableOpacity>
             );
           }
@@ -878,13 +881,7 @@ function AddItemModal({
           </TouchableOpacity>
         )}
         <TouchableOpacity
-          style={styles.modalCancelButton}
-          onPress={onClose}
-        >
-          <Text style={styles.modalCancelButtonText}>Cancel</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.modalSaveButton, !canSave && styles.buttonDisabled]}
+          style={[styles.modalSaveButton, !onRemove && styles.modalSaveButtonFull, !canSave && styles.buttonDisabled]}
           onPress={handleSave}
           disabled={!canSave}
         >
@@ -1328,8 +1325,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   checkboxChecked: {
-    backgroundColor: colors.success,
-    borderColor: colors.success,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   ingredientName: {
     flex: 1,
@@ -1338,7 +1335,6 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   ingredientNameStocked: {
-    textDecorationLine: 'line-through',
     color: colors.dustyMauve,
   },
   ingredientQuantity: {
@@ -1347,7 +1343,13 @@ const styles = StyleSheet.create({
     color: colors.dustyMauve,
   },
   ingredientQuantityStocked: {
-    textDecorationLine: 'line-through',
+    color: colors.dustyMauve,
+  },
+  stockedLabel: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.xs,
+    color: '#166534',
+    marginLeft: spacing[2],
   },
   loadingText: {
     fontFamily: fontFamily.regular,
@@ -1518,11 +1520,14 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   modalSaveButton: {
-    flex: 2,
+    flex: 1,
     paddingVertical: spacing[3],
     borderRadius: borderRadius.xl,
     backgroundColor: colors.primary,
     alignItems: 'center',
+  },
+  modalSaveButtonFull: {
+    flex: 1,
   },
   modalSaveButtonText: {
     fontFamily: fontFamily.bold,
