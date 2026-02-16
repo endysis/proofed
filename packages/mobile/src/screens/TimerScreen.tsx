@@ -1,23 +1,24 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
-  Alert,
 } from 'react-native';
-import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { Icon } from '../components/common';
+import { Icon, Modal } from '../components/common';
+import { useTimer } from '../contexts/TimerContext';
 import { colors, fontFamily, fontSize, spacing, borderRadius } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
 type TimerScreenRouteProp = RouteProp<RootStackParamList, 'TimerScreen'>;
-type TimerState = 'idle' | 'running' | 'paused' | 'finished';
 
 const CIRCLE_SIZE = 280;
 const STROKE_WIDTH = 12;
+
+// Reminder options in minutes
+const REMINDER_OPTIONS = [1, 2, 3, 5, 10];
 
 export default function TimerScreen() {
   const insets = useSafeAreaInsets();
@@ -25,71 +26,29 @@ export default function TimerScreen() {
   const route = useRoute<TimerScreenRouteProp>();
   const { itemName, bakeTimeMinutes, bakeTemp, bakeTempUnit = 'C' } = route.params;
 
+  const [showReminderModal, setShowReminderModal] = useState(false);
+
+  const {
+    activeTimer,
+    timerState,
+    remainingSeconds,
+    startTimer,
+    resumeTimer,
+    pauseTimer,
+    resetTimer,
+    setReminder,
+    clearReminder,
+  } = useTimer();
+
   const totalSeconds = bakeTimeMinutes * 60;
-  const [remainingSeconds, setRemainingSeconds] = useState(totalSeconds);
-  const [timerState, setTimerState] = useState<TimerState>('idle');
 
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const startTimeRef = useRef<number>(0);
-
-  const clearTimer = useCallback(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-  }, []);
-
-  const handleFinished = useCallback(() => {
-    clearTimer();
-    setTimerState('finished');
-    setRemainingSeconds(0);
-
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-    Alert.alert(
-      'Timer Complete!',
-      `${itemName} is ready to check.`,
-      [{ text: 'OK', style: 'default' }]
-    );
-  }, [clearTimer, itemName]);
-
-  const startTimer = useCallback(() => {
-    const elapsedBeforePause = totalSeconds - remainingSeconds;
-    startTimeRef.current = Date.now() - elapsedBeforePause * 1000;
-
-    intervalRef.current = setInterval(() => {
-      const elapsedMs = Date.now() - startTimeRef.current;
-      const elapsedSecs = Math.floor(elapsedMs / 1000);
-      const remaining = Math.max(0, totalSeconds - elapsedSecs);
-
-      setRemainingSeconds(remaining);
-
-      if (remaining === 0) {
-        handleFinished();
-      }
-    }, 100);
-
-    setTimerState('running');
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-  }, [totalSeconds, remainingSeconds, handleFinished]);
-
-  const pauseTimer = useCallback(() => {
-    clearTimer();
-    setTimerState('paused');
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  }, [clearTimer]);
-
-  const resetTimer = useCallback(() => {
-    clearTimer();
-    setRemainingSeconds(totalSeconds);
-    setTimerState('idle');
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-  }, [clearTimer, totalSeconds]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => clearTimer();
-  }, [clearTimer]);
+  // Use context values if timer is for this item, otherwise use route params
+  const isActiveForThisItem = activeTimer?.itemName === itemName;
+  const displaySeconds = isActiveForThisItem ? remainingSeconds : totalSeconds;
+  const displayState = isActiveForThisItem ? timerState : 'idle';
+  const displayTemp = isActiveForThisItem ? activeTimer?.bakeTemp : bakeTemp;
+  const displayTempUnit = isActiveForThisItem ? (activeTimer?.bakeTempUnit ?? 'C') : bakeTempUnit;
+  const reminderMinutes = isActiveForThisItem ? activeTimer?.reminderMinutes : undefined;
 
   // Format time as MM:SS
   const formatTime = (seconds: number) => {
@@ -99,11 +58,51 @@ export default function TimerScreen() {
   };
 
   // Calculate progress (0 to 1)
-  const progress = 1 - remainingSeconds / totalSeconds;
+  const progress = isActiveForThisItem
+    ? 1 - remainingSeconds / (activeTimer?.totalSeconds ?? totalSeconds)
+    : 0;
 
-  const isRunning = timerState === 'running';
-  const isFinished = timerState === 'finished';
-  const canReset = timerState !== 'idle' || remainingSeconds !== totalSeconds;
+  const isRunning = displayState === 'running';
+  const isPaused = displayState === 'paused';
+  const isFinished = displayState === 'finished';
+  const canReset = displayState !== 'idle';
+  const canSetReminder = isRunning && displaySeconds > 60; // At least 1 min remaining
+
+  const handleStartOrResume = () => {
+    if (displayState === 'idle' || !isActiveForThisItem) {
+      startTimer({
+        itemName,
+        totalSeconds,
+        bakeTemp,
+        bakeTempUnit,
+      });
+    } else if (displayState === 'paused') {
+      resumeTimer();
+    }
+  };
+
+  const handlePause = () => {
+    pauseTimer();
+  };
+
+  const handleReset = () => {
+    resetTimer();
+  };
+
+  const handleSetReminder = (minutes: number) => {
+    setReminder(minutes);
+    setShowReminderModal(false);
+  };
+
+  const handleClearReminder = () => {
+    clearReminder();
+    setShowReminderModal(false);
+  };
+
+  // Filter reminder options to only show those less than remaining time
+  const availableReminderOptions = REMINDER_OPTIONS.filter(
+    (mins) => mins * 60 < displaySeconds
+  );
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -121,11 +120,11 @@ export default function TimerScreen() {
       {/* Timer Content */}
       <View style={styles.content}>
         {/* Temperature Badge */}
-        {bakeTemp && (
+        {displayTemp && (
           <View style={styles.tempBadge}>
             <Icon name="thermostat" size="md" color={colors.primary} />
             <Text style={styles.tempText}>
-              {bakeTemp}°{bakeTempUnit}
+              {displayTemp}°{displayTempUnit}
             </Text>
           </View>
         )}
@@ -135,7 +134,7 @@ export default function TimerScreen() {
           {/* Background ring */}
           <View style={styles.progressRingBackground} />
 
-          {/* Progress ring - using a simplified visual indicator */}
+          {/* Progress indicator using border */}
           <View
             style={[
               styles.progressRingFill,
@@ -150,11 +149,10 @@ export default function TimerScreen() {
             ]}
           />
 
-          {/* Inner white circle to create ring effect */}
+          {/* Inner circle with time display */}
           <View style={styles.innerCircle}>
-            {/* Time Display */}
             <Text style={[styles.timeDisplay, isFinished && styles.timeDisplayFinished]}>
-              {formatTime(remainingSeconds)}
+              {formatTime(displaySeconds)}
             </Text>
             {isFinished && (
               <Text style={styles.finishedLabel}>DONE!</Text>
@@ -162,7 +160,7 @@ export default function TimerScreen() {
           </View>
         </View>
 
-        {/* Progress bar as alternative visual */}
+        {/* Progress bar */}
         <View style={styles.progressBarContainer}>
           <View style={styles.progressBarBackground}>
             <View
@@ -177,11 +175,21 @@ export default function TimerScreen() {
           </View>
         </View>
 
+        {/* Reminder Badge */}
+        {reminderMinutes && (
+          <View style={styles.reminderBadge}>
+            <Icon name="notifications_active" size="sm" color={colors.warning} />
+            <Text style={styles.reminderBadgeText}>
+              Reminder set: {reminderMinutes} min before
+            </Text>
+          </View>
+        )}
+
         {/* Controls */}
         <View style={styles.controls}>
           <TouchableOpacity
             style={[styles.controlButton, styles.resetButton, !canReset && styles.controlButtonDisabled]}
-            onPress={resetTimer}
+            onPress={handleReset}
             disabled={!canReset}
           >
             <Icon name="replay" size="md" color={canReset ? colors.text : colors.dustyMauve} />
@@ -192,7 +200,7 @@ export default function TimerScreen() {
 
           <TouchableOpacity
             style={[styles.controlButton, styles.primaryButton, isFinished && styles.primaryButtonFinished]}
-            onPress={isRunning ? pauseTimer : startTimer}
+            onPress={isRunning ? handlePause : handleStartOrResume}
             disabled={isFinished}
           >
             <Icon
@@ -205,7 +213,71 @@ export default function TimerScreen() {
             </Text>
           </TouchableOpacity>
         </View>
+
+        {/* Reminder Button */}
+        {(isRunning || isPaused) && !isFinished && (
+          <TouchableOpacity
+            style={[styles.reminderButton, !canSetReminder && styles.reminderButtonDisabled]}
+            onPress={() => setShowReminderModal(true)}
+            disabled={!canSetReminder}
+          >
+            <Icon
+              name={reminderMinutes ? 'notifications_active' : 'add_alert'}
+              size="sm"
+              color={canSetReminder ? colors.warning : colors.dustyMauve}
+            />
+            <Text style={[styles.reminderButtonText, !canSetReminder && styles.reminderButtonTextDisabled]}>
+              {reminderMinutes ? 'Change Reminder' : 'Set Reminder'}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
+
+      {/* Reminder Modal */}
+      <Modal
+        isOpen={showReminderModal}
+        onClose={() => setShowReminderModal(false)}
+        title="Set Reminder"
+      >
+        <Text style={styles.modalSubtitle}>
+          Get notified before the timer ends
+        </Text>
+
+        <View style={styles.reminderOptions}>
+          {availableReminderOptions.map((mins) => (
+            <TouchableOpacity
+              key={mins}
+              style={[
+                styles.reminderOption,
+                reminderMinutes === mins && styles.reminderOptionActive,
+              ]}
+              onPress={() => handleSetReminder(mins)}
+            >
+              <Text
+                style={[
+                  styles.reminderOptionText,
+                  reminderMinutes === mins && styles.reminderOptionTextActive,
+                ]}
+              >
+                {mins} min
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {availableReminderOptions.length === 0 && (
+          <Text style={styles.noOptionsText}>
+            Not enough time remaining for a reminder
+          </Text>
+        )}
+
+        {reminderMinutes && (
+          <TouchableOpacity style={styles.clearReminderButton} onPress={handleClearReminder}>
+            <Icon name="notifications_off" size="sm" color={colors.primary} />
+            <Text style={styles.clearReminderButtonText}>Clear Reminder</Text>
+          </TouchableOpacity>
+        )}
+      </Modal>
     </View>
   );
 }
@@ -308,7 +380,7 @@ const styles = StyleSheet.create({
   },
   progressBarContainer: {
     width: '100%',
-    marginBottom: spacing[8],
+    marginBottom: spacing[4],
   },
   progressBarBackground: {
     height: 8,
@@ -319,6 +391,21 @@ const styles = StyleSheet.create({
   progressBarFill: {
     height: '100%',
     borderRadius: 4,
+  },
+  reminderBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[2],
+    borderRadius: borderRadius.lg,
+    marginBottom: spacing[4],
+  },
+  reminderBadgeText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: colors.warning,
   },
   controls: {
     flexDirection: 'row',
@@ -361,5 +448,83 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.white,
     marginTop: spacing[1],
+  },
+  reminderButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+    marginTop: spacing[6],
+    paddingVertical: spacing[3],
+    paddingHorizontal: spacing[4],
+    borderRadius: borderRadius.xl,
+    borderWidth: 1,
+    borderColor: colors.warning,
+    borderStyle: 'dashed',
+  },
+  reminderButtonDisabled: {
+    borderColor: colors.dustyMauve,
+    opacity: 0.5,
+  },
+  reminderButtonText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: colors.warning,
+  },
+  reminderButtonTextDisabled: {
+    color: colors.dustyMauve,
+  },
+  modalSubtitle: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.dustyMauve,
+    marginBottom: spacing[4],
+  },
+  reminderOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing[2],
+    marginBottom: spacing[4],
+  },
+  reminderOption: {
+    paddingVertical: spacing[3],
+    paddingHorizontal: spacing[4],
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.bgLight,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  reminderOptionActive: {
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    borderColor: colors.warning,
+  },
+  reminderOptionText: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.base,
+    color: colors.text,
+  },
+  reminderOptionTextActive: {
+    color: colors.warning,
+  },
+  noOptionsText: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.dustyMauve,
+    textAlign: 'center',
+    marginBottom: spacing[4],
+  },
+  clearReminderButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing[2],
+    paddingVertical: spacing[3],
+    borderRadius: borderRadius.xl,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  clearReminderButtonText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: colors.primary,
   },
 });

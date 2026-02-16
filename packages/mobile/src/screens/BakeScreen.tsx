@@ -726,7 +726,7 @@ const styles = StyleSheet.create({
     padding: spacing[4],
   },
   swipeableWrapper: {
-    overflow: 'hidden',
+    overflow: 'visible',
     borderRadius: borderRadius.xl,
   },
   timerActionContainer: {

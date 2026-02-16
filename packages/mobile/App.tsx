@@ -17,6 +17,7 @@ import AppNavigator from './src/navigation/AppNavigator';
 import { Loading } from './src/components/common';
 import { colors } from './src/theme';
 import { AuthProvider } from './src/contexts/AuthContext';
+import { TimerProvider } from './src/contexts/TimerContext';
 
 // Keep the splash screen visible while we fetch fonts
 SplashScreen.preventAutoHideAsync();
@@ -58,8 +59,10 @@ export default function App() {
       <SafeAreaProvider>
         <AuthProvider>
           <QueryClientProvider client={queryClient}>
-            <StatusBar style="dark" />
-            <AppNavigator />
+            <TimerProvider>
+              <StatusBar style="dark" />
+              <AppNavigator />
+            </TimerProvider>
           </QueryClientProvider>
         </AuthProvider>
       </SafeAreaProvider>
