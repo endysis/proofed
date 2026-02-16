@@ -17,6 +17,7 @@ import AppNavigator from './src/navigation/AppNavigator';
 import { Loading } from './src/components/common';
 import { colors } from './src/theme';
 import { AuthProvider } from './src/contexts/AuthContext';
+import { PreferencesProvider } from './src/contexts/PreferencesContext';
 import { TimerProvider } from './src/contexts/TimerContext';
 
 // Keep the splash screen visible while we fetch fonts
@@ -58,12 +59,14 @@ export default function App() {
     <GestureHandlerRootView style={styles.container} onLayout={onLayoutRootView}>
       <SafeAreaProvider>
         <AuthProvider>
-          <QueryClientProvider client={queryClient}>
-            <TimerProvider>
-              <StatusBar style="dark" />
-              <AppNavigator />
-            </TimerProvider>
-          </QueryClientProvider>
+          <PreferencesProvider>
+            <QueryClientProvider client={queryClient}>
+              <TimerProvider>
+                <StatusBar style="dark" />
+                <AppNavigator />
+              </TimerProvider>
+            </QueryClientProvider>
+          </PreferencesProvider>
         </AuthProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

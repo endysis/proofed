@@ -8,6 +8,7 @@ export type AuthStackParamList = {
   SignUp: undefined;
   ConfirmSignUp: { email: string };
   ForgotPassword: undefined;
+  Welcome: { email: string };
 };
 
 // Tab Navigator
@@ -29,6 +30,7 @@ export type RootStackParamList = {
   NewAttempt: undefined;
   ProofedItemDetail: { proofedItemId: string };
   Settings: undefined;
+  Preferences: undefined;
   TimerScreen: {
     itemName: string;
     bakeTimeMinutes: number;

@@ -22,6 +22,7 @@ import EvaluateScreen from '../screens/EvaluateScreen';
 import NewAttemptScreen from '../screens/NewAttemptScreen';
 import ProofedItemDetailScreen from '../screens/ProofedItemDetailScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import PreferencesScreen from '../screens/PreferencesScreen';
 import TimerScreen from '../screens/TimerScreen';
 
 // Auth Screens
@@ -30,6 +31,7 @@ import {
   SignUpScreen,
   ConfirmSignUpScreen,
   ForgotPasswordScreen,
+  WelcomeScreen,
 } from '../screens/auth';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -48,6 +50,7 @@ function AuthNavigator() {
       <AuthStack.Screen name="SignUp" component={SignUpScreen} />
       <AuthStack.Screen name="ConfirmSignUp" component={ConfirmSignUpScreen} />
       <AuthStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+      <AuthStack.Screen name="Welcome" component={WelcomeScreen} />
     </AuthStack.Navigator>
   );
 }
@@ -137,6 +140,7 @@ function MainNavigator() {
         component={SettingsScreen}
         options={{ animation: 'slide_from_left' }}
       />
+      <Stack.Screen name="Preferences" component={PreferencesScreen} />
       <Stack.Screen name="TimerScreen" component={TimerScreen} />
     </Stack.Navigator>
   );

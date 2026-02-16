@@ -43,7 +43,7 @@ export default function ConfirmSignUpScreen() {
 
     try {
       await confirmSignUp(email, code.trim());
-      navigation.navigate('SignIn');
+      navigation.navigate('Welcome', { email });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Verification failed');
     } finally {
