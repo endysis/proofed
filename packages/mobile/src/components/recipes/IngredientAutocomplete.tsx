@@ -83,6 +83,10 @@ export default function IngredientAutocomplete({
   const showSuggestOption =
     value.trim().length >= 2 && !hasExactMatch && suggestions.length < 8;
 
+  // Only show dropdown if focused, has input, and has content to display
+  const hasDropdownContent = suggestions.length > 0 || showSuggestOption;
+  const shouldShowDropdown = showDropdown && value.trim().length > 0 && hasDropdownContent;
+
   return (
     <View style={styles.container}>
       <TextInput
@@ -98,7 +102,7 @@ export default function IngredientAutocomplete({
         autoCorrect={false}
       />
 
-      {showDropdown && (suggestions.length > 0 || showSuggestOption) && (
+      {shouldShowDropdown && (
         <View style={styles.dropdown}>
           {suggestions.map((suggestion, index) => (
             <TouchableOpacity
