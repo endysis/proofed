@@ -63,8 +63,8 @@ export function AiAdviceSection({
     );
   }
 
-  // Advice with overview but no tips
-  if (advice && advice.tips.length === 0 && advice.overview) {
+  // Advice received - show overview only
+  if (advice && advice.overview) {
     return (
       <View style={styles.container}>
         <View style={styles.header}>
@@ -76,59 +76,6 @@ export function AiAdviceSection({
         <View style={styles.overviewCard}>
           <Text style={styles.overviewText}>{advice.overview}</Text>
         </View>
-        {!alreadyRequested && (
-          <TouchableOpacity style={styles.reaskButton} onPress={onRequestAdvice}>
-            <Icon name="refresh" size="sm" color={colors.primary} />
-            <Text style={styles.reaskButtonText}>Ask Crumb again</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-    );
-  }
-
-  // Advice received state with tips
-  if (advice && advice.tips.length > 0) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <Icon name="auto_awesome" size="md" color={colors.primary} />
-            <Text style={styles.headerTitle}>Crumb</Text>
-          </View>
-        </View>
-
-        {/* Overview - friendly reaction */}
-        {advice.overview && (
-          <View style={styles.overviewCard}>
-            <Text style={styles.overviewText}>{advice.overview}</Text>
-          </View>
-        )}
-
-        {/* Tips section header */}
-        <Text style={styles.tipsHeader}>Suggestions</Text>
-
-        {advice.tips.map((tip, index) => {
-          const usageDetail =
-            typeof tip.itemUsageIndex === 'number' && itemUsageDetails?.[tip.itemUsageIndex]
-              ? itemUsageDetails[tip.itemUsageIndex]
-              : undefined;
-          return (
-            <AiAdviceCard
-              key={index}
-              tip={tip}
-              targetItemName={usageDetail?.itemName}
-              scaleFactor={usageDetail?.scaleFactor ?? 1}
-              onCreateVariant={onCreateVariantFromTip ? () => onCreateVariantFromTip(tip) : undefined}
-            />
-          );
-        })}
-
-        {!alreadyRequested && (
-          <TouchableOpacity style={styles.reaskButton} onPress={onRequestAdvice}>
-            <Icon name="refresh" size="sm" color={colors.primary} />
-            <Text style={styles.reaskButtonText}>Ask Crumb again</Text>
-          </TouchableOpacity>
-        )}
       </View>
     );
   }

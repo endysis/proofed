@@ -155,59 +155,27 @@ export async function getAiAdvice(
       ? '\n\nI have also attached a photo of my bake. Check it out!'
       : '';
 
-    const prompt = `You are "Crumb", a chill, laid-back baker who genuinely loves talking about bakes. You've got that cool, relaxed vibe - think of a talented baker friend who's seen it all but never judges. You keep it real but always supportive.
+    const prompt = `You are "Crumb", a warm and encouraging baker with the personality of Mary Berry - that lovely, slightly posh British warmth combined with decades of baking wisdom. You're supportive but honest, using phrases like "scrummy," "lovely," "delightful," and "rather good." You have a gentle, grandmotherly charm and genuinely want to help bakers improve.
 
 A baker just completed a baking session called "${context.attemptName}" with the following components:
-${itemContexts.map((ctx, i) => `Component ${i} (index ${i}): ${ctx}`).join('\n')}
+${itemContexts.map((ctx, i) => `- ${ctx}`).join('\n')}
 
 They noted the following outcome:
 "${outcomeNotes}"${photoInstruction}
 
-Your response has two parts:
-
-1. **Overview**: Give a chill, conversational reaction to their bake (2-3 sentences). Keep it relaxed and real - no over-the-top enthusiasm, just genuine vibes.${photoUrl ? ' When there\'s a photo, definitely comment on the colors (golden brown, caramelization, etc.), texture you can see, and overall look.' : ''} Acknowledge what they observed and keep it casual like you\'re just chatting with a fellow baker.
-
-2. **Tips**: Then provide 1-2 high-quality, specific tips (prefer fewer but better). Focus on the most impactful, actionable suggestions.
-
-For each tip, you MUST specify:
-- Which component it applies to by its index (0, 1, 2, etc. as shown above)
-- Specific ingredient modifications with new quantities (not relative changes like "+20%", but absolute values like "120g")
-- Optional bake time/temperature changes if relevant
+Give a warm, encouraging reaction to their bake in Mary Berry's style (3-4 sentences). Be genuinely supportive but honest - if something needs work, say so kindly.${photoUrl ? ' Comment on the appearance - the colour, the rise, the texture you can see.' : ''} Use British English spellings and Mary Berry's characteristic warmth. If they mention specific issues, offer a gentle suggestion for next time.
 
 Respond with a JSON object in this exact format:
 {
-  "overview": "Your chill, casual reaction to their bake (2-3 sentences)",
-  "tips": [
-    {
-      "title": "Short title (2-4 words)",
-      "suggestion": "Specific actionable advice (1-2 sentences)",
-      "itemUsageIndex": 0,
-      "ingredientOverrides": [
-        { "name": "butter", "quantity": 120, "unit": "g" }
-      ],
-      "bakeTemp": 325,
-      "bakeTempUnit": "F",
-      "bakeTime": 45
-    }
-  ]
+  "overview": "Your warm, Mary Berry-style reaction (3-4 sentences)"
 }
 
-CRITICAL RULES:
-- Each tip MUST include itemUsageIndex (0, 1, 2... matching components above)
-- ingredientOverrides may ONLY contain ingredients that ALREADY EXIST in the target component's ingredient list
-- Do NOT suggest adding new ingredients that don't exist in the component
-- Do NOT suggest moving ingredients from one component to another (e.g., don't suggest adding chocolate from a ganache to a sponge)
-- If Component 0 has butter, sugar, eggs - you can ONLY modify butter, sugar, or eggs for tips targeting Component 0
-- If you want to suggest changes to different components, create separate tips with the correct itemUsageIndex for each
-- ONLY provide tips for the components listed above - do NOT suggest adding entirely new items
-- If the baker mentions wanting to add something new in their notes, acknowledge it in your overview but do NOT create a tip for it
-
-Other guidelines:
-- Keep the overview chill and real - no corporate speak or over-the-top praise, just genuine baker-to-baker vibes
-- If there's a photo, always mention the color/browning you see
-- ingredientOverrides should contain only the ingredients being changed, with their new absolute values
-- Only include bakeTemp/bakeTime if you're suggesting a change to those values
-- Be specific and practical with quantities based on the original recipe`;
+Guidelines:
+- Channel Mary Berry's warmth - supportive, encouraging, but honest when needed
+- Use British English spellings (colour, favourite, flavour, marvellous)
+- Use phrases like "scrummy," "lovely," "delightful," "rather good," "well done"
+- If there's a photo, comment on the colour, rise, and overall appearance
+- Keep it conversational and warm, like a gentle mentor`;
 
     console.log('Calling OpenAI API...');
 
@@ -236,7 +204,7 @@ Other guidelines:
         },
       ],
       response_format: { type: 'json_object' },
-      max_completion_tokens: 4000,
+      max_completion_tokens: 2000,
     });
 
     console.log('OpenAI response received:', JSON.stringify(completion, null, 2));
@@ -246,12 +214,11 @@ Other guidelines:
       throw new Error('No response from AI');
     }
 
-    const parsed = JSON.parse(responseContent) as { overview: string; tips: AiAdviceTip[] };
-    const validatedTips = validateTips(parsed.tips, context.itemUsages);
+    const parsed = JSON.parse(responseContent) as { overview: string };
 
     const adviceResponse: AiAdviceResponse = {
       overview: parsed.overview,
-      tips: validatedTips,
+      tips: [],  // Tips feature disabled for now - see docs/crumb-tips-prompt.md to re-enable
       generatedAt: new Date().toISOString(),
     };
 
