@@ -35,9 +35,14 @@ export default function VariantForm({
 }: VariantFormProps) {
   const preferredTempUnit = useTemperatureUnit();
   const [name, setName] = useState(variant?.name || '');
-  const [ingredientOverrides, setIngredientOverrides] = useState<Ingredient[]>(
-    variant?.ingredientOverrides || [{ name: '', quantity: 0, unit: '' }]
-  );
+  // Scale existing variant overrides for display (stored at 1x, display at current scale)
+  const initialOverrides = variant?.ingredientOverrides
+    ? variant.ingredientOverrides.map((o) => ({
+        ...o,
+        quantity: Math.round(o.quantity * scaleFactor * 100) / 100,
+      }))
+    : [{ name: '', quantity: 0, unit: '' }];
+  const [ingredientOverrides, setIngredientOverrides] = useState<Ingredient[]>(initialOverrides);
   const [bakeTime, setBakeTime] = useState<string>(variant?.bakeTime?.toString() ?? '');
   const [bakeTemp, setBakeTemp] = useState<string>(variant?.bakeTemp?.toString() ?? '');
   const [bakeTempUnit, setBakeTempUnit] = useState<'F' | 'C'>(variant?.bakeTempUnit ?? preferredTempUnit);
@@ -76,9 +81,15 @@ export default function VariantForm({
 
   const handleSubmit = () => {
     const validOverrides = ingredientOverrides.filter((i) => i.name.trim());
+    // De-scale overrides before saving so they're stored at 1x scale
+    // This ensures correct display at any scale factor
+    const deScaledOverrides = validOverrides.map((o) => ({
+      ...o,
+      quantity: Math.round((o.quantity / scaleFactor) * 100) / 100,
+    }));
     onSubmit({
       name,
-      ingredientOverrides: validOverrides,
+      ingredientOverrides: deScaledOverrides,
       bakeTime: bakeTime ? parseInt(bakeTime) : undefined,
       bakeTemp: bakeTemp ? parseInt(bakeTemp) : undefined,
       bakeTempUnit: bakeTemp ? bakeTempUnit : undefined,
