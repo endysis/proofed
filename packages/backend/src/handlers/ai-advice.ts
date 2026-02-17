@@ -1,14 +1,19 @@
 import OpenAI from 'openai';
-import type { AiAdviceRequest, AiAdviceResponse, AiAdviceTip } from '@proofed/shared';
+import type { AiAdviceRequest, AiAdviceResponse, AiAdviceTip, Ingredient } from '@proofed/shared';
 import { getOpenAIApiKey } from '../lib/secrets';
+import { getItem, updateItem } from '../lib/dynamo';
+import type { Attempt } from '@proofed/shared';
+
+const ATTEMPTS_TABLE = process.env.ATTEMPTS_TABLE!;
 
 /**
  * Validates and filters AI tips to ensure they only reference components that exist in the bake.
  * Also corrects itemUsageIndex if a tip mentions a different component than assigned.
+ * Filters out tips where ingredientOverrides reference ingredients not in the target component.
  */
 function validateTips(
   tips: AiAdviceTip[],
-  itemUsages: Array<{ itemName: string }>
+  itemUsages: Array<{ itemName: string; ingredients: Ingredient[] }>
 ): AiAdviceTip[] {
   const itemNames = itemUsages.map((u) => u.itemName.toLowerCase());
   const itemKeywords = itemUsages.map((u) =>
@@ -19,36 +24,43 @@ function validateTips(
   );
 
   // Common baking items that might be mentioned but not in this bake
-  const commonItems = [
-    'ganache',
-    'buttercream',
-    'frosting',
-    'glaze',
-    'filling',
-    'sponge',
-    'cake',
-    'meringue',
-    'caramel',
-    'custard',
-    'mousse',
-    'cream',
-    'icing',
-    'fondant',
+  // Group synonyms together - if tip mentions any term in a group, check if ANY synonym is in the bake
+  const synonymGroups: string[][] = [
+    ['frosting', 'icing', 'buttercream'],  // These terms are often used interchangeably
+    ['ganache'],
+    ['glaze'],
+    ['filling'],
+    ['sponge', 'cake'],  // Cake and sponge are related
+    ['meringue'],
+    ['caramel'],
+    ['custard'],
+    ['mousse'],
+    ['fondant'],
   ];
+
+  // Flatten for quick lookup of which group a term belongs to
+  const termToGroup = new Map<string, string[]>();
+  for (const group of synonymGroups) {
+    for (const term of group) {
+      termToGroup.set(term, group);
+    }
+  }
 
   return tips
     .filter((tip) => {
       const tipText = `${tip.title} ${tip.suggestion}`.toLowerCase();
 
-      for (const item of commonItems) {
-        if (tipText.includes(item)) {
-          // Check if this item is actually in our bake
-          const isInBake =
-            itemNames.some((name) => name.includes(item)) ||
-            itemKeywords.some((keywords) => keywords.includes(item));
+      for (const [term, synonyms] of termToGroup) {
+        if (tipText.includes(term)) {
+          // Check if ANY synonym from this group is in our bake
+          const isInBake = synonyms.some(
+            (syn) =>
+              itemNames.some((name) => name.includes(syn)) ||
+              itemKeywords.some((keywords) => keywords.includes(syn))
+          );
           if (!isInBake) {
             // Tip mentions an item not in this bake - filter it out
-            console.log(`Filtering out tip "${tip.title}" - mentions "${item}" which is not in the bake`);
+            console.log(`Filtering out tip "${tip.title}" - mentions "${term}" which is not in the bake`);
             return false;
           }
         }
@@ -66,14 +78,48 @@ function validateTips(
         }
       }
       return tip;
+    })
+    // Filter out tips where ingredientOverrides reference ingredients not in the target component
+    .filter((tip) => {
+      if (!tip.ingredientOverrides || tip.ingredientOverrides.length === 0) {
+        return true;
+      }
+      const targetUsage = itemUsages[tip.itemUsageIndex];
+      if (!targetUsage) {
+        console.log(`Filtering tip "${tip.title}" - invalid itemUsageIndex ${tip.itemUsageIndex}`);
+        return false;
+      }
+      const targetIngredientNames = targetUsage.ingredients.map((i) => i.name.toLowerCase());
+      for (const override of tip.ingredientOverrides) {
+        if (!targetIngredientNames.includes(override.name.toLowerCase())) {
+          console.log(`Filtering tip "${tip.title}" - "${override.name}" not in ${targetUsage.itemName}`);
+          return false;
+        }
+      }
+      return true;
     });
 }
 
-export async function getAiAdvice(request: AiAdviceRequest): Promise<AiAdviceResponse> {
+export async function getAiAdvice(
+  userId: string,
+  attemptId: string,
+  request: AiAdviceRequest
+): Promise<AiAdviceResponse> {
   const { outcomeNotes, photoUrl, context } = request;
 
   console.log('AI Advice Request:', JSON.stringify(request, null, 2));
   console.log('Photo URL provided:', !!photoUrl);
+
+  // Check if advice has already been requested for this attempt
+  const attempt = await getItem<Attempt>(ATTEMPTS_TABLE, { userId, attemptId });
+  if (!attempt) {
+    throw new Error('Attempt not found');
+  }
+  if (attempt.aiAdvice) {
+    const error = new Error('Advice already requested for this bake');
+    (error as any).statusCode = 400;
+    throw error;
+  }
 
   // Get OpenAI API key from Secrets Manager
   const apiKey = await getOpenAIApiKey();
@@ -178,7 +224,7 @@ Other guidelines:
     }
 
     const completion = await openai.chat.completions.create({
-      model: photoUrl ? 'gpt-4o' : 'gpt-4o-mini',  // Use gpt-4o for vision
+      model: 'gpt-5-mini',
       messages: [
         {
           role: 'system',
@@ -190,8 +236,7 @@ Other guidelines:
         },
       ],
       response_format: { type: 'json_object' },
-      temperature: 0.7,
-      max_tokens: 700,
+      max_completion_tokens: 4000,
     });
 
     console.log('OpenAI response received:', JSON.stringify(completion, null, 2));
@@ -204,11 +249,17 @@ Other guidelines:
     const parsed = JSON.parse(responseContent) as { overview: string; tips: AiAdviceTip[] };
     const validatedTips = validateTips(parsed.tips, context.itemUsages);
 
-    return {
+    const adviceResponse: AiAdviceResponse = {
       overview: parsed.overview,
       tips: validatedTips,
       generatedAt: new Date().toISOString(),
     };
+
+    // Save the advice to the attempt record
+    await updateItem<Attempt>(ATTEMPTS_TABLE, { userId, attemptId }, { aiAdvice: adviceResponse });
+    console.log('Saved AI advice to attempt record');
+
+    return adviceResponse;
   } catch (error: any) {
     console.error('OpenAI API Error:', {
       message: error.message,

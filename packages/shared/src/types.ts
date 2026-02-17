@@ -98,6 +98,7 @@ export interface Attempt {
   mainPhotoKey?: string;  // Key of the photo to display on home screen
   status?: AttemptStatus;  // 'planning' | 'baking' | 'done'
   starred?: boolean;       // Whether this attempt is starred/favorited
+  aiAdvice?: AiAdviceResponse;  // Saved Crumb advice (persisted, one request per bake)
   createdAt: string;
 }
 
@@ -295,6 +296,7 @@ export interface ListResponse<T> {
 // User Preferences types (extensible)
 export interface UserPreferences {
   userId: string;
+  name?: string;
   temperatureUnit: 'F' | 'C';
   // Future fields (add as needed):
   // language?: string;
@@ -305,6 +307,44 @@ export interface UserPreferences {
 }
 
 export interface UpdatePreferencesRequest {
+  name?: string;
   temperatureUnit?: 'F' | 'C';
   // Future: add new preference fields here
+}
+
+// Ingredient Suggestions types
+export type IngredientCategory =
+  | 'flour'
+  | 'sugar'
+  | 'dairy'
+  | 'eggs'
+  | 'leavening'
+  | 'flavoring'
+  | 'chocolate'
+  | 'nuts'
+  | 'fruit'
+  | 'spices'
+  | 'fats'
+  | 'other';
+
+export interface IngredientSuggestion {
+  name: string;
+  category: IngredientCategory;
+}
+
+export interface IngredientsData {
+  version: number;
+  ingredients: IngredientSuggestion[];
+}
+
+export interface IngredientSubmission {
+  submissionId: string;
+  name: string;
+  userId: string;
+  status: 'pending' | 'approved' | 'rejected';
+  createdAt: string;
+}
+
+export interface SubmitIngredientRequest {
+  name: string;
 }

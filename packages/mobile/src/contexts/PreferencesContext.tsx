@@ -4,8 +4,9 @@ import type { UserPreferences, UpdatePreferencesRequest } from '@proofed/shared'
 import { preferencesApi, setPreferencesAuthTokenGetter } from '../api/preferences';
 import { useAuth } from './AuthContext';
 
-// Key for storing pending preference selection (from WelcomeScreen before sign-in)
+// Keys for storing pending preference selections (from WelcomeScreen before sign-in)
 const PENDING_TEMP_UNIT_KEY = 'proofed_pending_temp_unit';
+const PENDING_NAME_KEY = 'proofed_pending_name';
 
 // Extensible defaults - add new preferences here
 const DEFAULT_PREFERENCES: Omit<UserPreferences, 'userId' | 'createdAt' | 'updatedAt'> = {
@@ -23,6 +24,7 @@ interface PreferencesContextType {
   refreshPreferences: () => Promise<void>;
   // Convenience getters for common preferences
   temperatureUnit: 'F' | 'C';
+  name: string | undefined;
 }
 
 const PreferencesContext = createContext<PreferencesContextType | undefined>(undefined);
@@ -53,18 +55,28 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
       setPreferences(prefs);
       setHasLoadedOnce(true);
 
-      // Check if there's a pending preference from onboarding (WelcomeScreen)
+      // Check if there are pending preferences from onboarding (WelcomeScreen)
       const pendingTempUnit = await AsyncStorage.getItem(PENDING_TEMP_UNIT_KEY);
+      const pendingName = await AsyncStorage.getItem(PENDING_NAME_KEY);
+
+      const pendingUpdates: UpdatePreferencesRequest = {};
       if (pendingTempUnit && (pendingTempUnit === 'F' || pendingTempUnit === 'C')) {
-        // Sync the pending preference to the server
+        pendingUpdates.temperatureUnit = pendingTempUnit;
+      }
+      if (pendingName) {
+        pendingUpdates.name = pendingName;
+      }
+
+      if (Object.keys(pendingUpdates).length > 0) {
+        // Sync the pending preferences to the server
         try {
-          const updatedPrefs = await preferencesApi.update({ temperatureUnit: pendingTempUnit });
+          const updatedPrefs = await preferencesApi.update(pendingUpdates);
           setPreferences(updatedPrefs);
-          // Clear the pending preference
-          await AsyncStorage.removeItem(PENDING_TEMP_UNIT_KEY);
+          // Clear the pending preferences
+          await AsyncStorage.multiRemove([PENDING_TEMP_UNIT_KEY, PENDING_NAME_KEY]);
         } catch (syncError) {
           console.error('Failed to sync pending preferences:', syncError);
-          // Keep the pending preference for next time
+          // Keep the pending preferences for next time
         }
       }
     } catch (error) {
@@ -106,6 +118,8 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
 
   // Get temperature unit with fallback to default
   const temperatureUnit = preferences?.temperatureUnit ?? DEFAULT_PREFERENCES.temperatureUnit;
+  // Get name (no default - will be undefined if not set)
+  const name = preferences?.name;
 
   const value: PreferencesContextType = {
     preferences,
@@ -115,6 +129,7 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
     updatePreferences,
     refreshPreferences,
     temperatureUnit,
+    name,
   };
 
   return (

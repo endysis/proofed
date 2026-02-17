@@ -39,6 +39,7 @@ import { getAiAdvice } from './handlers/ai-advice';
 import { getAiContainerScale } from './handlers/ai-container-scale';
 import { deleteAccount } from './handlers/account';
 import { getPreferences, updatePreferences } from './handlers/preferences';
+import { getIngredients, submitIngredient } from './handlers/ingredients';
 import { getUserId } from './lib/auth';
 
 function response(statusCode: number, body: unknown): APIGatewayProxyResultV2 {
@@ -81,6 +82,17 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer): P
     if (path === '/preferences' && (method === 'PUT' || method === 'PATCH')) {
       const preferences = await updatePreferences(userId, parseBody(event));
       return response(200, preferences);
+    }
+
+    // Ingredients routes
+    if (path === '/ingredients' && method === 'GET') {
+      const ingredients = await getIngredients();
+      return response(200, ingredients);
+    }
+
+    if (path === '/ingredients/submit' && method === 'POST') {
+      const submission = await submitIngredient(userId, parseBody(event));
+      return response(201, submission);
     }
 
     // Items routes
@@ -219,8 +231,16 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer): P
     }
 
     if (path.match(/^\/attempts\/[^/]+\/ai-advice$/) && method === 'POST') {
-      const advice = await getAiAdvice(parseBody(event));
-      return response(200, advice);
+      const attemptId = pathParameters?.attemptId!;
+      try {
+        const advice = await getAiAdvice(userId, attemptId, parseBody(event));
+        return response(200, advice);
+      } catch (error: any) {
+        if (error.statusCode === 400) {
+          return response(400, { error: error.message });
+        }
+        throw error;
+      }
     }
 
     // AI Container Scale route

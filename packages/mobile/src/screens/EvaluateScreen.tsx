@@ -77,7 +77,14 @@ export default function EvaluateScreen() {
       }
     }
   }, [openGallery, attempt, hasAutoOpenedGallery]);
+
+  // Initialize aiAdvice from persisted attempt data
   const [aiAdvice, setAiAdvice] = useState<AiAdviceResponse | null>(null);
+  React.useEffect(() => {
+    if (attempt?.aiAdvice && !aiAdvice) {
+      setAiAdvice(attempt.aiAdvice);
+    }
+  }, [attempt?.aiAdvice, aiAdvice]);
   const [variantCreation, setVariantCreation] = useState<{
     isOpen: boolean;
     tip: AiAdviceTip | null;
@@ -469,9 +476,10 @@ export default function EvaluateScreen() {
             error={aiAdviceMutation.error}
             onRequestAdvice={handleRequestAdvice}
             onCreateVariantFromTip={handleCreateVariantFromTip}
-            canRequest={!!attempt.outcomeNotes?.trim()}
+            canRequest={!!attempt.outcomeNotes?.trim() && !attempt.aiAdvice}
             hasPhoto={!!attempt.mainPhotoKey}
             itemUsageDetails={itemUsageDetails}
+            alreadyRequested={!!attempt.aiAdvice}
           />
         </View>
 

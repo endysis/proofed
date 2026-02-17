@@ -22,6 +22,9 @@ import type {
   AiAdviceResponse,
   AiContainerScaleRequest,
   AiContainerScaleResponse,
+  IngredientsData,
+  IngredientSubmission,
+  SubmitIngredientRequest,
 } from '@proofed/shared';
 import { API_BASE, USE_MOCK } from './config';
 
@@ -210,4 +213,14 @@ export const photosApi = {
       throw new Error('Failed to upload photo');
     }
   },
+};
+
+// Ingredients
+export const ingredientsApi = {
+  list: () => request<IngredientsData>('/ingredients'),
+  submit: (data: SubmitIngredientRequest) =>
+    request<IngredientSubmission>('/ingredients/submit', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 };

@@ -4,6 +4,7 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
+  TextInput,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -13,8 +14,9 @@ import { Button } from '../../components/common';
 import { colors, spacing, fontFamily, fontSize, borderRadius } from '../../theme';
 import type { AuthStackParamList } from '../../navigation/types';
 
-// Key for storing pending preference selection (will be synced after sign-in)
+// Keys for storing pending preference selections (will be synced after sign-in)
 export const PENDING_TEMP_UNIT_KEY = 'proofed_pending_temp_unit';
+export const PENDING_NAME_KEY = 'proofed_pending_name';
 
 type WelcomeNavigationProp = NativeStackNavigationProp<AuthStackParamList, 'Welcome'>;
 type WelcomeRouteProp = RouteProp<AuthStackParamList, 'Welcome'>;
@@ -25,6 +27,7 @@ export default function WelcomeScreen() {
   const route = useRoute<WelcomeRouteProp>();
 
   const email = route.params?.email;
+  const [name, setName] = useState('');
   const [selectedUnit, setSelectedUnit] = useState<'F' | 'C'>('F');
   const [loading, setLoading] = useState(false);
 
@@ -32,8 +35,11 @@ export default function WelcomeScreen() {
     setLoading(true);
 
     try {
-      // Store the preference locally - will be synced after sign-in
+      // Store the preferences locally - will be synced after sign-in
       await AsyncStorage.setItem(PENDING_TEMP_UNIT_KEY, selectedUnit);
+      if (name.trim()) {
+        await AsyncStorage.setItem(PENDING_NAME_KEY, name.trim());
+      }
       navigation.navigate('SignIn');
     } finally {
       setLoading(false);
@@ -54,8 +60,23 @@ export default function WelcomeScreen() {
       <View style={styles.content}>
         <Text style={styles.welcome}>Welcome!</Text>
         <Text style={styles.description}>
-          Before you start logging your bakes, let's set your temperature preference.
+          Before you start logging your bakes, let's get to know you.
         </Text>
+
+        <Text style={styles.question}>
+          What should we call you?
+        </Text>
+
+        <TextInput
+          style={styles.nameInput}
+          value={name}
+          onChangeText={setName}
+          placeholder="Your name"
+          placeholderTextColor={colors.dustyMauve}
+          autoCapitalize="words"
+          autoCorrect={false}
+          returnKeyType="next"
+        />
 
         <Text style={styles.question}>
           What temperature unit do you prefer for baking?
@@ -174,6 +195,17 @@ const styles = StyleSheet.create({
     color: colors.text,
     textAlign: 'center',
     marginBottom: spacing[4],
+  },
+  nameInput: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.lg,
+    color: colors.text,
+    borderWidth: 2,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+    borderRadius: borderRadius.xl,
+    padding: spacing[4],
+    marginBottom: spacing[6],
+    textAlign: 'center',
   },
   options: {
     gap: spacing[3],

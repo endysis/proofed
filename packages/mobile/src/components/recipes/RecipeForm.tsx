@@ -11,6 +11,7 @@ import {
 import { Icon } from '../common';
 import PasteIngredientsModal from './PasteIngredientsModal';
 import SupplierPicker from './SupplierPicker';
+import IngredientAutocomplete from './IngredientAutocomplete';
 import { UNIT_PRESETS } from '../../constants/units';
 import { CONTAINER_TYPES, CONTAINER_SIZES } from '../../constants/containers';
 import { colors, spacing, borderRadius, fontFamily, fontSize } from '../../theme';
@@ -141,14 +142,15 @@ export default function RecipeForm({
       <View style={styles.field}>
         <Text style={styles.label}>Ingredients</Text>
         {ingredients.map((ingredient, index) => (
-          <View key={index} style={styles.ingredientRow}>
-            <TextInput
-              style={[styles.input, styles.nameInput]}
-              value={ingredient.name}
-              onChangeText={(text) => updateIngredient(index, 'name', text)}
-              placeholder="Ingredient"
-              placeholderTextColor={colors.dustyMauve}
-            />
+          <View key={index} style={[styles.ingredientRow, { zIndex: 100 - index }]}>
+            <View style={styles.nameInputWrapper}>
+              <IngredientAutocomplete
+                value={ingredient.name}
+                onChangeText={(text) => updateIngredient(index, 'name', text)}
+                placeholder="Ingredient"
+                style={styles.nameInput}
+              />
+            </View>
             <TextInput
               style={[styles.input, styles.qtyInput]}
               value={ingredient.quantity ? String(ingredient.quantity) : ''}
@@ -478,8 +480,11 @@ const styles = StyleSheet.create({
     gap: spacing[2],
     marginBottom: spacing[2],
   },
-  nameInput: {
+  nameInputWrapper: {
     flex: 1,
+    zIndex: 10,
+  },
+  nameInput: {
     height: 44,
     backgroundColor: colors.bgLight,
   },

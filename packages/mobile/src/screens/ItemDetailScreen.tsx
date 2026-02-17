@@ -66,6 +66,7 @@ export default function ItemDetailScreen() {
     recipe: Recipe;
   } | null>(null);
   const [showActions, setShowActions] = useState(false);
+  const [showPrepNotesModal, setShowPrepNotesModal] = useState(false);
 
   // Scale by ingredient/container state
   const [showScaleByIngredient, setShowScaleByIngredient] = useState(false);
@@ -361,14 +362,6 @@ export default function ItemDetailScreen() {
                 ))}
               </View>
 
-              {/* Prep Notes */}
-              {selectedRecipe.prepNotes && (
-                <View style={styles.prepNotes}>
-                  <Text style={styles.prepNotesLabel}>PREP NOTES</Text>
-                  <Text style={styles.prepNotesText}>{selectedRecipe.prepNotes}</Text>
-                </View>
-              )}
-
               {/* Variants Section */}
               <VariantsSection
                 itemId={itemId}
@@ -390,6 +383,23 @@ export default function ItemDetailScreen() {
                   handleDeleteVariant(selectedRecipe.recipeId, variantId)
                 }
               />
+
+              {/* Prep Notes */}
+              {selectedRecipe.prepNotes && (
+                <TouchableOpacity
+                  style={styles.prepNotes}
+                  onPress={() => setShowPrepNotesModal(true)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.prepNotesHeader}>
+                    <Text style={styles.prepNotesLabel}>PREP NOTES</Text>
+                    <Icon name="expand_more" size="sm" color={colors.dustyMauve} />
+                  </View>
+                  <Text style={styles.prepNotesText} numberOfLines={2}>
+                    {selectedRecipe.prepNotes}
+                  </Text>
+                </TouchableOpacity>
+              )}
 
               {/* Recipe Actions */}
               <View style={styles.recipeActions}>
@@ -617,6 +627,15 @@ export default function ItemDetailScreen() {
           }}
         />
       )}
+
+      {/* Prep Notes Modal */}
+      <Modal
+        isOpen={showPrepNotesModal}
+        onClose={() => setShowPrepNotesModal(false)}
+        title="Preparation Notes"
+      >
+        <Text style={styles.prepNotesModalText}>{selectedRecipe?.prepNotes}</Text>
+      </Modal>
     </View>
   );
 }
@@ -1212,18 +1231,29 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.bgLight,
   },
+  prepNotesHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing[2],
+  },
   prepNotesLabel: {
     fontFamily: fontFamily.bold,
     fontSize: fontSize.xs,
     color: colors.dustyMauve,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: spacing[2],
   },
   prepNotesText: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.sm,
     color: colors.textMuted,
+  },
+  prepNotesModalText: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.base,
+    color: colors.text,
+    lineHeight: 24,
   },
   variantsSection: {
     marginTop: spacing[4],

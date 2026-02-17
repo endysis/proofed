@@ -64,6 +64,13 @@ export class ProofedStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.RETAIN, // Preserve user preferences
     });
 
+    const ingredientSubmissionsTable = new dynamodb.Table(this, 'IngredientSubmissionsTable', {
+      tableName: 'proofed-ingredient-submissions',
+      partitionKey: { name: 'submissionId', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
+
     // Cognito User Pool
     const userPool = new cognito.UserPool(this, 'ProofedUserPool', {
       userPoolName: 'proofed-users',
@@ -128,6 +135,43 @@ export class ProofedStack extends cdk.Stack {
       ],
     });
 
+    // S3 Bucket for Public Assets (ingredients.json, etc.)
+    const assetsBucket = new s3.Bucket(this, 'AssetsBucket', {
+      bucketName: `proofed-assets-${this.account}-${this.region}`,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
+      blockPublicAccess: new s3.BlockPublicAccess({
+        blockPublicAcls: false,
+        ignorePublicAcls: false,
+        blockPublicPolicy: false,
+        restrictPublicBuckets: false,
+      }),
+      cors: [
+        {
+          allowedMethods: [s3.HttpMethods.GET],
+          allowedOrigins: ['*'],
+          allowedHeaders: ['*'],
+          maxAge: 86400,
+        },
+      ],
+    });
+
+    // Allow public read access to assets bucket
+    assetsBucket.addToResourcePolicy(
+      new iam.PolicyStatement({
+        actions: ['s3:GetObject'],
+        resources: [assetsBucket.arnForObjects('*')],
+        principals: [new iam.AnyPrincipal()],
+      })
+    );
+
+    // Deploy ingredients.json to assets bucket
+    new s3deploy.BucketDeployment(this, 'DeployIngredients', {
+      sources: [s3deploy.Source.asset(path.join(__dirname, '../../data'))],
+      destinationBucket: assetsBucket,
+      destinationKeyPrefix: 'data',
+    });
+
     // S3 Bucket for Frontend
     const frontendBucket = new s3.Bucket(this, 'FrontendBucket', {
       bucketName: `proofed-frontend-${this.account}-${this.region}`,
@@ -171,7 +215,9 @@ export class ProofedStack extends cdk.Stack {
         ATTEMPTS_TABLE: attemptsTable.tableName,
         PROOFED_ITEMS_TABLE: proofedItemsTable.tableName,
         PREFERENCES_TABLE: preferencesTable.tableName,
+        INGREDIENT_SUBMISSIONS_TABLE: ingredientSubmissionsTable.tableName,
         PHOTOS_BUCKET: photosBucket.bucketName,
+        ASSETS_BUCKET: assetsBucket.bucketName,
         OPENAI_PARAM_NAME: openaiParameter.parameterName,
       },
     });
@@ -186,8 +232,10 @@ export class ProofedStack extends cdk.Stack {
     attemptsTable.grantReadWriteData(apiHandler);
     proofedItemsTable.grantReadWriteData(apiHandler);
     preferencesTable.grantReadWriteData(apiHandler);
+    ingredientSubmissionsTable.grantReadWriteData(apiHandler);
     photosBucket.grantReadWrite(apiHandler);
     photosBucket.grantPut(apiHandler);
+    assetsBucket.grantRead(apiHandler);
 
     // Allow generating presigned URLs
     apiHandler.addToRolePolicy(
@@ -348,6 +396,20 @@ export class ProofedStack extends cdk.Stack {
       authorizer,
     });
 
+    // Ingredients routes
+    httpApi.addRoutes({
+      path: '/ingredients',
+      methods: [apigateway.HttpMethod.GET],
+      integration,
+      authorizer,
+    });
+    httpApi.addRoutes({
+      path: '/ingredients/submit',
+      methods: [apigateway.HttpMethod.POST],
+      integration,
+      authorizer,
+    });
+
     // Outputs
     new cdk.CfnOutput(this, 'ApiUrl', {
       value: httpApi.apiEndpoint,
@@ -377,6 +439,11 @@ export class ProofedStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'CognitoRegion', {
       value: this.region,
       description: 'AWS Region for Cognito',
+    });
+
+    new cdk.CfnOutput(this, 'AssetsBucketUrl', {
+      value: `https://${assetsBucket.bucketRegionalDomainName}`,
+      description: 'Assets S3 bucket URL',
     });
   }
 }

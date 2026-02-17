@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Alert,
   Linking,
+  TextInput,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -14,6 +15,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Icon, Button, Modal } from '../components/common';
 import { colors, spacing, fontFamily, fontSize, borderRadius } from '../theme';
 import { useAuth } from '../contexts/AuthContext';
+import { usePreferences } from '../contexts/PreferencesContext';
 import type { RootStackParamList } from '../navigation/types';
 
 type SettingsNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Settings'>;
@@ -22,9 +24,12 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<SettingsNavigationProp>();
   const { user, signOut, deleteAccount } = useAuth();
+  const { name, updatePreferences, isUpdating } = usePreferences();
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showNameModal, setShowNameModal] = useState(false);
+  const [editingName, setEditingName] = useState('');
 
   const handleSignOut = () => {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
@@ -61,6 +66,23 @@ export default function SettingsScreen() {
     Linking.openURL('https://proofed.app/terms');
   };
 
+  const handleEditName = () => {
+    setEditingName(name || '');
+    setShowNameModal(true);
+  };
+
+  const handleSaveName = async () => {
+    try {
+      await updatePreferences({ name: editingName.trim() || undefined });
+      setShowNameModal(false);
+    } catch (err) {
+      Alert.alert(
+        'Error',
+        err instanceof Error ? err.message : 'Failed to update name'
+      );
+    }
+  };
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
@@ -78,6 +100,18 @@ export default function SettingsScreen() {
         style={styles.content}
         contentContainerStyle={{ paddingBottom: insets.bottom + spacing[6] }}
       >
+        {/* Profile Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>PROFILE</Text>
+          <View style={styles.card}>
+            <TouchableOpacity style={styles.row} onPress={handleEditName}>
+              <Icon name="person" size="sm" color={colors.dustyMauve} />
+              <Text style={styles.rowText}>{name || 'Add your name'}</Text>
+              <Icon name="edit" size="sm" color={colors.dustyMauve} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* Account Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>ACCOUNT</Text>
@@ -160,6 +194,48 @@ export default function SettingsScreen() {
           </View>
         </View>
       </ScrollView>
+
+      {/* Edit Name Modal */}
+      <Modal
+        isOpen={showNameModal}
+        onClose={() => setShowNameModal(false)}
+        title="Edit Name"
+      >
+        <View style={styles.modalContent}>
+          <Text style={styles.modalText}>
+            What should we call you?
+          </Text>
+          <TextInput
+            style={styles.nameInput}
+            value={editingName}
+            onChangeText={setEditingName}
+            placeholder="Your name"
+            placeholderTextColor={colors.dustyMauve}
+            autoCapitalize="words"
+            autoCorrect={false}
+            autoFocus
+          />
+          <View style={styles.modalButtons}>
+            <Button
+              variant="secondary"
+              size="md"
+              onPress={() => setShowNameModal(false)}
+              style={styles.modalButton}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="md"
+              loading={isUpdating}
+              onPress={handleSaveName}
+              style={styles.modalButton}
+            >
+              Save
+            </Button>
+          </View>
+        </View>
+      </Modal>
 
       {/* Delete Account Modal */}
       <Modal
@@ -318,5 +394,15 @@ const styles = StyleSheet.create({
   },
   modalButton: {
     flex: 1,
+  },
+  nameInput: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.base,
+    color: colors.text,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    borderRadius: borderRadius.lg,
+    padding: spacing[4],
+    marginBottom: spacing[6],
   },
 });

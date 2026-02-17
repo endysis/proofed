@@ -11,10 +11,31 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useAttempts } from '../hooks/useAttempts';
 import { usePhotoUrl } from '../hooks/usePhotos';
+import { usePreferences } from '../contexts/PreferencesContext';
 import { Icon, SkeletonCard, SkeletonThumbnail } from '../components/common';
 import { formatRelativeDate } from '../utils/formatDate';
 import { colors, spacing, borderRadius, fontFamily, fontSize } from '../theme';
 import type { Attempt, AttemptStatus } from '@proofed/shared';
+
+const getGreeting = (name?: string): string => {
+  const hour = new Date().getHours();
+  let greeting: string;
+
+  if (hour >= 5 && hour < 12) {
+    greeting = 'Good morning';
+  } else if (hour >= 12 && hour < 17) {
+    greeting = 'Good afternoon';
+  } else if (hour >= 17 && hour < 21) {
+    greeting = 'Good evening';
+  } else {
+    greeting = 'Hey';
+  }
+
+  if (name) {
+    return `${greeting}, ${name}!`;
+  }
+  return 'Welcome back';
+};
 
 const getStatusStyle = (status?: AttemptStatus) => {
   switch (status) {
@@ -52,6 +73,7 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { data: attempts, isLoading } = useAttempts();
+  const { name } = usePreferences();
 
   // Sort by date (most recent first), filter to done status only
   const recentAttempts =
@@ -89,7 +111,7 @@ export default function HomeScreen() {
           </View>
         </TouchableOpacity>
         <View style={styles.headerText}>
-          <Text style={styles.welcomeText}>Welcome back</Text>
+          <Text style={styles.welcomeText}>{getGreeting(name)}</Text>
           <Text style={styles.headerTitle}>Happy Baking!</Text>
         </View>
         <TouchableOpacity style={styles.searchButton}>

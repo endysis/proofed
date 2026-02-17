@@ -10,6 +10,7 @@ interface ItemUsageDetail {
   itemName: string;
   recipeName: string;
   variantName?: string;
+  scaleFactor?: number;
 }
 
 interface AiAdviceSectionProps {
@@ -21,6 +22,7 @@ interface AiAdviceSectionProps {
   canRequest: boolean;
   hasPhoto?: boolean;
   itemUsageDetails?: ItemUsageDetail[];
+  alreadyRequested?: boolean;  // True if advice was already requested for this bake
 }
 
 export function AiAdviceSection({
@@ -32,6 +34,7 @@ export function AiAdviceSection({
   canRequest,
   hasPhoto,
   itemUsageDetails,
+  alreadyRequested,
 }: AiAdviceSectionProps) {
   // Loading state
   if (isLoading) {
@@ -60,7 +63,30 @@ export function AiAdviceSection({
     );
   }
 
-  // Advice received state
+  // Advice with overview but no tips
+  if (advice && advice.tips.length === 0 && advice.overview) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            <Icon name="auto_awesome" size="md" color={colors.primary} />
+            <Text style={styles.headerTitle}>Crumb</Text>
+          </View>
+        </View>
+        <View style={styles.overviewCard}>
+          <Text style={styles.overviewText}>{advice.overview}</Text>
+        </View>
+        {!alreadyRequested && (
+          <TouchableOpacity style={styles.reaskButton} onPress={onRequestAdvice}>
+            <Icon name="refresh" size="sm" color={colors.primary} />
+            <Text style={styles.reaskButtonText}>Ask Crumb again</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    );
+  }
+
+  // Advice received state with tips
   if (advice && advice.tips.length > 0) {
     return (
       <View style={styles.container}>
@@ -82,24 +108,27 @@ export function AiAdviceSection({
         <Text style={styles.tipsHeader}>Suggestions</Text>
 
         {advice.tips.map((tip, index) => {
-          const targetItemName =
+          const usageDetail =
             typeof tip.itemUsageIndex === 'number' && itemUsageDetails?.[tip.itemUsageIndex]
-              ? itemUsageDetails[tip.itemUsageIndex].itemName
+              ? itemUsageDetails[tip.itemUsageIndex]
               : undefined;
           return (
             <AiAdviceCard
               key={index}
               tip={tip}
-              targetItemName={targetItemName}
+              targetItemName={usageDetail?.itemName}
+              scaleFactor={usageDetail?.scaleFactor ?? 1}
               onCreateVariant={onCreateVariantFromTip ? () => onCreateVariantFromTip(tip) : undefined}
             />
           );
         })}
 
-        <TouchableOpacity style={styles.reaskButton} onPress={onRequestAdvice}>
-          <Icon name="refresh" size="sm" color={colors.primary} />
-          <Text style={styles.reaskButtonText}>Ask Crumb again</Text>
-        </TouchableOpacity>
+        {!alreadyRequested && (
+          <TouchableOpacity style={styles.reaskButton} onPress={onRequestAdvice}>
+            <Icon name="refresh" size="sm" color={colors.primary} />
+            <Text style={styles.reaskButtonText}>Ask Crumb again</Text>
+          </TouchableOpacity>
+        )}
       </View>
     );
   }
@@ -120,7 +149,7 @@ export function AiAdviceSection({
         >
           <Icon name="auto_awesome" size="sm" color={canRequest ? colors.white : colors.dustyMauve} />
           <Text style={[styles.requestButtonText, !canRequest && styles.requestButtonTextDisabled]}>
-            Ask Crumb
+            Show Crumb
           </Text>
         </TouchableOpacity>
         {!canRequest && (
