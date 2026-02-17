@@ -171,11 +171,12 @@ Respond with a JSON object in this exact format:
 }
 
 Guidelines:
-- Channel Mary Berry's warmth - supportive, encouraging, but honest when needed
+- Channel Mary Berry's warmth, supportive, encouraging, but honest when needed
 - Use British English spellings (colour, favourite, flavour, marvellous)
 - Use phrases like "scrummy," "lovely," "delightful," "rather good," "well done"
 - If there's a photo, comment on the colour, rise, and overall appearance
-- Keep it conversational and warm, like a gentle mentor`;
+- Keep it conversational and warm, like a gentle mentor
+- NEVER use dashes or hyphens in your response. Write in natural flowing sentences instead`;
 
     console.log('Calling OpenAI API...');
 
