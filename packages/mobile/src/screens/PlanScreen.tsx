@@ -9,7 +9,9 @@ import {
   Alert,
   Platform,
   Switch,
+  Animated,
 } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,8 +25,9 @@ import { useItemUsageDetails, ItemUsageDetail } from '../hooks/useItemUsageDetai
 import { formatScaleFactor, getScaleOptions, calculateScaleFromIngredient } from '../utils/scaleRecipe';
 import { colors, fontFamily, fontSize, spacing, borderRadius } from '../theme';
 import ContainerScaleModal from '../components/scaling/ContainerScaleModal';
+import CrumbChatModal from '../components/ai/CrumbChatModal';
 import type { RootStackParamList } from '../navigation/types';
-import type { ItemUsage, Item, Recipe, Variant, Ingredient, ItemType } from '@proofed/shared';
+import type { ItemUsage, Item, Recipe, Variant, Ingredient, ItemType, ChatMessage } from '@proofed/shared';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type PlanScreenRouteProp = RouteProp<RootStackParamList, 'PlanScreen'>;
@@ -76,6 +79,10 @@ export default function PlanScreen() {
   // Add/Edit Item Modal State
   const [showAddItemModal, setShowAddItemModal] = useState(false);
   const [editingUsageKey, setEditingUsageKey] = useState<string | null>(null);
+
+  // Crumb Chat State
+  const [chatHistories, setChatHistories] = useState<Record<string, ChatMessage[]>>({});
+  const [activeChatKey, setActiveChatKey] = useState<string | null>(null);
 
   // Get details for all item usages (for displaying ingredients)
   const { details: usageDetails, isLoading: detailsLoading } = useItemUsageDetails(
@@ -257,6 +264,19 @@ export default function PlanScreen() {
     setEditingUsageKey(null);
   };
 
+  const handleOpenChat = (key: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setActiveChatKey(key);
+  };
+
+  const handleCloseChat = () => {
+    setActiveChatKey(null);
+  };
+
+  const handleChatHistoryChange = (key: string, messages: ChatMessage[]) => {
+    setChatHistories((prev) => ({ ...prev, [key]: messages }));
+  };
+
   const editingUsage = editingUsageKey
     ? editedUsages.find((u) => u._key === editingUsageKey)
     : undefined;
@@ -354,6 +374,7 @@ export default function PlanScreen() {
                     onToggleIngredient={(ingredientName) =>
                       handleToggleIngredient(usage._key, ingredientName)
                     }
+                    onOpenChat={() => handleOpenChat(usage._key)}
                   />
                 );
               })
@@ -458,6 +479,24 @@ export default function PlanScreen() {
         editingUsage={editingUsage}
         items={items || []}
       />
+
+      {/* Crumb Chat Modal */}
+      {activeChatKey && usageDetailMap[activeChatKey] && (
+        <CrumbChatModal
+          isOpen={!!activeChatKey}
+          onClose={handleCloseChat}
+          attemptId={attemptId}
+          attemptName={name}
+          itemUsageKey={activeChatKey}
+          itemDetail={usageDetailMap[activeChatKey]}
+          otherItemNames={validUsages
+            .filter((u) => u._key !== activeChatKey)
+            .map((u) => usageDetailMap[u._key]?.itemName || '')
+            .filter(Boolean)}
+          chatHistory={chatHistories[activeChatKey] || []}
+          onChatHistoryChange={(messages) => handleChatHistoryChange(activeChatKey, messages)}
+        />
+      )}
     </View>
   );
 }
@@ -471,13 +510,44 @@ function PlanItemTile({
   detail,
   onEdit,
   onToggleIngredient,
+  onOpenChat,
 }: {
   usage: ItemUsageInput;
   detail?: ItemUsageDetail;
   onEdit: () => void;
   onToggleIngredient: (ingredientName: string) => void;
+  onOpenChat: () => void;
 }) {
   const [notesExpanded, setNotesExpanded] = useState(false);
+  const swipeableRef = useRef<Swipeable>(null);
+
+  const renderRightActions = (
+    progress: Animated.AnimatedInterpolation<number>,
+    dragX: Animated.AnimatedInterpolation<number>
+  ) => {
+    const translateX = dragX.interpolate({
+      inputRange: [-80, 0],
+      outputRange: [0, 80],
+      extrapolate: 'clamp',
+    });
+
+    return (
+      <View style={styles.chatActionContainer}>
+        <Animated.View style={[styles.chatAction, { transform: [{ translateX }] }]}>
+          <TouchableOpacity
+            style={styles.chatActionButton}
+            onPress={() => {
+              swipeableRef.current?.close();
+              onOpenChat();
+            }}
+          >
+            <Icon name="auto_awesome" size="md" color={colors.white} />
+            <Text style={styles.chatActionText}>Crumb</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      </View>
+    );
+  };
 
   if (!detail) {
     return (
@@ -493,7 +563,14 @@ function PlanItemTile({
   const stockedIngredients = usage.stockedIngredients ?? [];
 
   return (
-    <View style={styles.itemTile}>
+    <Swipeable
+      ref={swipeableRef}
+      renderRightActions={renderRightActions}
+      rightThreshold={40}
+      overshootRight={false}
+      containerStyle={styles.swipeableContainer}
+    >
+      <View style={styles.itemTile}>
       {/* Header */}
       <View style={styles.tileHeader}>
         <View style={styles.tileIconRow}>
@@ -592,6 +669,7 @@ function PlanItemTile({
         </View>
       )}
     </View>
+    </Swipeable>
   );
 }
 
@@ -1242,6 +1320,35 @@ const styles = StyleSheet.create({
     fontSize: fontSize.base,
     color: colors.primary,
   },
+  // Swipeable Styles
+  swipeableContainer: {
+    marginBottom: spacing[3],
+  },
+  chatActionContainer: {
+    width: 80,
+    justifyContent: 'center',
+    alignItems: 'flex-end',
+  },
+  chatAction: {
+    width: 80,
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  chatActionButton: {
+    width: 72,
+    height: '100%',
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.xl,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing[1],
+  },
+  chatActionText: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.xs,
+    color: colors.white,
+  },
   // Item Tile Styles
   itemTile: {
     backgroundColor: colors.white,
@@ -1249,7 +1356,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(0, 0, 0, 0.05)',
     padding: spacing[4],
-    marginBottom: spacing[3],
   },
   tileHeader: {
     marginBottom: spacing[3],

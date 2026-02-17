@@ -22,6 +22,8 @@ import type {
   AiAdviceResponse,
   AiContainerScaleRequest,
   AiContainerScaleResponse,
+  CrumbChatRequest,
+  CrumbChatResponse,
   IngredientsData,
   IngredientSubmission,
   SubmitIngredientRequest,
@@ -158,6 +160,11 @@ export const attemptsApi = {
     }),
   getAiAdvice: (attemptId: string, data: AiAdviceRequest) =>
     request<AiAdviceResponse>(`/attempts/${attemptId}/ai-advice`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  crumbChat: (attemptId: string, data: CrumbChatRequest) =>
+    request<CrumbChatResponse>(`/attempts/${attemptId}/crumb-chat`, {
       method: 'POST',
       body: JSON.stringify(data),
     }),

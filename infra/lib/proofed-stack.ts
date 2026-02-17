@@ -343,6 +343,12 @@ export class ProofedStack extends cdk.Stack {
       integration,
       authorizer,
     });
+    httpApi.addRoutes({
+      path: '/attempts/{attemptId}/crumb-chat',
+      methods: [apigateway.HttpMethod.POST],
+      integration,
+      authorizer,
+    });
 
     // AI Container Scale route
     httpApi.addRoutes({

@@ -36,6 +36,7 @@ import {
 } from './handlers/proofed-items';
 import { getUploadUrl, getDownloadUrl } from './handlers/photos';
 import { getAiAdvice } from './handlers/ai-advice';
+import { getCrumbChat } from './handlers/ai-chat';
 import { getAiContainerScale } from './handlers/ai-container-scale';
 import { deleteAccount } from './handlers/account';
 import { getPreferences, updatePreferences } from './handlers/preferences';
@@ -241,6 +242,12 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer): P
         }
         throw error;
       }
+    }
+
+    if (path.match(/^\/attempts\/[^/]+\/crumb-chat$/) && method === 'POST') {
+      const attemptId = pathParameters?.attemptId!;
+      const chatResponse = await getCrumbChat(userId, attemptId, parseBody(event));
+      return response(200, chatResponse);
     }
 
     // AI Container Scale route

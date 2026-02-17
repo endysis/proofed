@@ -283,6 +283,35 @@ export interface AiContainerScaleResponse {
   generatedAt: string;
 }
 
+// Crumb Chat types
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface CrumbChatRequest {
+  message: string;
+  chatHistory: ChatMessage[];
+  context: {
+    attemptName: string;
+    focusedItem: {
+      itemName: string;
+      recipeName: string;
+      variantName?: string;
+      scaleFactor?: number;
+      ingredients: Ingredient[];
+      bakeTime?: number;
+      bakeTemp?: number;
+      bakeTempUnit?: 'F' | 'C';
+    };
+    otherItems: string[];
+  };
+}
+
+export interface CrumbChatResponse {
+  reply: string;
+}
+
 // API Response wrappers
 export interface ApiResponse<T> {
   data?: T;
