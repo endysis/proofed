@@ -102,62 +102,7 @@ export default function IngredientAutocomplete({
         autoCorrect={false}
       />
 
-      {shouldShowDropdown && (
-        <View style={styles.dropdown}>
-          {suggestions.map((suggestion, index) => (
-            <TouchableOpacity
-              key={`${suggestion.name}-${index}`}
-              style={styles.suggestionItem}
-              onPress={() => handleSelectSuggestion(suggestion.name)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.suggestionText}>{suggestion.name}</Text>
-              <Text style={styles.categoryText}>{suggestion.category}</Text>
-            </TouchableOpacity>
-          ))}
-
-          {showSuggestOption && (
-            <>
-              {suggestions.length > 0 && <View style={styles.divider} />}
-              {!showSubmitPrompt ? (
-                <TouchableOpacity
-                  style={styles.addNewItem}
-                  onPress={() => setShowSubmitPrompt(true)}
-                  activeOpacity={0.7}
-                >
-                  <Icon name="add" size="sm" color={colors.primary} />
-                  <Text style={styles.addNewText}>
-                    Suggest "{value.trim()}"
-                  </Text>
-                </TouchableOpacity>
-              ) : (
-                <View style={styles.submitPrompt}>
-                  <Text style={styles.submitPromptText}>
-                    Add "{value.trim()}" to suggestions?
-                  </Text>
-                  <View style={styles.submitButtons}>
-                    <TouchableOpacity
-                      style={styles.submitCancelButton}
-                      onPress={() => setShowSubmitPrompt(false)}
-                    >
-                      <Text style={styles.submitCancelText}>Cancel</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.submitConfirmButton}
-                      onPress={handleSubmitNew}
-                      disabled={submitMutation.isPending}
-                    >
-                      <Text style={styles.submitConfirmText}>
-                        {submitMutation.isPending ? 'Sending...' : 'Submit'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              )}
-            </>
-          )}
-        </View>
-      )}
+      {/* Dropdown temporarily disabled for debugging */}
     </View>
   );
 }
