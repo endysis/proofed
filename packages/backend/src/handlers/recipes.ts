@@ -35,6 +35,12 @@ export async function createRecipe(
     bakeTempUnit: request.bakeTempUnit,
     customScales: request.customScales,
     container: request.container,
+    // Store-bought fields
+    isStoreBought: request.isStoreBought,
+    brand: request.brand,
+    productName: request.productName,
+    purchaseQuantity: request.purchaseQuantity,
+    purchaseUnit: request.purchaseUnit,
     createdAt: now,
     updatedAt: now,
   };
