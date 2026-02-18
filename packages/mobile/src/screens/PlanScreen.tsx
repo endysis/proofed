@@ -557,10 +557,18 @@ function PlanItemTile({
     );
   }
 
-  const { itemName, itemType, recipeName, variantName, scaleFactor, ingredients } = detail;
+  const { itemName, itemType, recipeName, variantName, scaleFactor, ingredients, isStoreBought, brand, productName, purchaseQuantity, purchaseUnit } = detail;
   const typeConfig = ITEM_TYPE_CONFIG[itemType] || ITEM_TYPE_CONFIG.other;
   const shoppingListEnabled = usage.shoppingListEnabled ?? false;
   const stockedIngredients = usage.stockedIngredients ?? [];
+
+  // Format store-bought display string
+  const storeBoughtDisplayName = isStoreBought
+    ? [brand, productName].filter(Boolean).join(' ') || recipeName
+    : '';
+  const packageSize = purchaseQuantity && purchaseUnit
+    ? `${purchaseQuantity}${purchaseUnit}`
+    : purchaseQuantity || '';
 
   return (
     <Swipeable
@@ -574,18 +582,32 @@ function PlanItemTile({
       {/* Header */}
       <View style={styles.tileHeader}>
         <View style={styles.tileIconRow}>
-          <View style={styles.tileIcon}>
-            <Icon name={typeConfig.icon} size="sm" color={colors.primary} />
+          <View style={[styles.tileIcon, isStoreBought && styles.tileIconStoreBought]}>
+            <Icon name={isStoreBought ? 'shopping_cart' : typeConfig.icon} size="sm" color={isStoreBought ? colors.white : colors.primary} />
           </View>
           <View style={styles.tileTitleContent}>
             <Text style={styles.tileTitle}>{itemName}</Text>
-            <Text style={styles.tileSubtitle}>
-              {recipeName}
-              {variantName ? ` • ${variantName}` : ''}
-            </Text>
-            <Text style={scaleFactor !== 1 ? styles.scaledLabel : styles.standardBatchLabel}>
-              {scaleFactor !== 1 ? `Scaled ${formatScaleFactor(scaleFactor)}` : 'STANDARD BATCH'}
-            </Text>
+            {isStoreBought ? (
+              <>
+                <Text style={styles.tileSubtitle}>
+                  {storeBoughtDisplayName}
+                  {packageSize ? ` (${packageSize})` : ''}
+                </Text>
+                <View style={styles.storeBoughtTag}>
+                  <Text style={styles.storeBoughtTagText}>STORE-BOUGHT</Text>
+                </View>
+              </>
+            ) : (
+              <>
+                <Text style={styles.tileSubtitle}>
+                  {recipeName}
+                  {variantName ? ` • ${variantName}` : ''}
+                </Text>
+                <Text style={scaleFactor !== 1 ? styles.scaledLabel : styles.standardBatchLabel}>
+                  {scaleFactor !== 1 ? `Scaled ${formatScaleFactor(scaleFactor)}` : 'STANDARD BATCH'}
+                </Text>
+              </>
+            )}
           </View>
           <TouchableOpacity style={styles.editButton} onPress={onEdit}>
             <Icon name="edit" size="sm" color={colors.dustyMauve} />
@@ -593,57 +615,59 @@ function PlanItemTile({
         </View>
       </View>
 
-      {/* Ingredients List */}
-      <View style={styles.ingredientsList}>
-        {ingredients.map((ing) => {
-          const isStocked = stockedIngredients.includes(ing.name);
+      {/* Ingredients List - only show for homemade recipes */}
+      {!isStoreBought && ingredients.length > 0 && (
+        <View style={styles.ingredientsList}>
+          {ingredients.map((ing) => {
+            const isStocked = stockedIngredients.includes(ing.name);
 
-          if (shoppingListEnabled) {
-            return (
-              <TouchableOpacity
-                key={ing.name}
-                style={styles.ingredientRowCheckable}
-                onPress={() => onToggleIngredient(ing.name)}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.checkbox, isStocked && styles.checkboxChecked]}>
+            if (shoppingListEnabled) {
+              return (
+                <TouchableOpacity
+                  key={ing.name}
+                  style={styles.ingredientRowCheckable}
+                  onPress={() => onToggleIngredient(ing.name)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.checkbox, isStocked && styles.checkboxChecked]}>
+                    {isStocked && (
+                      <Icon name="close" size="sm" color={colors.white} />
+                    )}
+                  </View>
+                  <Text
+                    style={[
+                      styles.ingredientName,
+                      isStocked && styles.ingredientNameStocked,
+                    ]}
+                  >
+                    {ing.name}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.ingredientQuantity,
+                      isStocked && styles.ingredientQuantityStocked,
+                    ]}
+                  >
+                    {ing.quantity}{ing.unit}
+                  </Text>
                   {isStocked && (
-                    <Icon name="close" size="sm" color={colors.white} />
+                    <Text style={styles.stockedLabel}>Stocked</Text>
                   )}
-                </View>
-                <Text
-                  style={[
-                    styles.ingredientName,
-                    isStocked && styles.ingredientNameStocked,
-                  ]}
-                >
-                  {ing.name}
-                </Text>
-                <Text
-                  style={[
-                    styles.ingredientQuantity,
-                    isStocked && styles.ingredientQuantityStocked,
-                  ]}
-                >
+                </TouchableOpacity>
+              );
+            }
+
+            return (
+              <View key={ing.name} style={styles.ingredientRow}>
+                <Text style={styles.ingredientName}>{ing.name}</Text>
+                <Text style={styles.ingredientQuantity}>
                   {ing.quantity}{ing.unit}
                 </Text>
-                {isStocked && (
-                  <Text style={styles.stockedLabel}>Stocked</Text>
-                )}
-              </TouchableOpacity>
+              </View>
             );
-          }
-
-          return (
-            <View key={ing.name} style={styles.ingredientRow}>
-              <Text style={styles.ingredientName}>{ing.name}</Text>
-              <Text style={styles.ingredientQuantity}>
-                {ing.quantity}{ing.unit}
-              </Text>
-            </View>
-          );
-        })}
-      </View>
+          })}
+        </View>
+      )}
 
       {/* Collapsible Notes Section */}
       {usage.notes && (
@@ -1373,6 +1397,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: spacing[3],
   },
+  tileIconStoreBought: {
+    backgroundColor: colors.primary,
+  },
   tileTitleContent: {
     flex: 1,
   },
@@ -1399,6 +1426,20 @@ const styles = StyleSheet.create({
     color: colors.dustyMauve,
     marginTop: spacing[1],
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  storeBoughtTag: {
+    alignSelf: 'flex-start',
+    marginTop: spacing[1],
+    paddingHorizontal: spacing[2],
+    paddingVertical: spacing[1],
+    backgroundColor: 'rgba(229, 52, 78, 0.1)',
+    borderRadius: borderRadius.sm,
+  },
+  storeBoughtTagText: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.xs,
+    color: colors.primary,
     letterSpacing: 0.5,
   },
   editButton: {

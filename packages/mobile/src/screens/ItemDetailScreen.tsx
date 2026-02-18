@@ -240,7 +240,13 @@ export default function ItemDetailScreen() {
             <View style={styles.recipeCard}>
               <View style={styles.recipeHeader}>
                 <View style={styles.recipeNameRow}>
-                  <SupplierFavicon supplierId={selectedRecipe.supplierId} size={24} />
+                  {selectedRecipe.isStoreBought ? (
+                    <View style={styles.storeBoughtBadge}>
+                      <Icon name="shopping_cart" size="sm" color={colors.white} />
+                    </View>
+                  ) : (
+                    <SupplierFavicon supplierId={selectedRecipe.supplierId} size={24} />
+                  )}
                   <Text style={styles.recipeName}>{selectedRecipe.name}</Text>
                 </View>
                 <TouchableOpacity
@@ -250,117 +256,149 @@ export default function ItemDetailScreen() {
                 </TouchableOpacity>
               </View>
 
-              {/* Bake Settings */}
-              {(selectedRecipe.bakeTime || selectedRecipe.bakeTemp || selectedRecipe.container) && (
-                <View style={styles.bakeSettings}>
-                  {selectedRecipe.bakeTime && (
-                    <View style={styles.bakeSetting}>
-                      <Icon name="timer" size="sm" color={colors.dustyMauve} />
-                      <Text style={styles.bakeSettingText}>{selectedRecipe.bakeTime} min</Text>
+              {/* Store-bought product info */}
+              {selectedRecipe.isStoreBought ? (
+                <View style={styles.storeBoughtInfo}>
+                  {selectedRecipe.brand && (
+                    <View style={styles.storeBoughtRow}>
+                      <Text style={styles.storeBoughtLabel}>BRAND</Text>
+                      <Text style={styles.storeBoughtValue}>{selectedRecipe.brand}</Text>
                     </View>
                   )}
-                  {selectedRecipe.bakeTemp && (
-                    <View style={styles.bakeSetting}>
-                      <Icon name="thermostat" size="sm" color={colors.dustyMauve} />
-                      <Text style={styles.bakeSettingText}>
-                        {selectedRecipe.bakeTemp}°{selectedRecipe.bakeTempUnit || 'F'}
+                  {selectedRecipe.productName && (
+                    <View style={styles.storeBoughtRow}>
+                      <Text style={styles.storeBoughtLabel}>PRODUCT</Text>
+                      <Text style={styles.storeBoughtValue}>{selectedRecipe.productName}</Text>
+                    </View>
+                  )}
+                  {(selectedRecipe.purchaseQuantity || selectedRecipe.purchaseUnit) && (
+                    <View style={styles.storeBoughtRow}>
+                      <Text style={styles.storeBoughtLabel}>SIZE</Text>
+                      <Text style={styles.storeBoughtValue}>
+                        {selectedRecipe.purchaseQuantity}{selectedRecipe.purchaseUnit}
                       </Text>
                     </View>
                   )}
-                  {selectedRecipe.container && (
-                    <View style={styles.bakeSetting}>
-                      <Icon name="cake" size="sm" color={colors.dustyMauve} />
-                      <Text style={styles.bakeSettingText}>
-                        {formatContainer(
-                          selectedRecipe.container.type,
-                          selectedRecipe.container.size ?? 8,
-                          selectedRecipe.container.count,
-                          viewScale
-                        )}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              )}
-
-              {/* Scale Selector */}
-              <View style={styles.scaleSection}>
-                <View style={styles.scaleLabelRow}>
-                  <Text style={styles.scaleLabel}>SCALE:</Text>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.scaleButtons}
-                  >
-                    {getScaleOptions(selectedRecipe.customScales).map((option) => (
-                      <TouchableOpacity
-                        key={option.value}
-                        style={[
-                          styles.scaleButton,
-                          viewScale === option.value && styles.scaleButtonActive,
-                        ]}
-                        onPress={() => setViewScale(option.value)}
-                      >
-                        <Text
-                          style={[
-                            styles.scaleButtonText,
-                            viewScale === option.value && styles.scaleButtonTextActive,
-                          ]}
-                        >
-                          {option.label}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-                {/* Scale by ingredient and container buttons */}
-                <View style={styles.scaleByRow}>
-                  <TouchableOpacity
-                    style={styles.scaleByButton}
-                    onPress={() => setShowScaleByIngredient(true)}
-                  >
-                    <Icon name="calculate" size="sm" color={colors.primary} />
-                    <Text style={styles.scaleByText}>By Ingredient</Text>
-                  </TouchableOpacity>
-                  {selectedRecipe.container && (
-                    <TouchableOpacity
-                      style={styles.scaleByButton}
-                      onPress={() => setShowContainerScale(true)}
-                    >
-                      <Icon name="auto_awesome" size="sm" color={colors.primary} />
-                      <Text style={styles.scaleByText}>By Container</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-                {/* Show custom scale indicator */}
-                {viewScale !== 1 && !getScaleOptions(selectedRecipe.customScales).some(opt => opt.value === viewScale) && (
-                  <View style={styles.customScaleBadge}>
-                    <Icon name="check_circle" size="sm" color={colors.success} />
-                    <Text style={styles.customScaleBadgeText}>
-                      Bespoke scale: {formatScaleFactor(viewScale)}
-                    </Text>
+                  <View style={styles.purchasedItemNote}>
+                    <Icon name="info" size="sm" color={colors.dustyMauve} />
+                    <Text style={styles.purchasedItemNoteText}>Purchased item</Text>
                   </View>
-                )}
-              </View>
-
-              {/* Ingredients */}
-              <View style={styles.ingredients}>
-                {scaleIngredients(selectedRecipe.ingredients, viewScale).map((ing, i) => (
-                  <View key={i} style={styles.ingredientRow}>
-                    <Text style={styles.ingredientName}>{ing.name}</Text>
-                    <View style={styles.ingredientValue}>
-                      <Text style={styles.ingredientQty}>
-                        {ing.quantity} {ing.unit}
-                      </Text>
-                      {viewScale !== 1 && (
-                        <Text style={styles.ingredientOriginal}>
-                          (was {selectedRecipe.ingredients[i].quantity})
-                        </Text>
+                </View>
+              ) : (
+                <>
+                  {/* Bake Settings - only for homemade */}
+                  {(selectedRecipe.bakeTime || selectedRecipe.bakeTemp || selectedRecipe.container) && (
+                    <View style={styles.bakeSettings}>
+                      {selectedRecipe.bakeTime && (
+                        <View style={styles.bakeSetting}>
+                          <Icon name="timer" size="sm" color={colors.dustyMauve} />
+                          <Text style={styles.bakeSettingText}>{selectedRecipe.bakeTime} min</Text>
+                        </View>
+                      )}
+                      {selectedRecipe.bakeTemp && (
+                        <View style={styles.bakeSetting}>
+                          <Icon name="thermostat" size="sm" color={colors.dustyMauve} />
+                          <Text style={styles.bakeSettingText}>
+                            {selectedRecipe.bakeTemp}°{selectedRecipe.bakeTempUnit || 'F'}
+                          </Text>
+                        </View>
+                      )}
+                      {selectedRecipe.container && (
+                        <View style={styles.bakeSetting}>
+                          <Icon name="cake" size="sm" color={colors.dustyMauve} />
+                          <Text style={styles.bakeSettingText}>
+                            {formatContainer(
+                              selectedRecipe.container.type,
+                              selectedRecipe.container.size ?? 8,
+                              selectedRecipe.container.count,
+                              viewScale
+                            )}
+                          </Text>
+                        </View>
                       )}
                     </View>
+                  )}
+
+                  {/* Scale Selector - only for homemade */}
+                  <View style={styles.scaleSection}>
+                    <View style={styles.scaleLabelRow}>
+                      <Text style={styles.scaleLabel}>SCALE:</Text>
+                      <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.scaleButtons}
+                      >
+                        {getScaleOptions(selectedRecipe.customScales).map((option) => (
+                          <TouchableOpacity
+                            key={option.value}
+                            style={[
+                              styles.scaleButton,
+                              viewScale === option.value && styles.scaleButtonActive,
+                            ]}
+                            onPress={() => setViewScale(option.value)}
+                          >
+                            <Text
+                              style={[
+                                styles.scaleButtonText,
+                                viewScale === option.value && styles.scaleButtonTextActive,
+                              ]}
+                            >
+                              {option.label}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                    {/* Scale by ingredient and container buttons */}
+                    <View style={styles.scaleByRow}>
+                      <TouchableOpacity
+                        style={styles.scaleByButton}
+                        onPress={() => setShowScaleByIngredient(true)}
+                      >
+                        <Icon name="calculate" size="sm" color={colors.primary} />
+                        <Text style={styles.scaleByText}>By Ingredient</Text>
+                      </TouchableOpacity>
+                      {selectedRecipe.container && (
+                        <TouchableOpacity
+                          style={styles.scaleByButton}
+                          onPress={() => setShowContainerScale(true)}
+                        >
+                          <Icon name="auto_awesome" size="sm" color={colors.primary} />
+                          <Text style={styles.scaleByText}>By Container</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                    {/* Show custom scale indicator */}
+                    {viewScale !== 1 && !getScaleOptions(selectedRecipe.customScales).some(opt => opt.value === viewScale) && (
+                      <View style={styles.customScaleBadge}>
+                        <Icon name="check_circle" size="sm" color={colors.success} />
+                        <Text style={styles.customScaleBadgeText}>
+                          Bespoke scale: {formatScaleFactor(viewScale)}
+                        </Text>
+                      </View>
+                    )}
                   </View>
-                ))}
-              </View>
+
+                  {/* Ingredients - only for homemade */}
+                  <View style={styles.ingredients}>
+                    {scaleIngredients(selectedRecipe.ingredients, viewScale).map((ing, i) => (
+                      <View key={i} style={styles.ingredientRow}>
+                        <Text style={styles.ingredientName}>{ing.name}</Text>
+                        <View style={styles.ingredientValue}>
+                          <Text style={styles.ingredientQty}>
+                            {ing.quantity} {ing.unit}
+                          </Text>
+                          {viewScale !== 1 && (
+                            <Text style={styles.ingredientOriginal}>
+                              (was {selectedRecipe.ingredients[i].quantity})
+                            </Text>
+                          )}
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                </>
+              )}
 
               {/* Variants Section */}
               <VariantsSection
@@ -1006,6 +1044,54 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.medium,
     fontSize: fontSize.sm,
     color: colors.text,
+  },
+  // Store-bought styles
+  storeBoughtBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  storeBoughtInfo: {
+    paddingVertical: spacing[4],
+    borderBottomWidth: 1,
+    borderBottomColor: colors.bgLight,
+    gap: spacing[3],
+  },
+  storeBoughtRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  storeBoughtLabel: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.xs,
+    color: colors.dustyMauve,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  storeBoughtValue: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.base,
+    color: colors.text,
+  },
+  purchasedItemNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+    marginTop: spacing[2],
+    paddingVertical: spacing[2],
+    paddingHorizontal: spacing[3],
+    backgroundColor: colors.bgLight,
+    borderRadius: borderRadius.lg,
+    alignSelf: 'flex-start',
+  },
+  purchasedItemNoteText: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.dustyMauve,
   },
   scaleSection: {
     flexDirection: 'column',

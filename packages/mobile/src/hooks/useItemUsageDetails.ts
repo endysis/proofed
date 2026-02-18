@@ -15,6 +15,12 @@ export interface ItemUsageDetail {
   bakeTime?: number;
   bakeTemp?: number;
   bakeTempUnit?: 'F' | 'C';
+  // Store-bought fields
+  isStoreBought?: boolean;
+  brand?: string;
+  productName?: string;
+  purchaseQuantity?: string;
+  purchaseUnit?: string;
 }
 
 export function useItemUsageDetails(itemUsages: ItemUsage[]) {
@@ -76,6 +82,12 @@ export function useItemUsageDetails(itemUsages: ItemUsage[]) {
       bakeTime,
       bakeTemp,
       bakeTempUnit,
+      // Store-bought fields
+      isStoreBought: recipe?.isStoreBought,
+      brand: recipe?.brand,
+      productName: recipe?.productName,
+      purchaseQuantity: recipe?.purchaseQuantity,
+      purchaseUnit: recipe?.purchaseUnit,
     };
   });
 
