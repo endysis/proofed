@@ -74,7 +74,7 @@ export default function SupplierPicker({ value, onChange }: SupplierPickerProps)
 const styles = StyleSheet.create({
   container: {
     position: 'relative',
-    zIndex: 50,
+    zIndex: 200,
   },
   pickerButton: {
     flexDirection: 'row',

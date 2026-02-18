@@ -19,26 +19,18 @@ import type { ChatMessage, CrumbChatRequest } from '@proofed/shared';
 import type { ItemUsageDetail } from '../../hooks/useItemUsageDetails';
 
 const WELCOME_MESSAGES = [
-  "Hello! I'm Crumb, your baking companion. Ask me anything about your {item}, and I'll do my best to help!",
-  "Welcome! Ready to talk about your {item}? I'm here to help with any questions you might have.",
-  "How lovely to see you! Let's chat about your {item} together.",
-  "Good to have you here! What would you like to know about your {item}?",
-  "Well hello there! I'm all ears if you have questions about your {item}.",
+  "Hello! I'm Crumb. What would you like to know about your {item}?",
+  "Right, let's talk about your {item}. What's on your mind?",
+  "Good to chat! What questions do you have about your {item}?",
   "Marvellous! Let's have a chat about your {item}, shall we?",
-  "So glad you popped in! Ask me anything about your {item}.",
-  "How scrummy! Ready to discuss your {item} whenever you are.",
-  "Delightful to meet you! I'm here to help with your {item}.",
-  "Welcome, welcome! What's on your mind about your {item}?",
-  "Wonderful! Let's get your {item} questions sorted.",
-  "Here to help with your {item}! Fire away with any questions.",
+  "Ready to discuss your {item} whenever you are.",
   "Right then! What shall we discuss about your {item} today?",
-  "Lovely to chat! I'm ready to help with your {item}.",
-  "At your service! Ask me anything about your {item}.",
-  "How nice! Let's explore your {item} together.",
-  "Ready when you are! What about your {item} can I help with?",
+  "Here to help with your {item}. Fire away with any questions.",
+  "Let's get your {item} questions sorted.",
+  "What would you like to know about your {item}?",
   "Brilliant! I'm here to answer questions about your {item}.",
-  "So lovely you're here! Let's talk about your {item}.",
-  "Splendid! What would you like to know about your {item}?",
+  "Splendid! What's the question about your {item}?",
+  "Ready when you are. What about your {item} can I help with?",
 ];
 
 function TypingDots() {
