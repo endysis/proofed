@@ -12,11 +12,14 @@ import { Icon } from '../common';
 import PasteIngredientsModal from './PasteIngredientsModal';
 import SupplierPicker from './SupplierPicker';
 import IngredientAutocomplete from './IngredientAutocomplete';
+import ProductAutocomplete from './ProductAutocomplete';
 import { UNIT_PRESETS } from '../../constants/units';
 import { CONTAINER_TYPES, CONTAINER_SIZES } from '../../constants/containers';
 import { colors, spacing, borderRadius, fontFamily, fontSize } from '../../theme';
 import { useTemperatureUnit } from '../../hooks/usePreferences';
 import type { Recipe, Ingredient, CreateRecipeRequest, ContainerType } from '@proofed/shared';
+
+type RecipeMode = 'homemade' | 'store-bought';
 
 interface RecipeFormProps {
   recipe?: Recipe;
@@ -32,6 +35,11 @@ export default function RecipeForm({
   isLoading,
 }: RecipeFormProps) {
   const preferredTempUnit = useTemperatureUnit();
+
+  // Determine initial mode based on existing recipe
+  const initialMode: RecipeMode = recipe?.isStoreBought ? 'store-bought' : 'homemade';
+  const [mode, setMode] = useState<RecipeMode>(initialMode);
+
   const [name, setName] = useState(recipe?.name || '');
   const [ingredients, setIngredients] = useState<Ingredient[]>(
     recipe?.ingredients || [{ name: '', quantity: 0, unit: '' }]
@@ -56,44 +64,100 @@ export default function RecipeForm({
   const [showContainerTypePicker, setShowContainerTypePicker] = useState(false);
   const [showContainerSizePicker, setShowContainerSizePicker] = useState(false);
 
+  // Store-bought fields
+  const [brand, setBrand] = useState(recipe?.brand || '');
+  const [productName, setProductName] = useState(recipe?.productName || '');
+  const [purchaseQuantity, setPurchaseQuantity] = useState(recipe?.purchaseQuantity || '');
+  const [purchaseUnit, setPurchaseUnit] = useState(recipe?.purchaseUnit || '');
+  const [showUnitPicker, setShowUnitPicker] = useState(false);
+
   const handleSubmit = () => {
-    const validIngredients = ingredients.filter((i) => i.name.trim());
-    const parsedCustomScale = parseFloat(customScale);
-    const parsedCount = parseInt(containerCount) || 1;
+    const isStoreBought = mode === 'store-bought';
 
-    // Determine custom scales value:
-    // - Valid number > 0: save as array with single element
-    // - Empty/invalid when editing: send null to remove
-    // - Empty/invalid when creating: send undefined (don't include)
-    let customScalesValue: number[] | null | undefined;
-    if (!isNaN(parsedCustomScale) && parsedCustomScale > 0) {
-      customScalesValue = [parsedCustomScale];
-    } else if (recipe) {
-      // Editing and field is empty - explicitly remove
-      customScalesValue = null;
+    if (isStoreBought) {
+      // Store-bought recipe - use brand as name if no name set
+      const recipeName = name.trim() || (brand && productName ? `${brand} ${productName}` : brand || productName);
+
+      onSubmit({
+        name: recipeName,
+        ingredients: [], // Store-bought items have no ingredients
+        isStoreBought: true,
+        brand: brand || undefined,
+        productName: productName || undefined,
+        purchaseQuantity: purchaseQuantity || undefined,
+        purchaseUnit: purchaseUnit || undefined,
+        prepNotes: prepNotes || (recipe ? null : undefined),
+      } as any);
     } else {
-      // Creating new - just don't include
-      customScalesValue = undefined;
-    }
+      // Homemade recipe - original logic
+      const validIngredients = ingredients.filter((i) => i.name.trim());
+      const parsedCustomScale = parseFloat(customScale);
+      const parsedCount = parseInt(containerCount) || 1;
 
-    onSubmit({
-      name,
-      ingredients: validIngredients,
-      prepNotes: prepNotes || (recipe ? null : undefined),
-      bakeTime: bakeTime ? parseInt(bakeTime) : (recipe ? null : undefined),
-      bakeTemp: bakeTemp ? parseInt(bakeTemp) : (recipe ? null : undefined),
-      bakeTempUnit: bakeTemp ? bakeTempUnit : undefined,
-      customScales: customScalesValue,
-      container: hasContainer && parsedCount
-        ? {
-            type: containerType,
-            size: containerSize,
-            count: parsedCount,
-          }
-        : (recipe ? null : undefined),
-      supplierId: supplierId || (recipe ? null : undefined),
-    } as any);
+      // Determine custom scales value:
+      // - Valid number > 0: save as array with single element
+      // - Empty/invalid when editing: send null to remove
+      // - Empty/invalid when creating: send undefined (don't include)
+      let customScalesValue: number[] | null | undefined;
+      if (!isNaN(parsedCustomScale) && parsedCustomScale > 0) {
+        customScalesValue = [parsedCustomScale];
+      } else if (recipe) {
+        // Editing and field is empty - explicitly remove
+        customScalesValue = null;
+      } else {
+        // Creating new - just don't include
+        customScalesValue = undefined;
+      }
+
+      onSubmit({
+        name,
+        ingredients: validIngredients,
+        prepNotes: prepNotes || (recipe ? null : undefined),
+        bakeTime: bakeTime ? parseInt(bakeTime) : (recipe ? null : undefined),
+        bakeTemp: bakeTemp ? parseInt(bakeTemp) : (recipe ? null : undefined),
+        bakeTempUnit: bakeTemp ? bakeTempUnit : undefined,
+        customScales: customScalesValue,
+        container: hasContainer && parsedCount
+          ? {
+              type: containerType,
+              size: containerSize,
+              count: parsedCount,
+            }
+          : (recipe ? null : undefined),
+        supplierId: supplierId || (recipe ? null : undefined),
+        isStoreBought: false,
+        // Clear store-bought fields when switching to homemade
+        brand: recipe?.isStoreBought ? null : undefined,
+        productName: recipe?.isStoreBought ? null : undefined,
+        purchaseQuantity: recipe?.isStoreBought ? null : undefined,
+        purchaseUnit: recipe?.isStoreBought ? null : undefined,
+      } as any);
+    }
   };
+
+  const handleProductSelect = (product: {
+    brand: string;
+    productName: string;
+    purchaseQuantity: string;
+    purchaseUnit: string;
+  }) => {
+    setBrand(product.brand);
+    setProductName(product.productName);
+    setPurchaseQuantity(product.purchaseQuantity);
+    setPurchaseUnit(product.purchaseUnit);
+    // Auto-set name based on product
+    if (product.brand && product.productName) {
+      setName(`${product.brand} ${product.productName}`);
+    } else if (product.brand) {
+      setName(product.brand);
+    } else if (product.productName) {
+      setName(product.productName);
+    }
+  };
+
+  const isStoreBoughtValid = mode === 'store-bought' && (brand.trim() || productName.trim() || name.trim());
+  const isHomemadeValid = mode === 'homemade' && name.trim();
+  const canSubmit = isStoreBoughtValid || isHomemadeValid;
 
   const updateIngredient = (index: number, field: keyof Ingredient, value: string | number) => {
     const updated = [...ingredients];
@@ -118,29 +182,150 @@ export default function RecipeForm({
 
   const selectedContainerType = CONTAINER_TYPES.find((t) => t.value === containerType);
 
+  // Package size unit options for store-bought
+  const PACKAGE_UNITS = ['g', 'kg', 'ml', 'L', 'oz', 'lb', 'fl oz', 'unit', 'piece'];
+
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      {/* Mode Toggle */}
       <View style={styles.field}>
-        <Text style={styles.label}>Recipe Name</Text>
-        <TextInput
-          style={styles.input}
-          value={name}
-          onChangeText={setName}
-          placeholder="e.g., Grandma's Recipe"
-          placeholderTextColor={colors.dustyMauve}
-          autoFocus
-        />
+        <Text style={styles.label}>Recipe Type</Text>
+        <View style={styles.modeToggle}>
+          <TouchableOpacity
+            style={[styles.modeButton, mode === 'homemade' && styles.modeButtonActive]}
+            onPress={() => setMode('homemade')}
+          >
+            <Icon name="restaurant" size="sm" color={mode === 'homemade' ? colors.white : colors.dustyMauve} />
+            <Text style={[styles.modeButtonText, mode === 'homemade' && styles.modeButtonTextActive]}>
+              Homemade
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.modeButton, mode === 'store-bought' && styles.modeButtonActive]}
+            onPress={() => setMode('store-bought')}
+          >
+            <Icon name="shopping_cart" size="sm" color={mode === 'store-bought' ? colors.white : colors.dustyMauve} />
+            <Text style={[styles.modeButtonText, mode === 'store-bought' && styles.modeButtonTextActive]}>
+              Store-bought
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
-      <View style={styles.field}>
-        <Text style={styles.label}>
-          Recipe Source <Text style={styles.optional}>(optional)</Text>
-        </Text>
-        <SupplierPicker value={supplierId} onChange={setSupplierId} />
-      </View>
+      {mode === 'store-bought' ? (
+        <>
+          {/* Store-bought form */}
+          <View style={styles.field}>
+            <Text style={styles.label}>Search Product</Text>
+            <ProductAutocomplete onSelect={handleProductSelect} />
+            <Text style={styles.hint}>Search Open Food Facts or enter custom details below</Text>
+          </View>
 
-      <View style={styles.field}>
-        <Text style={styles.label}>Ingredients</Text>
+          <View style={styles.field}>
+            <Text style={styles.label}>Brand</Text>
+            <TextInput
+              style={styles.input}
+              value={brand}
+              onChangeText={setBrand}
+              placeholder="e.g., Bonne Maman"
+              placeholderTextColor={colors.dustyMauve}
+            />
+          </View>
+
+          <View style={styles.field}>
+            <Text style={styles.label}>
+              Product Name <Text style={styles.optional}>(optional)</Text>
+            </Text>
+            <TextInput
+              style={styles.input}
+              value={productName}
+              onChangeText={setProductName}
+              placeholder="e.g., Raspberry Conserve"
+              placeholderTextColor={colors.dustyMauve}
+            />
+          </View>
+
+          <View style={styles.field}>
+            <Text style={styles.label}>
+              Package Size <Text style={styles.optional}>(optional)</Text>
+            </Text>
+            <View style={styles.packageSizeRow}>
+              <TextInput
+                style={[styles.input, styles.packageQtyInput]}
+                value={purchaseQuantity}
+                onChangeText={setPurchaseQuantity}
+                placeholder="370"
+                placeholderTextColor={colors.dustyMauve}
+                keyboardType="decimal-pad"
+              />
+              <TouchableOpacity
+                style={styles.unitPickerButton}
+                onPress={() => setShowUnitPicker(!showUnitPicker)}
+              >
+                <Text style={styles.unitPickerText}>{purchaseUnit || 'Unit'}</Text>
+                <Icon name="expand_more" size="sm" color={colors.dustyMauve} />
+              </TouchableOpacity>
+            </View>
+            {showUnitPicker && (
+              <View style={styles.unitPickerDropdown}>
+                {PACKAGE_UNITS.map((unit) => (
+                  <TouchableOpacity
+                    key={unit}
+                    style={[styles.unitOption, purchaseUnit === unit && styles.unitOptionActive]}
+                    onPress={() => {
+                      setPurchaseUnit(unit);
+                      setShowUnitPicker(false);
+                    }}
+                  >
+                    <Text style={[styles.unitOptionText, purchaseUnit === unit && styles.unitOptionTextActive]}>
+                      {unit}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
+
+          <View style={styles.field}>
+            <Text style={styles.label}>
+              Notes <Text style={styles.optional}>(optional)</Text>
+            </Text>
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              value={prepNotes}
+              onChangeText={setPrepNotes}
+              placeholder="Where to buy, quality notes, etc."
+              placeholderTextColor={colors.dustyMauve}
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+            />
+          </View>
+        </>
+      ) : (
+        <>
+          {/* Homemade form - original fields */}
+          <View style={styles.field}>
+            <Text style={styles.label}>Recipe Name</Text>
+            <TextInput
+              style={styles.input}
+              value={name}
+              onChangeText={setName}
+              placeholder="e.g., Grandma's Recipe"
+              placeholderTextColor={colors.dustyMauve}
+              autoFocus
+            />
+          </View>
+
+          <View style={styles.field}>
+            <Text style={styles.label}>
+              Recipe Source <Text style={styles.optional}>(optional)</Text>
+            </Text>
+            <SupplierPicker value={supplierId} onChange={setSupplierId} />
+          </View>
+
+          <View style={styles.field}>
+            <Text style={styles.label}>Ingredients</Text>
         {ingredients.map((ingredient, index) => (
           <View key={index} style={[styles.ingredientRow, { zIndex: 100 - index }]}>
             <View style={styles.nameInputWrapper}>
@@ -395,6 +580,8 @@ export default function RecipeForm({
           textAlignVertical="top"
         />
       </View>
+        </>
+      )}
 
       <View style={styles.buttons}>
         <TouchableOpacity
@@ -407,10 +594,10 @@ export default function RecipeForm({
         <TouchableOpacity
           style={[
             styles.submitButton,
-            (isLoading || !name.trim()) && styles.buttonDisabled,
+            (isLoading || !canSubmit) && styles.buttonDisabled,
           ]}
           onPress={handleSubmit}
-          disabled={isLoading || !name.trim()}
+          disabled={isLoading || !canSubmit}
           activeOpacity={0.7}
         >
           <Text style={styles.submitButtonText}>
@@ -688,6 +875,82 @@ const styles = StyleSheet.create({
   submitButtonText: {
     fontFamily: fontFamily.bold,
     fontSize: fontSize.base,
+    color: colors.white,
+  },
+  // Mode toggle styles
+  modeToggle: {
+    flexDirection: 'row',
+    backgroundColor: colors.bgLight,
+    borderRadius: borderRadius.xl,
+    padding: spacing[1],
+    gap: spacing[1],
+  },
+  modeButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing[2],
+    paddingVertical: spacing[3],
+    borderRadius: borderRadius.lg,
+  },
+  modeButtonActive: {
+    backgroundColor: colors.primary,
+  },
+  modeButtonText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: colors.dustyMauve,
+  },
+  modeButtonTextActive: {
+    color: colors.white,
+  },
+  // Store-bought specific styles
+  packageSizeRow: {
+    flexDirection: 'row',
+    gap: spacing[2],
+  },
+  packageQtyInput: {
+    flex: 1,
+  },
+  unitPickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+    borderRadius: borderRadius.xl,
+    height: 48,
+    paddingHorizontal: spacing[4],
+    minWidth: 80,
+  },
+  unitPickerText: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.base,
+    color: colors.text,
+  },
+  unitPickerDropdown: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing[2],
+    marginTop: spacing[2],
+  },
+  unitOption: {
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[2],
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.bgLight,
+  },
+  unitOptionActive: {
+    backgroundColor: colors.primary,
+  },
+  unitOptionText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: colors.text,
+  },
+  unitOptionTextActive: {
     color: colors.white,
   },
 });
