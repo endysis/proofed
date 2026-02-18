@@ -314,6 +314,7 @@ export default function PantryScreen() {
         title="New Item"
       >
         <ItemForm
+          initialType={selectedCategory !== 'all' ? selectedCategory : undefined}
           onSubmit={handleCreate}
           onCancel={() => setIsModalOpen(false)}
           isLoading={createItem.isPending}

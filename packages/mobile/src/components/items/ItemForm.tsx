@@ -21,6 +21,7 @@ const ITEM_TYPES: { value: ItemType; label: string; icon: string }[] = [
 
 interface ItemFormProps {
   item?: Item;
+  initialType?: ItemType;
   onSubmit: (data: CreateItemRequest) => void;
   onCancel: () => void;
   isLoading?: boolean;
@@ -28,12 +29,13 @@ interface ItemFormProps {
 
 export default function ItemForm({
   item,
+  initialType,
   onSubmit,
   onCancel,
   isLoading,
 }: ItemFormProps) {
   const [name, setName] = useState(item?.name || '');
-  const [type, setType] = useState<ItemType>(item?.type || 'batter');
+  const [type, setType] = useState<ItemType>(item?.type || initialType || 'batter');
   const [notes, setNotes] = useState(item?.notes || '');
 
   const handleSubmit = () => {
