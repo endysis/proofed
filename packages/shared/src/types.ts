@@ -55,6 +55,12 @@ export interface Recipe {
   customScales?: number[];  // custom scale factors (e.g., [0.75, 1.25, 3])
   container?: ContainerInfo; // container type, size, and count
   supplierId?: string;      // key from SUPPLIERS map (e.g., 'cupcake-jemma')
+  // Store-bought recipe fields
+  isStoreBought?: boolean;      // true if this is a purchased product, not homemade
+  brand?: string;               // e.g., "Bonne Maman"
+  productName?: string;         // e.g., "Raspberry Conserve"
+  purchaseQuantity?: string;    // e.g., "370"
+  purchaseUnit?: string;        // e.g., "g"
   createdAt: string;
   updatedAt: string;
 }
@@ -135,6 +141,12 @@ export interface CreateRecipeRequest {
   customScales?: number[];
   container?: ContainerInfo;
   supplierId?: string | null;
+  // Store-bought recipe fields
+  isStoreBought?: boolean;
+  brand?: string;
+  productName?: string;
+  purchaseQuantity?: string;
+  purchaseUnit?: string;
 }
 
 export interface UpdateRecipeRequest {
@@ -147,6 +159,12 @@ export interface UpdateRecipeRequest {
   customScales?: number[];
   container?: ContainerInfo;
   supplierId?: string | null;
+  // Store-bought recipe fields
+  isStoreBought?: boolean;
+  brand?: string | null;
+  productName?: string | null;
+  purchaseQuantity?: string | null;
+  purchaseUnit?: string | null;
 }
 
 export interface CreateVariantRequest {
