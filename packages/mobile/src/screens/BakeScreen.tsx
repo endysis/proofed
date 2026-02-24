@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -17,10 +17,12 @@ import { useAttempt, useUpdateAttempt, useDeleteAttempt } from '../hooks/useAtte
 import { useItem } from '../hooks/useItems';
 import { useRecipe } from '../hooks/useRecipes';
 import { useVariant } from '../hooks/useVariants';
+import { useItemUsageDetails } from '../hooks/useItemUsageDetails';
 import { mergeIngredients } from '../utils/mergeIngredients';
+import CrumbChatModal from '../components/ai/CrumbChatModal';
 import { colors, fontFamily, fontSize, spacing, borderRadius } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
-import type { ItemUsage } from '@proofed/shared';
+import type { ItemUsage, ChatMessage } from '@proofed/shared';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type BakeScreenRouteProp = RouteProp<RootStackParamList, 'BakeScreen'>;
@@ -45,6 +47,14 @@ export default function BakeScreen() {
   // Track edited usages locally for measurement mode
   const [editedUsages, setEditedUsages] = useState<ItemUsage[]>([]);
   const hasInitialized = useRef(false);
+
+  // Crumb Chat State
+  const [showCrumbChat, setShowCrumbChat] = useState(false);
+  const [activeChatIndex, setActiveChatIndex] = useState(0);
+  const [chatHistories, setChatHistories] = useState<Record<number, ChatMessage[]>>({});
+
+  // Get details for all items (ingredients, prepNotes, etc.)
+  const { details: usageDetails } = useItemUsageDetails(editedUsages);
 
   // Initialize from attempt
   useEffect(() => {
@@ -118,6 +128,20 @@ export default function BakeScreen() {
     );
   };
 
+  const handleOpenCrumbChat = (index: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setActiveChatIndex(index);
+    setShowCrumbChat(true);
+  };
+
+  const handleCloseCrumbChat = () => {
+    setShowCrumbChat(false);
+  };
+
+  const handleChatHistoryChange = (index: number, messages: ChatMessage[]) => {
+    setChatHistories((prev) => ({ ...prev, [index]: messages }));
+  };
+
   if (isLoading) return <Loading />;
   if (!attempt) {
     return (
@@ -179,6 +203,7 @@ export default function BakeScreen() {
                     bakeTempUnit,
                   });
                 }}
+                onOpenCrumbChat={() => handleOpenCrumbChat(index)}
               />
             ))
           ) : (
@@ -238,6 +263,23 @@ export default function BakeScreen() {
           </Text>
         </TouchableOpacity>
       </Modal>
+
+      {/* Crumb Chat Modal */}
+      {usageDetails[activeChatIndex] && (
+        <CrumbChatModal
+          isOpen={showCrumbChat}
+          onClose={handleCloseCrumbChat}
+          attemptId={attemptId}
+          attemptName={attempt.name}
+          itemUsageKey={`bake-${activeChatIndex}`}
+          itemDetail={usageDetails[activeChatIndex]}
+          otherItemNames={usageDetails
+            .filter((_, i) => i !== activeChatIndex)
+            .map((d) => d.itemName)}
+          chatHistory={chatHistories[activeChatIndex] || []}
+          onChatHistoryChange={(messages) => handleChatHistoryChange(activeChatIndex, messages)}
+        />
+      )}
     </View>
   );
 }
@@ -246,10 +288,12 @@ function BakingChecklist({
   usage,
   onToggleIngredient,
   onNavigateToTimer,
+  onOpenCrumbChat,
 }: {
   usage: ItemUsage;
   onToggleIngredient: (ingredientName: string) => void;
   onNavigateToTimer: (itemName: string, bakeTime: number, bakeTemp?: number, bakeTempUnit?: 'F' | 'C') => void;
+  onOpenCrumbChat: () => void;
 }) {
   const [notesExpanded, setNotesExpanded] = useState(false);
   const [showPrepNotes, setShowPrepNotes] = useState(false);
@@ -370,6 +414,10 @@ function BakingChecklist({
               </View>
             )}
           </View>
+          {/* Crumb AI Button */}
+          <TouchableOpacity style={styles.crumbButton} onPress={onOpenCrumbChat}>
+            <Icon name="auto_awesome" size="sm" color={colors.primary} />
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -619,6 +667,14 @@ const styles = StyleSheet.create({
   },
   checklistTitleContent: {
     flex: 1,
+  },
+  crumbButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(229, 52, 78, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   checklistTitle: {
     fontFamily: fontFamily.bold,
