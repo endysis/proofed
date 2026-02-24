@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
 import * as Haptics from 'expo-haptics';
 import * as Notifications from 'expo-notifications';
-import { Alert, Platform } from 'react-native';
+import { Alert, Platform, AppState, AppStateStatus } from 'react-native';
 
 // Configure how notifications appear when app is in foreground
 Notifications.setNotificationHandler({
@@ -57,6 +57,8 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
   const notificationIdRef = useRef<string | null>(null);
   const reminderNotificationIdRef = useRef<string | null>(null);
   const halfwayNotificationIdRef = useRef<string | null>(null);
+  const appStateRef = useRef(AppState.currentState);
+  const wasRunningBeforeBackgroundRef = useRef(false);
 
   // Request notification permissions on mount
   useEffect(() => {
@@ -171,6 +173,51 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
       [{ text: 'OK', style: 'default' }]
     );
   }, [clearIntervalTimer]);
+
+  // Handle app backgrounding/foregrounding
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+      // App going to background
+      if (nextAppState.match(/inactive|background/) && appStateRef.current === 'active') {
+        wasRunningBeforeBackgroundRef.current = timerState === 'running';
+        // Clear interval to prevent stale callbacks
+        clearIntervalTimer();
+      }
+
+      // App coming to foreground
+      if (appStateRef.current.match(/inactive|background/) && nextAppState === 'active') {
+        if (wasRunningBeforeBackgroundRef.current && activeTimer && timerState === 'running') {
+          // Timer was running before background - recalculate and restart interval
+          const elapsedMs = Date.now() - startTimeRef.current;
+          const elapsedSecs = Math.floor(elapsedMs / 1000);
+          const remaining = Math.max(0, activeTimer.totalSeconds - elapsedSecs);
+
+          setRemainingSeconds(remaining);
+
+          if (remaining === 0) {
+            handleFinished(activeTimer.itemName);
+          } else {
+            // Restart the interval
+            intervalRef.current = setInterval(() => {
+              const elapsedMs = Date.now() - startTimeRef.current;
+              const elapsedSecs = Math.floor(elapsedMs / 1000);
+              const remaining = Math.max(0, activeTimer.totalSeconds - elapsedSecs);
+              setRemainingSeconds(remaining);
+              if (remaining === 0) {
+                handleFinished(activeTimer.itemName);
+              }
+            }, 100);
+          }
+        }
+        // If paused: interval stays cleared, remainingSeconds unchanged - correct behavior
+        wasRunningBeforeBackgroundRef.current = false;
+      }
+
+      appStateRef.current = nextAppState;
+    });
+
+    return () => subscription.remove();
+  }, [timerState, activeTimer, clearIntervalTimer, handleFinished]);
 
   const startTimer = useCallback(async (timer: ActiveTimer) => {
     clearIntervalTimer();
