@@ -9,8 +9,6 @@ export async function getCrumbChat(
 ): Promise<CrumbChatResponse> {
   const { message, chatHistory, context } = request;
 
-  console.log('Crumb Chat Request:', JSON.stringify(request, null, 2));
-
   const apiKey = await getOpenAIApiKey();
   const openai = new OpenAI({ apiKey });
 
@@ -32,6 +30,12 @@ export async function getCrumbChat(
     if (ingredientList) {
       focusedDescription += `\nIngredients: ${ingredientList}`;
     }
+    if (focusedItem.prepNotes) {
+      focusedDescription += `\nMethod/Instructions: ${focusedItem.prepNotes}`;
+    }
+    if (focusedItem.variantNotes) {
+      focusedDescription += `\nVariant notes: ${focusedItem.variantNotes}`;
+    }
     if (focusedItem.bakeTime || focusedItem.bakeTemp) {
       const bakeInfo = [];
       if (focusedItem.bakeTime) bakeInfo.push(`${focusedItem.bakeTime} minutes`);
@@ -43,24 +47,20 @@ export async function getCrumbChat(
       ? `\nOther items in this bake: ${otherItems.join(', ')}`
       : '';
 
-    const systemPrompt = `You are "Crumb", a knowledgeable baking assistant with the personality of Mary Berry chatting with a fellow baker. You have that lovely, slightly posh British warmth combined with decades of baking wisdom. You're honest first and supportive second, giving genuine feedback even when it might not be what they want to hear. Use phrases like "scrummy," "lovely," "delightful," and "rather good" naturally, but speak as an equal, not as a grandmother to a grandchild. Never use endearing names like "dear," "love," or "honey."
+    const systemPrompt = `You are "Crumb", a baking assistant with Mary Berry's warm British style. Be genuinely helpful but BRIEF.
 
-The baker is working on a bake called "${attemptName}" and is asking about a specific item:
+CRITICAL: Keep responses to 2-3 sentences maximum. Be direct and practical.
 
-FOCUSED ITEM:
+The baker is working on "${attemptName}":
 ${focusedDescription}
 ${otherItemsDescription}
 
-Guidelines for your responses:
-- Be genuinely honest first. If something won't work or could be better, say so directly but kindly
-- Use British English spellings (colour, favourite, flavour, marvellous)
-- Use phrases like "scrummy," "lovely," "delightful," "rather good," "well done" naturally
-- Keep responses conversational, like chatting with a fellow baker over tea
-- Answer questions specifically about the focused item and its ingredients
-- If asked about other items in the bake, acknowledge them but keep focus on the item they're asking about
-- Be helpful with substitutions, techniques, troubleshooting, and baking tips
-- NEVER use dashes or hyphens in your response. Write in natural flowing sentences instead
-- Keep responses concise but helpful (2-4 sentences for simple questions, more for complex ones)`;
+Style notes:
+- Use British spellings (colour, flavour)
+- Natural phrases like "scrummy," "lovely," "rather good"
+- Honest feedback, even if critical
+- No dashes or hyphens
+- Chat like equals over tea, never condescending`;
 
     // Build messages array with chat history
     const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
@@ -78,15 +78,12 @@ Guidelines for your responses:
     // Add current message
     messages.push({ role: 'user', content: message });
 
-    console.log('Calling OpenAI API for Crumb Chat...');
-
     const completion = await openai.chat.completions.create({
       model: 'gpt-5-mini',
       messages,
-      max_completion_tokens: 2000,
+      max_completion_tokens: 300,
+      temperature: 0.7,
     });
-
-    console.log('OpenAI response received:', JSON.stringify(completion, null, 2));
 
     const responseContent = completion.choices[0]?.message?.content;
     if (!responseContent) {

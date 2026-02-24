@@ -143,6 +143,8 @@ export default function CrumbChatModal({
           variantName: itemDetail.variantName,
           scaleFactor: itemDetail.scaleFactor,
           ingredients: itemDetail.ingredients,
+          prepNotes: itemDetail.prepNotes,
+          variantNotes: itemDetail.variantNotes,
           bakeTime: itemDetail.bakeTime,
           bakeTemp: itemDetail.bakeTemp,
           bakeTempUnit: itemDetail.bakeTempUnit,

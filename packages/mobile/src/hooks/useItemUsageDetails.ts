@@ -12,6 +12,8 @@ export interface ItemUsageDetail {
   scaleFactor: number;
   ingredients: Ingredient[];
   baseIngredients: Ingredient[];
+  prepNotes?: string;        // Recipe method/instructions
+  variantNotes?: string;     // Variant-specific notes
   bakeTime?: number;
   bakeTemp?: number;
   bakeTempUnit?: 'F' | 'C';
@@ -79,6 +81,8 @@ export function useItemUsageDetails(itemUsages: ItemUsage[]) {
       scaleFactor,
       ingredients: scaledIngredients,
       baseIngredients,
+      prepNotes: recipe?.prepNotes,
+      variantNotes: variant?.notes,
       bakeTime,
       bakeTemp,
       bakeTempUnit,

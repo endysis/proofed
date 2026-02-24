@@ -321,6 +321,8 @@ export interface CrumbChatRequest {
       variantName?: string;
       scaleFactor?: number;
       ingredients: Ingredient[];
+      prepNotes?: string;       // Recipe method/instructions
+      variantNotes?: string;    // Variant-specific notes
       bakeTime?: number;
       bakeTemp?: number;
       bakeTempUnit?: 'F' | 'C';
