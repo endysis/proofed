@@ -400,3 +400,24 @@ export interface IngredientSubmission {
 export interface SubmitIngredientRequest {
   name: string;
 }
+
+// Nutrition types
+export interface NutritionInfo {
+  caloriesPerServing: number;
+  sugarPerServing: number; // grams
+  totalServings: number;
+  totalCalories: number;
+  totalSugar: number; // grams (sum from ingredients)
+}
+
+export interface CalorieEstimateRequest {
+  ingredients: Array<{
+    name: string;
+    quantity: number;
+    unit: string;
+  }>;
+}
+
+export interface CalorieEstimateResponse {
+  totalCalories: number;
+}
