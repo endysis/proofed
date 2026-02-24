@@ -42,6 +42,7 @@ import { deleteAccount } from './handlers/account';
 import { getPreferences, updatePreferences } from './handlers/preferences';
 import { getIngredients, submitIngredient } from './handlers/ingredients';
 import { searchProducts, getProductByBarcode } from './handlers/product-search';
+import { estimateCalories } from './handlers/nutrition';
 import { getUserId } from './lib/auth';
 
 function response(statusCode: number, body: unknown): APIGatewayProxyResultV2 {
@@ -307,6 +308,12 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer): P
 
     if (path === '/photos/download-url' && method === 'POST') {
       const result = await getDownloadUrl(parseBody(event));
+      return response(200, result);
+    }
+
+    // Nutrition routes
+    if (path === '/nutrition/estimate-calories' && method === 'POST') {
+      const result = await estimateCalories(parseBody(event));
       return response(200, result);
     }
 
