@@ -15,6 +15,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Icon, Modal, Loading, FavoriteButton, Skeleton, SkeletonThumbnail } from '../components/common';
 import { PhotoUpload, ImageAsset, LuxuryPhotoGallery } from '../components/photos';
 import { AiAdviceSection } from '../components/ai';
+import { NutritionSection } from '../components/nutrition';
 import { useAttempt, useUpdateAttempt, useDeleteAttempt, useCreateAttempt } from '../hooks/useAttempts';
 import { useAiAdvice } from '../hooks/useAiAdvice';
 import { useItem } from '../hooks/useItems';
@@ -66,6 +67,7 @@ export default function EvaluateScreen() {
   });
   const [hasAutoOpenedGallery, setHasAutoOpenedGallery] = useState(false);
   const [expandedItems, setExpandedItems] = useState(true);
+  const [nutritionInfo, setNutritionInfo] = useState<{ caloriesPerServing: number; sugarPerServing: number } | null>(null);
 
   // Auto-open gallery if openGallery param is true and there are photos
   React.useEffect(() => {
@@ -413,6 +415,12 @@ export default function EvaluateScreen() {
           )}
         </View>
 
+        {/* Nutrition Estimate */}
+        <NutritionSection
+          itemUsageDetails={itemUsageDetails}
+          onNutritionCalculated={setNutritionInfo}
+        />
+
         {/* Photo Gallery */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -442,6 +450,7 @@ export default function EvaluateScreen() {
                 bakeTemp: d.bakeTemp,
                 bakeTempUnit: d.bakeTempUnit,
               }))}
+              nutritionInfo={nutritionInfo ?? undefined}
             />
           )}
         </View>

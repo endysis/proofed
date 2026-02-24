@@ -27,6 +27,11 @@ interface BakeParam {
   bakeTempUnit?: 'F' | 'C';
 }
 
+interface NutritionDisplayInfo {
+  caloriesPerServing: number;
+  sugarPerServing: number;
+}
+
 interface LuxuryPhotoGalleryProps {
   photoKeys: string[];
   onClose: () => void;
@@ -39,6 +44,8 @@ interface LuxuryPhotoGalleryProps {
   mainPhotoKey?: string;
   initialIndex?: number;
   bakeParams?: BakeParam[];
+  nutritionInfo?: NutritionDisplayInfo;
+  onCalculateNutrition?: () => void;
 }
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -128,6 +135,8 @@ export default function LuxuryPhotoGallery({
   mainPhotoKey,
   initialIndex = 0,
   bakeParams,
+  nutritionInfo,
+  onCalculateNutrition,
 }: LuxuryPhotoGalleryProps) {
   const insets = useSafeAreaInsets();
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
@@ -285,6 +294,15 @@ export default function LuxuryPhotoGallery({
           {bakeParamsDisplay && (
             <Text style={styles.bakeParamsLabel}>{bakeParamsDisplay}</Text>
           )}
+          {nutritionInfo ? (
+            <Text style={styles.nutritionLabel}>
+              &#127856; {nutritionInfo.caloriesPerServing} cal/slice  •  &#128202; {nutritionInfo.sugarPerServing}g sugar
+            </Text>
+          ) : onCalculateNutrition ? (
+            <TouchableOpacity onPress={onCalculateNutrition}>
+              <Text style={styles.nutritionLink}>Tap for nutrition info</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
 
         {/* Bottom Buttons */}
@@ -403,6 +421,20 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     color: colors.dustyMauve,
     letterSpacing: 1.4,
+    marginTop: spacing[1],
+  },
+  nutritionLabel: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.xs,
+    color: colors.dustyMauve,
+    letterSpacing: 1,
+    marginTop: spacing[1],
+  },
+  nutritionLink: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.xs,
+    color: colors.primary,
+    letterSpacing: 1,
     marginTop: spacing[1],
   },
   galleryImageContainer: {
