@@ -4,7 +4,8 @@
   "private": true,
   "main": "./dist/index.js",
   "scripts": {
-    "build": "esbuild src/index.ts --bundle --platform=node --target=node20 --outfile=dist/index.js --external:@aws-sdk/*",
+    "build": "esbuild src/index.ts --bundle --platform=node --target=node20 --outfile=dist/index.js --external:@aws-sdk/* && npm run copy-assets",
+    "copy-assets": "cp -f products.json dist/ 2>/dev/null || echo 'Warning: products.json not found. Run scripts/build-search-db.ts first.'",
     "clean": "rm -rf dist",
     "test": "jest",
     "test:migration": "jest scripts/migrate-user.test.ts"

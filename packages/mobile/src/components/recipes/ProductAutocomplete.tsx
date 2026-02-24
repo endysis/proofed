@@ -109,7 +109,22 @@ export default function ProductAutocomplete({
 
       {shouldShowDropdown && (
         <View style={styles.dropdown}>
-          <ScrollView style={styles.scrollView} keyboardShouldPersistTaps="handled">
+          <ScrollView style={styles.scrollView} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+            {/* Always show custom option first while loading - don't block users */}
+            {showCustomOption && isLoading && (
+              <>
+                <TouchableOpacity
+                  style={styles.customItem}
+                  onPress={handleUseCustom}
+                  activeOpacity={0.7}
+                >
+                  <Icon name="edit" size="sm" color={colors.primary} />
+                  <Text style={styles.customText}>Use custom: "{query.trim()}"</Text>
+                </TouchableOpacity>
+                <View style={styles.divider} />
+              </>
+            )}
+
             {isLoading && (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="small" color={colors.primary} />
@@ -154,7 +169,8 @@ export default function ProductAutocomplete({
                 </TouchableOpacity>
               ))}
 
-            {showCustomOption && (
+            {/* Show custom option at bottom after results load */}
+            {showCustomOption && !isLoading && (
               <>
                 {hasResults && <View style={styles.divider} />}
                 <TouchableOpacity
@@ -201,6 +217,7 @@ const styles = StyleSheet.create({
     top: 52,
     left: 0,
     right: 0,
+    zIndex: 1000,
     backgroundColor: colors.white,
     borderRadius: borderRadius.xl,
     borderWidth: 1,
@@ -211,10 +228,9 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 8,
     maxHeight: 320,
-    overflow: 'hidden',
   },
   scrollView: {
-    maxHeight: 320,
+    flex: 1,
   },
   loadingContainer: {
     flexDirection: 'row',

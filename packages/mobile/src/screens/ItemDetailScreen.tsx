@@ -275,7 +275,7 @@ export default function ItemDetailScreen() {
                     <View style={styles.storeBoughtRow}>
                       <Text style={styles.storeBoughtLabel}>SIZE</Text>
                       <Text style={styles.storeBoughtValue}>
-                        {selectedRecipe.purchaseQuantity}{selectedRecipe.purchaseUnit}
+                        {selectedRecipe.purchaseQuantity} {selectedRecipe.purchaseUnit}
                       </Text>
                     </View>
                   )}

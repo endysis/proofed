@@ -5,7 +5,6 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  ScrollView,
   Switch,
 } from 'react-native';
 import { Icon } from '../common';
@@ -186,7 +185,7 @@ export default function RecipeForm({
   const PACKAGE_UNITS = ['g', 'kg', 'ml', 'L', 'oz', 'lb', 'fl oz', 'unit', 'piece'];
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <View style={styles.container}>
       {/* Mode Toggle */}
       <View style={styles.field}>
         <Text style={styles.label}>Recipe Type</Text>
@@ -215,10 +214,12 @@ export default function RecipeForm({
       {mode === 'store-bought' ? (
         <>
           {/* Store-bought form */}
-          <View style={styles.field}>
-            <Text style={styles.label}>Search Product</Text>
+          <View style={[styles.field, styles.autocompleteField]}>
+            <View style={styles.autocompleteHeader}>
+              <Text style={styles.label}>Search Product</Text>
+              <Text style={styles.autocompleteHint}>Search Open Food Facts or enter custom details below</Text>
+            </View>
             <ProductAutocomplete onSelect={handleProductSelect} />
-            <Text style={styles.hint}>Search Open Food Facts or enter custom details below</Text>
           </View>
 
           <View style={styles.field}>
@@ -611,7 +612,7 @@ export default function RecipeForm({
         onClose={() => setShowPasteModal(false)}
         onAdd={handlePastedIngredients}
       />
-    </ScrollView>
+    </View>
   );
 }
 
@@ -621,6 +622,19 @@ const styles = StyleSheet.create({
   },
   field: {
     marginBottom: spacing[4],
+  },
+  autocompleteField: {
+    zIndex: 100,
+    position: 'relative',
+  },
+  autocompleteHeader: {
+    marginBottom: spacing[2],
+  },
+  autocompleteHint: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: colors.dustyMauve,
+    marginTop: spacing[1],
   },
   label: {
     fontFamily: fontFamily.medium,

@@ -41,6 +41,7 @@ import { getAiContainerScale } from './handlers/ai-container-scale';
 import { deleteAccount } from './handlers/account';
 import { getPreferences, updatePreferences } from './handlers/preferences';
 import { getIngredients, submitIngredient } from './handlers/ingredients';
+import { searchProducts, getProductByBarcode } from './handlers/product-search';
 import { getUserId } from './lib/auth';
 
 function response(statusCode: number, body: unknown): APIGatewayProxyResultV2 {
@@ -66,6 +67,22 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer): P
   const path = event.rawPath;
 
   try {
+    // Product search routes (no auth required - public data)
+    if (path === '/products/search' && method === 'GET') {
+      const query = event.queryStringParameters?.q || '';
+      const limit = parseInt(event.queryStringParameters?.limit || '10', 10);
+      const products = await searchProducts(query, Math.min(limit, 50));
+      return response(200, { products });
+    }
+
+    if (path.match(/^\/products\/barcode\/[^/]+$/) && method === 'GET') {
+      const barcode = path.split('/').pop()!;
+      const product = await getProductByBarcode(barcode);
+      if (!product) return response(404, { error: 'Product not found' });
+      return response(200, product);
+    }
+
+    // All routes below require authentication
     const userId = getUserId(event);
 
     // Account routes

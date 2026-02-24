@@ -135,6 +135,35 @@ export class ProofedStack extends cdk.Stack {
       ],
     });
 
+    // S3 Bucket for Product Images (public read for caching product images)
+    const productImagesBucket = new s3.Bucket(this, 'ProductImagesBucket', {
+      bucketName: `proofed-product-images-${this.account}-${this.region}`,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      blockPublicAccess: new s3.BlockPublicAccess({
+        blockPublicAcls: false,
+        ignorePublicAcls: false,
+        blockPublicPolicy: false,
+        restrictPublicBuckets: false,
+      }),
+      cors: [
+        {
+          allowedMethods: [s3.HttpMethods.GET],
+          allowedOrigins: ['*'],
+          allowedHeaders: ['*'],
+          maxAge: 86400,
+        },
+      ],
+    });
+
+    // Allow public read access to product images
+    productImagesBucket.addToResourcePolicy(
+      new iam.PolicyStatement({
+        actions: ['s3:GetObject'],
+        resources: [productImagesBucket.arnForObjects('*')],
+        principals: [new iam.AnyPrincipal()],
+      })
+    );
+
     // S3 Bucket for Public Assets (ingredients.json, etc.)
     const assetsBucket = new s3.Bucket(this, 'AssetsBucket', {
       bucketName: `proofed-assets-${this.account}-${this.region}`,
@@ -416,6 +445,20 @@ export class ProofedStack extends cdk.Stack {
       authorizer,
     });
 
+    // Product search routes (no auth required - public data)
+    httpApi.addRoutes({
+      path: '/products/search',
+      methods: [apigateway.HttpMethod.GET],
+      integration,
+      // No authorizer - public endpoint
+    });
+    httpApi.addRoutes({
+      path: '/products/barcode/{barcode}',
+      methods: [apigateway.HttpMethod.GET],
+      integration,
+      // No authorizer - public endpoint
+    });
+
     // Outputs
     new cdk.CfnOutput(this, 'ApiUrl', {
       value: httpApi.apiEndpoint,
@@ -450,6 +493,11 @@ export class ProofedStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'AssetsBucketUrl', {
       value: `https://${assetsBucket.bucketRegionalDomainName}`,
       description: 'Assets S3 bucket URL',
+    });
+
+    new cdk.CfnOutput(this, 'ProductImagesBucketUrl', {
+      value: `https://${productImagesBucket.bucketRegionalDomainName}`,
+      description: 'Product Images S3 bucket URL',
     });
   }
 }
