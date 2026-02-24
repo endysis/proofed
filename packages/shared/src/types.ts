@@ -90,6 +90,9 @@ export interface ItemUsage {
   stockedIngredients?: string[];   // Ingredient names marked as "have it"
   measurementEnabled?: boolean;    // Whether measurement mode is active
   measuredIngredients?: string[];  // Ingredient names marked as "measured"
+  // Store-bought usage fields
+  usageQuantity?: number;  // how much to use (e.g., 150)
+  usageUnit?: string;      // unit for usage (e.g., "g") - defaults to purchaseUnit
 }
 
 export interface Attempt {

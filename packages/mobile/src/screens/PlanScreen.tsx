@@ -44,6 +44,9 @@ interface ItemUsageInput {
   stockedIngredients?: string[];
   measurementEnabled?: boolean;
   measuredIngredients?: string[];
+  // Store-bought usage fields
+  usageQuantity?: number;
+  usageUnit?: string;
 }
 
 // Map item types to icons and section headers
@@ -570,6 +573,13 @@ function PlanItemTile({
     ? `${purchaseQuantity}${purchaseUnit}`
     : purchaseQuantity || '';
 
+  // Store-bought usage display
+  const usageAmount = usage.usageQuantity && usage.usageUnit
+    ? `${usage.usageQuantity}${usage.usageUnit}`
+    : usage.usageQuantity
+      ? `${usage.usageQuantity}`
+      : null;
+
   return (
     <Swipeable
       ref={swipeableRef}
@@ -593,6 +603,11 @@ function PlanItemTile({
                   {storeBoughtDisplayName}
                   {packageSize ? ` (${packageSize})` : ''}
                 </Text>
+                {usageAmount ? (
+                  <Text style={styles.usageAmountLabel}>Using: {usageAmount}</Text>
+                ) : (
+                  <Text style={styles.specifyAmountHint}>Specify amount →</Text>
+                )}
                 <View style={styles.storeBoughtTag}>
                   <Text style={styles.storeBoughtTagText}>STORE-BOUGHT</Text>
                 </View>
@@ -723,6 +738,9 @@ function AddItemModal({
   const [notes, setNotes] = useState('');
   const [shoppingListEnabled, setShoppingListEnabled] = useState(false);
   const [measurementEnabled, setMeasurementEnabled] = useState(false);
+  // Store-bought usage fields
+  const [usageQuantity, setUsageQuantity] = useState<string>('');
+  const [usageUnit, setUsageUnit] = useState<string>('');
 
   // Sub-modal states
   const [showItemPicker, setShowItemPicker] = useState(false);
@@ -753,6 +771,8 @@ function AddItemModal({
         setNotes(editingUsage.notes || '');
         setShoppingListEnabled(editingUsage.shoppingListEnabled ?? false);
         setMeasurementEnabled(editingUsage.measurementEnabled ?? false);
+        setUsageQuantity(editingUsage.usageQuantity?.toString() || '');
+        setUsageUnit(editingUsage.usageUnit || '');
       } else {
         setItemId('');
         setRecipeId('');
@@ -761,6 +781,8 @@ function AddItemModal({
         setNotes('');
         setShoppingListEnabled(false);
         setMeasurementEnabled(false);
+        setUsageQuantity('');
+        setUsageUnit('');
       }
       setItemSearch('');
     }
@@ -785,8 +807,16 @@ function AddItemModal({
   const selectedRecipe = recipes?.find((r) => r.recipeId === recipeId);
   const selectedVariant = variants?.find((v) => v.variantId === variantId);
 
+  // Set default usage unit when store-bought recipe is selected
+  useEffect(() => {
+    if (selectedRecipe?.isStoreBought && selectedRecipe.purchaseUnit && !usageUnit) {
+      setUsageUnit(selectedRecipe.purchaseUnit);
+    }
+  }, [selectedRecipe, usageUnit]);
+
   const handleSave = () => {
     const key = editingUsage?._key || Date.now().toString();
+    const parsedQuantity = usageQuantity ? parseFloat(usageQuantity) : undefined;
     onSave({
       _key: key,
       itemId,
@@ -798,6 +828,8 @@ function AddItemModal({
       stockedIngredients: editingUsage?.stockedIngredients,
       measurementEnabled,
       measuredIngredients: editingUsage?.measuredIngredients,
+      usageQuantity: parsedQuantity && !isNaN(parsedQuantity) ? parsedQuantity : undefined,
+      usageUnit: usageUnit || undefined,
     });
   };
 
@@ -867,8 +899,8 @@ function AddItemModal({
         </View>
       )}
 
-      {/* Scale Selector */}
-      {recipeId && (
+      {/* Scale Selector - only for homemade recipes */}
+      {recipeId && !selectedRecipe?.isStoreBought && (
         <View style={styles.modalField}>
           <Text style={styles.modalLabel}>Scale</Text>
           <View style={styles.scaleButtons}>
@@ -919,6 +951,37 @@ function AddItemModal({
                 Bespoke scale applied: {formatScaleFactor(scaleFactor)}
               </Text>
             </View>
+          )}
+        </View>
+      )}
+
+      {/* Usage Amount - for store-bought items */}
+      {recipeId && selectedRecipe?.isStoreBought && (
+        <View style={styles.modalField}>
+          <Text style={styles.modalLabel}>How much are you using?</Text>
+          <View style={styles.usageAmountRow}>
+            <TextInput
+              style={styles.usageAmountInput}
+              value={usageQuantity}
+              onChangeText={setUsageQuantity}
+              keyboardType="decimal-pad"
+              placeholder="0"
+              placeholderTextColor={colors.dustyMauve}
+            />
+            <View style={styles.usageUnitPicker}>
+              <TextInput
+                style={styles.usageUnitInput}
+                value={usageUnit}
+                onChangeText={setUsageUnit}
+                placeholder={selectedRecipe.purchaseUnit || 'unit'}
+                placeholderTextColor={colors.dustyMauve}
+              />
+            </View>
+          </View>
+          {selectedRecipe.purchaseQuantity && selectedRecipe.purchaseUnit && (
+            <Text style={styles.packageSizeHint}>
+              Package size: {selectedRecipe.purchaseQuantity}{selectedRecipe.purchaseUnit}
+            </Text>
           )}
         </View>
       )}
@@ -1442,6 +1505,19 @@ const styles = StyleSheet.create({
     color: colors.primary,
     letterSpacing: 0.5,
   },
+  usageAmountLabel: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: colors.primary,
+    marginTop: spacing[1],
+  },
+  specifyAmountHint: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: colors.dustyMauve,
+    marginTop: spacing[1],
+    fontStyle: 'italic',
+  },
   editButton: {
     padding: spacing[2],
   },
@@ -1815,6 +1891,46 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.bold,
     fontSize: fontSize.lg,
     color: colors.primary,
+  },
+  // Store-bought usage amount styles
+  usageAmountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+  },
+  usageAmountInput: {
+    flex: 1,
+    backgroundColor: colors.bgLight,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+    borderRadius: borderRadius.xl,
+    height: 56,
+    paddingHorizontal: spacing[4],
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.xl,
+    color: colors.text,
+    textAlign: 'center',
+  },
+  usageUnitPicker: {
+    width: 80,
+  },
+  usageUnitInput: {
+    backgroundColor: colors.bgLight,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+    borderRadius: borderRadius.xl,
+    height: 56,
+    paddingHorizontal: spacing[3],
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.base,
+    color: colors.text,
+    textAlign: 'center',
+  },
+  packageSizeHint: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.dustyMauve,
+    marginTop: spacing[2],
   },
   // Bottom Actions
   bottomAction: {
