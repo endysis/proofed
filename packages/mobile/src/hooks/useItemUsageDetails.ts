@@ -2,7 +2,7 @@ import { useQueries } from '@tanstack/react-query';
 import { itemsApi, recipesApi, variantsApi } from '../api/client';
 import { scaleIngredients } from '../utils/scaleRecipe';
 import { mergeIngredients } from '../utils/mergeIngredients';
-import type { ItemUsage, Ingredient, ItemType } from '@proofed/shared';
+import type { ItemUsage, Ingredient, ItemType, ContainerInfo } from '@proofed/shared';
 
 export interface ItemUsageDetail {
   itemName: string;
@@ -17,6 +17,7 @@ export interface ItemUsageDetail {
   bakeTime?: number;
   bakeTemp?: number;
   bakeTempUnit?: 'F' | 'C';
+  containerInfo?: ContainerInfo;  // Container from recipe
   // Store-bought fields
   isStoreBought?: boolean;
   brand?: string;
@@ -86,6 +87,7 @@ export function useItemUsageDetails(itemUsages: ItemUsage[]) {
       bakeTime,
       bakeTemp,
       bakeTempUnit,
+      containerInfo: recipe?.container,
       // Store-bought fields
       isStoreBought: recipe?.isStoreBought,
       brand: recipe?.brand,
