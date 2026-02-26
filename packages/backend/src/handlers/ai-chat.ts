@@ -82,7 +82,6 @@ Style notes:
       model: 'gpt-5-mini',
       messages,
       max_completion_tokens: 300,
-      temperature: 0.7,
     });
 
     const responseContent = completion.choices[0]?.message?.content;
