@@ -104,8 +104,12 @@ export function useNutritionEstimate(
     Error,
     CalorieEstimateRequest
   >({
-    mutationFn: (request) => nutritionApi.estimateCalories(request),
+    mutationFn: (request) => {
+      console.log('[Nutrition] Calling API with:', JSON.stringify(request));
+      return nutritionApi.estimateCalories(request);
+    },
     onSuccess: (data) => {
+      console.log('[Nutrition] API success:', data);
       const totalCalories = data.totalCalories;
       setNutrition({
         totalCalories,
@@ -114,6 +118,9 @@ export function useNutritionEstimate(
         caloriesPerServing: Math.round(totalCalories / totalServings),
         sugarPerServing: Math.round((totalSugar / totalServings) * 10) / 10,
       });
+    },
+    onError: (error) => {
+      console.error('[Nutrition] API error:', error);
     },
   });
 
@@ -127,7 +134,8 @@ export function useNutritionEstimate(
       // Call API for calorie estimation
       calorieMutation.mutate({ ingredients: scaledIngredients });
     },
-    [scaledIngredients, calorieMutation]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [scaledIngredients]
   );
 
   return {

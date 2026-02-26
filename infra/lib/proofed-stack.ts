@@ -445,6 +445,14 @@ export class ProofedStack extends cdk.Stack {
       authorizer,
     });
 
+    // Nutrition routes
+    httpApi.addRoutes({
+      path: '/nutrition/estimate-calories',
+      methods: [apigateway.HttpMethod.POST],
+      integration,
+      authorizer,
+    });
+
     // Product search routes (no auth required - public data)
     httpApi.addRoutes({
       path: '/products/search',
