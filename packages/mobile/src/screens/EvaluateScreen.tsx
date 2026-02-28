@@ -27,7 +27,7 @@ import { useItemUsageDetails } from '../hooks/useItemUsageDetails';
 import { formatScaleFactor } from '../utils/scaleRecipe';
 import { colors, fontFamily, fontSize, spacing, borderRadius } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
-import type { ItemUsage, AiAdviceResponse, AiAdviceRequest, AiAdviceTip } from '@proofed/shared';
+import type { ItemUsage, AiAdviceResponse, AiAdviceRequest, AiAdviceTip, NutritionInfo } from '@proofed/shared';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type EvaluateScreenRouteProp = RouteProp<RootStackParamList, 'EvaluateScreen'>;
@@ -56,7 +56,7 @@ export default function EvaluateScreen() {
   const aiAdviceMutation = useAiAdvice();
   const createVariantMutation = useCreateVariant();
   const { data: mainPhotoUrl } = usePhotoUrl(attempt?.mainPhotoKey);
-  const { details: itemUsageDetails } = useItemUsageDetails(attempt?.itemUsages || []);
+  const { details: itemUsageDetails, isLoading: detailsLoading } = useItemUsageDetails(attempt?.itemUsages || []);
 
   const [showActions, setShowActions] = useState(false);
   const [outcomeModal, setOutcomeModal] = useState(false);
@@ -67,7 +67,8 @@ export default function EvaluateScreen() {
   });
   const [hasAutoOpenedGallery, setHasAutoOpenedGallery] = useState(false);
   const [expandedItems, setExpandedItems] = useState(true);
-  const [nutritionInfo, setNutritionInfo] = useState<{ caloriesPerServing: number; sugarPerServing: number } | null>(null);
+  // Use nutrition from attempt if available
+  const nutritionInfo = attempt?.nutrition || null;
 
   // Auto-open gallery if openGallery param is true and there are photos
   React.useEffect(() => {
@@ -197,6 +198,13 @@ export default function EvaluateScreen() {
     updateAttempt.mutate({
       attemptId,
       data: { starred: !attempt?.starred },
+    });
+  };
+
+  const handleSaveNutrition = (nutrition: NutritionInfo) => {
+    updateAttempt.mutate({
+      attemptId,
+      data: { nutrition },
     });
   };
 
@@ -415,12 +423,6 @@ export default function EvaluateScreen() {
           )}
         </View>
 
-        {/* Nutrition Estimate */}
-        <NutritionSection
-          itemUsageDetails={itemUsageDetails}
-          onNutritionCalculated={setNutritionInfo}
-        />
-
         {/* Photo Gallery */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -454,6 +456,14 @@ export default function EvaluateScreen() {
             />
           )}
         </View>
+
+        {/* Nutrition Estimate */}
+        <NutritionSection
+          itemUsageDetails={itemUsageDetails}
+          isLoading={detailsLoading}
+          savedNutrition={attempt?.nutrition}
+          onSaveNutrition={handleSaveNutrition}
+        />
 
         {/* Outcome */}
         <View style={styles.section}>
@@ -726,7 +736,12 @@ function ItemUsageDisplay({ usage }: { usage: ItemUsage }) {
   return (
     <TouchableOpacity
       style={styles.usageCard}
-      onPress={() => navigation.navigate('ItemDetail', { itemId: usage.itemId })}
+      onPress={() => navigation.navigate('ItemDetail', {
+        itemId: usage.itemId,
+        recipeId: usage.recipeId,
+        variantId: usage.variantId,
+        scale: usage.scaleFactor,
+      })}
     >
       <View style={styles.usageIcon}>
         <Icon name={typeIcons[item?.type || 'other'] || 'category'} size="sm" color={colors.primary} />

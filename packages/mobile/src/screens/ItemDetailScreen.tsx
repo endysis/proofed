@@ -52,8 +52,8 @@ export default function ItemDetailScreen() {
   const updateVariant = useUpdateVariant();
   const deleteVariant = useDeleteVariant();
 
-  const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
-  const [viewScale, setViewScale] = useState(1);
+  const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(route.params.recipeId ?? null);
+  const [viewScale, setViewScale] = useState(route.params.scale ?? 1);
   const [editItemModal, setEditItemModal] = useState(false);
   const [recipeModal, setRecipeModal] = useState<{ isOpen: boolean; recipe?: Recipe }>({ isOpen: false });
   const [variantModal, setVariantModal] = useState<{
