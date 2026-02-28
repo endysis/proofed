@@ -20,6 +20,8 @@ interface ProductAutocompleteProps {
     productName: string;
     purchaseQuantity: string;
     purchaseUnit: string;
+    energyKcal100g?: number;
+    sugars100g?: number;
   }) => void;
   placeholder?: string;
 }
@@ -46,6 +48,8 @@ export default function ProductAutocomplete({
         productName: product.productName,
         purchaseQuantity: value,
         purchaseUnit: unit,
+        energyKcal100g: product.energyKcal100g,
+        sugars100g: product.sugars100g,
       });
       setQuery('');
       setShowDropdown(false);
@@ -164,6 +168,14 @@ export default function ProductAutocomplete({
                     </Text>
                     {product.quantity && (
                       <Text style={styles.productQuantity}>{product.quantity}</Text>
+                    )}
+                    {(product.energyKcal100g !== undefined || product.sugars100g !== undefined) && (
+                      <Text style={styles.productNutrition}>
+                        {product.energyKcal100g !== undefined && `${product.energyKcal100g} kcal`}
+                        {product.energyKcal100g !== undefined && product.sugars100g !== undefined && ' · '}
+                        {product.sugars100g !== undefined && `${product.sugars100g}g sugar`}
+                        {' per 100g'}
+                      </Text>
                     )}
                   </View>
                 </TouchableOpacity>
@@ -292,6 +304,12 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     fontSize: fontSize.xs,
     color: colors.dustyMauve,
+    marginTop: spacing[1],
+  },
+  productNutrition: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: colors.primary,
     marginTop: spacing[1],
   },
   divider: {

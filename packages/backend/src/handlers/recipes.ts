@@ -41,6 +41,8 @@ export async function createRecipe(
     productName: request.productName,
     purchaseQuantity: request.purchaseQuantity,
     purchaseUnit: request.purchaseUnit,
+    energyKcal100g: request.energyKcal100g,
+    sugars100g: request.sugars100g,
     createdAt: now,
     updatedAt: now,
   };

@@ -61,6 +61,8 @@ export interface Recipe {
   productName?: string;         // e.g., "Raspberry Conserve"
   purchaseQuantity?: string;    // e.g., "370"
   purchaseUnit?: string;        // e.g., "g"
+  energyKcal100g?: number;      // calories per 100g from product data
+  sugars100g?: number;          // sugar grams per 100g from product data
   createdAt: string;
   updatedAt: string;
 }
@@ -108,6 +110,7 @@ export interface Attempt {
   status?: AttemptStatus;  // 'planning' | 'baking' | 'done'
   starred?: boolean;       // Whether this attempt is starred/favorited
   aiAdvice?: AiAdviceResponse;  // Saved Crumb advice (persisted, one request per bake)
+  nutrition?: NutritionInfo;    // Saved nutrition info (calories, sugar per slice)
   createdAt: string;
 }
 
@@ -150,6 +153,8 @@ export interface CreateRecipeRequest {
   productName?: string;
   purchaseQuantity?: string;
   purchaseUnit?: string;
+  energyKcal100g?: number;
+  sugars100g?: number;
 }
 
 export interface UpdateRecipeRequest {
@@ -168,6 +173,8 @@ export interface UpdateRecipeRequest {
   productName?: string | null;
   purchaseQuantity?: string | null;
   purchaseUnit?: string | null;
+  energyKcal100g?: number | null;
+  sugars100g?: number | null;
 }
 
 export interface CreateVariantRequest {
@@ -206,6 +213,7 @@ export interface UpdateAttemptRequest {
   mainPhotoKey?: string;
   status?: AttemptStatus;
   starred?: boolean;
+  nutrition?: NutritionInfo;
 }
 
 export interface CaptureAttemptRequest {

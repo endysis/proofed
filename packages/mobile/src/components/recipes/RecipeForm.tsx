@@ -68,6 +68,8 @@ export default function RecipeForm({
   const [productName, setProductName] = useState(recipe?.productName || '');
   const [purchaseQuantity, setPurchaseQuantity] = useState(recipe?.purchaseQuantity || '');
   const [purchaseUnit, setPurchaseUnit] = useState(recipe?.purchaseUnit || '');
+  const [energyKcal100g, setEnergyKcal100g] = useState<number | undefined>(recipe?.energyKcal100g);
+  const [sugars100g, setSugars100g] = useState<number | undefined>(recipe?.sugars100g);
   const [showUnitPicker, setShowUnitPicker] = useState(false);
 
   const handleSubmit = () => {
@@ -85,6 +87,8 @@ export default function RecipeForm({
         productName: productName || undefined,
         purchaseQuantity: purchaseQuantity || undefined,
         purchaseUnit: purchaseUnit || undefined,
+        energyKcal100g: energyKcal100g,
+        sugars100g: sugars100g,
         prepNotes: prepNotes || (recipe ? null : undefined),
       } as any);
     } else {
@@ -139,11 +143,15 @@ export default function RecipeForm({
     productName: string;
     purchaseQuantity: string;
     purchaseUnit: string;
+    energyKcal100g?: number;
+    sugars100g?: number;
   }) => {
     setBrand(product.brand);
     setProductName(product.productName);
     setPurchaseQuantity(product.purchaseQuantity);
     setPurchaseUnit(product.purchaseUnit);
+    setEnergyKcal100g(product.energyKcal100g);
+    setSugars100g(product.sugars100g);
     // Auto-set name based on product
     if (product.brand && product.productName) {
       setName(`${product.brand} ${product.productName}`);

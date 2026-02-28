@@ -24,6 +24,11 @@ export interface ItemUsageDetail {
   productName?: string;
   purchaseQuantity?: string;
   purchaseUnit?: string;
+  energyKcal100g?: number;
+  sugars100g?: number;
+  // Store-bought usage fields (from ItemUsage)
+  usageQuantity?: number;
+  usageUnit?: string;
 }
 
 export function useItemUsageDetails(itemUsages: ItemUsage[]) {
@@ -94,6 +99,11 @@ export function useItemUsageDetails(itemUsages: ItemUsage[]) {
       productName: recipe?.productName,
       purchaseQuantity: recipe?.purchaseQuantity,
       purchaseUnit: recipe?.purchaseUnit,
+      energyKcal100g: recipe?.energyKcal100g,
+      sugars100g: recipe?.sugars100g,
+      // Store-bought usage fields (from ItemUsage)
+      usageQuantity: usage.usageQuantity,
+      usageUnit: usage.usageUnit || recipe?.purchaseUnit,
     };
   });
 

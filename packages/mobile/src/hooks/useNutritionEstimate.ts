@@ -1,148 +1,110 @@
-import { useMutation } from '@tanstack/react-query';
 import { useMemo, useState, useCallback } from 'react';
-import { nutritionApi } from '../api/client';
-import { extractTotalSugarFromUsages } from '../utils/nutritionCalculator';
-import { estimateTotalServings } from '../utils/servingsEstimator';
-import type {
-  Ingredient,
-  ContainerInfo,
-  NutritionInfo,
-  CalorieEstimateRequest,
-} from '@proofed/shared';
+import {
+  extractTotalSugarFromUsages,
+  estimateTotalCaloriesFromUsages,
+  calculateStoreBoughtNutrition,
+} from '../utils/nutritionCalculator';
+import type { Ingredient, NutritionInfo } from '@proofed/shared';
 
 export interface ItemNutritionInput {
   ingredients: Ingredient[];
   scaleFactor: number;
-  containerInfo?: ContainerInfo;
+  // Store-bought fields
+  isStoreBought?: boolean;
+  usageQuantity?: number;
+  usageUnit?: string;
+  energyKcal100g?: number;
+  sugars100g?: number;
 }
 
 export interface UseNutritionEstimateResult {
   nutrition: NutritionInfo | null;
-  isLoading: boolean;
-  needsContainerInfo: boolean;
-  error: Error | null;
-  calculateNutrition: (overrideContainerInfo?: ContainerInfo) => void;
+  totalCalories: number;
+  totalSugar: number;
+  calculateNutrition: (sliceCount: number) => void;
+  recalculate: (sliceCount: number) => void;
 }
 
 /**
  * Hook for estimating nutrition info (calories, sugar per serving)
  *
- * Sugar is calculated client-side from ingredients.
- * Calories are estimated via AI API call.
- * Servings are estimated from container info.
+ * Both sugar and calories are calculated client-side from ingredients.
+ * User provides the slice count manually.
  *
- * @param itemUsages - Array of item usages with ingredients, scale factors, and optional container info
- * @returns Nutrition estimate result with loading/error states and trigger function
+ * @param itemUsages - Array of item usages with ingredients and scale factors
+ * @returns Nutrition estimate result with trigger function
  */
 export function useNutritionEstimate(
   itemUsages: ItemNutritionInput[]
 ): UseNutritionEstimateResult {
   const [nutrition, setNutrition] = useState<NutritionInfo | null>(null);
-  const [overrideContainer, setOverrideContainer] = useState<ContainerInfo | null>(null);
 
-  // Check if any item has container info
-  const hasContainerInfo = useMemo(() => {
-    return (
-      overrideContainer !== null ||
-      itemUsages.some((usage) => usage.containerInfo !== undefined)
+  // Calculate total sugar and calories client-side (accounts for scale factors)
+  // Now includes both homemade ingredients and store-bought products
+  const { totalSugar, totalCalories } = useMemo(() => {
+    // Separate homemade and store-bought items
+    const homemadeItems = itemUsages.filter(
+      (item) => !item.isStoreBought && item.ingredients.length > 0
     );
-  }, [itemUsages, overrideContainer]);
+    const storeBoughtItems = itemUsages.filter(
+      (item) => item.isStoreBought && item.usageQuantity && item.usageQuantity > 0
+    );
 
-  // Calculate total sugar client-side (no API needed)
-  const totalSugar = useMemo(() => {
-    return extractTotalSugarFromUsages(itemUsages);
+    // Calculate nutrition from homemade items
+    const homemadeSugar = extractTotalSugarFromUsages(homemadeItems);
+    const homemadeCalories = estimateTotalCaloriesFromUsages(homemadeItems);
+
+    // Calculate nutrition from store-bought items
+    let storeBoughtSugar = 0;
+    let storeBoughtCalories = 0;
+
+    for (const item of storeBoughtItems) {
+      const { calories, sugar } = calculateStoreBoughtNutrition(
+        item.usageQuantity!,
+        item.usageUnit || 'g',
+        item.energyKcal100g,
+        item.sugars100g
+      );
+      storeBoughtCalories += calories;
+      storeBoughtSugar += sugar;
+    }
+
+    return {
+      totalSugar: homemadeSugar + storeBoughtSugar,
+      totalCalories: homemadeCalories + storeBoughtCalories,
+    };
   }, [itemUsages]);
 
-  // Estimate total servings from container info
-  const totalServings = useMemo(() => {
-    if (overrideContainer) {
-      // Use override container with average scale factor
-      const avgScaleFactor =
-        itemUsages.length > 0
-          ? itemUsages.reduce((sum, u) => sum + u.scaleFactor, 0) / itemUsages.length
-          : 1;
-      return estimateTotalServings([
-        { containerInfo: overrideContainer, scaleFactor: avgScaleFactor },
-      ]);
-    }
+  // Calculate nutrition with given slice count
+  const calculateNutrition = useCallback(
+    (sliceCount: number) => {
+      const servings = Math.max(1, sliceCount); // Minimum 1 slice
 
-    // Use containers from item usages
-    const containersWithScale = itemUsages
-      .filter((u) => u.containerInfo)
-      .map((u) => ({
-        containerInfo: u.containerInfo!,
-        scaleFactor: u.scaleFactor,
-      }));
+      console.log('[Nutrition] Calculating:', {
+        totalCalories,
+        totalSugar,
+        sliceCount: servings,
+      });
 
-    if (containersWithScale.length === 0) {
-      return 12; // Default fallback
-    }
-
-    return estimateTotalServings(containersWithScale);
-  }, [itemUsages, overrideContainer]);
-
-  // Build scaled ingredients list for calorie API
-  const scaledIngredients = useMemo(() => {
-    const allIngredients: Array<{ name: string; quantity: number; unit: string }> = [];
-
-    for (const usage of itemUsages) {
-      for (const ingredient of usage.ingredients) {
-        allIngredients.push({
-          name: ingredient.name,
-          quantity: ingredient.quantity * usage.scaleFactor,
-          unit: ingredient.unit,
-        });
-      }
-    }
-
-    return allIngredients;
-  }, [itemUsages]);
-
-  // Mutation for calorie estimation
-  const calorieMutation = useMutation<
-    { totalCalories: number },
-    Error,
-    CalorieEstimateRequest
-  >({
-    mutationFn: (request) => {
-      console.log('[Nutrition] Calling API with:', JSON.stringify(request));
-      return nutritionApi.estimateCalories(request);
-    },
-    onSuccess: (data) => {
-      console.log('[Nutrition] API success:', data);
-      const totalCalories = data.totalCalories;
       setNutrition({
         totalCalories,
         totalSugar,
-        totalServings,
-        caloriesPerServing: Math.round(totalCalories / totalServings),
-        sugarPerServing: Math.round((totalSugar / totalServings) * 10) / 10,
+        totalServings: servings,
+        caloriesPerServing: Math.round(totalCalories / servings),
+        sugarPerServing: Math.round((totalSugar / servings) * 10) / 10,
       });
     },
-    onError: (error) => {
-      console.error('[Nutrition] API error:', error);
-    },
-  });
-
-  // Trigger function to calculate nutrition
-  const calculateNutrition = useCallback(
-    (containerOverride?: ContainerInfo) => {
-      if (containerOverride) {
-        setOverrideContainer(containerOverride);
-      }
-
-      // Call API for calorie estimation
-      calorieMutation.mutate({ ingredients: scaledIngredients });
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [scaledIngredients]
+    [totalCalories, totalSugar]
   );
+
+  // Alias for recalculating with a new slice count
+  const recalculate = calculateNutrition;
 
   return {
     nutrition,
-    isLoading: calorieMutation.isPending,
-    needsContainerInfo: !hasContainerInfo,
-    error: calorieMutation.error,
+    totalCalories,
+    totalSugar,
     calculateNutrition,
+    recalculate,
   };
 }
