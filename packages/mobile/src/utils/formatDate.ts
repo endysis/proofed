@@ -19,9 +19,9 @@ export function formatRelativeDate(dateString: string): string {
 
   const diffWeeks = Math.floor(diffDays / 7);
   if (diffWeeks === 1) return '1 week ago';
-  if (diffWeeks < 4) return `${diffWeeks} weeks ago`;
+  if (diffWeeks <= 4) return `${diffWeeks} weeks ago`;
 
-  const diffMonths = Math.floor(diffDays / 30);
+  const diffMonths = Math.floor(diffDays / 30.44); // Average days per month
   if (diffMonths === 1) return '1 month ago';
   if (diffMonths < 12) return `${diffMonths} months ago`;
 
