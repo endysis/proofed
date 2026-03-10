@@ -1,7 +1,9 @@
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
 import * as Haptics from 'expo-haptics';
 import * as Notifications from 'expo-notifications';
-import { Alert, Platform, AppState, AppStateStatus } from 'react-native';
+import { AppState, AppStateStatus } from 'react-native';
+import { AudioService } from '../services/AudioService';
+import { TimerAlert } from '../components/common';
 
 // Configure how notifications appear when app is in foreground
 Notifications.setNotificationHandler({
@@ -50,6 +52,11 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
   const [activeTimer, setActiveTimer] = useState<ActiveTimer | null>(null);
   const [timerState, setTimerState] = useState<TimerState>('idle');
   const [remainingSeconds, setRemainingSeconds] = useState(0);
+  const [alertState, setAlertState] = useState<{
+    isVisible: boolean;
+    type: 'completion' | 'halfway';
+    itemName: string;
+  } | null>(null);
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number>(0);
@@ -60,15 +67,29 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
   const appStateRef = useRef(AppState.currentState);
   const wasRunningBeforeBackgroundRef = useRef(false);
 
-  // Request notification permissions on mount
+  // Request notification permissions and initialize audio on mount
   useEffect(() => {
-    async function requestPermissions() {
+    async function initialize() {
       const { status } = await Notifications.requestPermissionsAsync();
       if (status !== 'granted') {
         console.log('Notification permissions not granted');
       }
+      await AudioService.initialize();
     }
-    requestPermissions();
+    initialize();
+
+    // Listen for notifications received while app is foregrounded
+    const subscription = Notifications.addNotificationReceivedListener((notification) => {
+      const { title } = notification.request.content;
+      const data = notification.request.content.data as { type?: string; itemName?: string } | null;
+
+      if (title?.includes('Halfway')) {
+        AudioService.playSound('halfway');
+        setAlertState({ isVisible: true, type: 'halfway', itemName: data?.itemName ?? 'Timer' });
+      }
+    });
+
+    return () => subscription.remove();
   }, []);
 
   const clearIntervalTimer = useCallback(() => {
@@ -129,6 +150,7 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
         title: 'Halfway There! ⏱️',
         body: `${itemName} is at the halfway point.`,
         sound: true,
+        data: { type: 'halfway', itemName },
       },
       trigger: {
         seconds: secondsUntilHalfway,
@@ -166,12 +188,9 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-    // Show alert when app is in foreground
-    Alert.alert(
-      'Timer Complete!',
-      `${itemName} is ready to check.`,
-      [{ text: 'OK', style: 'default' }]
-    );
+    // Play completion sound (looping) and show in-app alert
+    AudioService.playSound('completion', { loop: true });
+    setAlertState({ isVisible: true, type: 'completion', itemName });
   }, [clearIntervalTimer]);
 
   // Handle app backgrounding/foregrounding
@@ -370,6 +389,11 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
     }
   }, [activeTimer, cancelHalfwayNotification]);
 
+  const dismissAlert = useCallback(() => {
+    AudioService.stopAllSounds();
+    setAlertState(null);
+  }, []);
+
   const addMinute = useCallback(async () => {
     if (!activeTimer) return;
 
@@ -464,6 +488,14 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
       }}
     >
       {children}
+      {alertState && (
+        <TimerAlert
+          isVisible={alertState.isVisible}
+          type={alertState.type}
+          itemName={alertState.itemName}
+          onDismiss={dismissAlert}
+        />
+      )}
     </TimerContext.Provider>
   );
 }

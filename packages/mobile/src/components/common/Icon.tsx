@@ -6,6 +6,7 @@ import { colors } from '../../theme';
 // Map Material Symbols names to MaterialIcons names (they differ slightly)
 const iconNameMap: Record<string, keyof typeof MaterialIcons.glyphMap> = {
   home: 'home',
+  arrow_back: 'arrow-back',
   restaurant_menu: 'restaurant-menu',
   bakery_dining: 'bakery-dining',
   verified: 'verified',
@@ -29,6 +30,7 @@ const iconNameMap: Record<string, keyof typeof MaterialIcons.glyphMap> = {
   warning: 'warning',
   error: 'error',
   search: 'search',
+  bar_chart: 'bar-chart',
   more_vert: 'more-vert',
   content_copy: 'content-copy',
   notes: 'notes',
@@ -36,9 +38,11 @@ const iconNameMap: Record<string, keyof typeof MaterialIcons.glyphMap> = {
   straighten: 'straighten',
   scale: 'scale',
   star: 'star',
+  star_border: 'star-border',
   star_outline: 'star-outline',
   favorite: 'favorite',
   favorite_border: 'favorite-border',
+  auto_awesome: 'auto-awesome',
 };
 
 interface IconProps {

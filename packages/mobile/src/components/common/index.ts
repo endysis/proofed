@@ -11,5 +11,7 @@ export { default as Select } from './Select';
 export { default as Skeleton } from './Skeleton';
 export { default as SkeletonCard } from './SkeletonCard';
 export { default as SkeletonThumbnail } from './SkeletonThumbnail';
+export { default as StopwatchModal } from './StopwatchModal';
 export { default as SupplierFavicon } from './SupplierFavicon';
 export { default as TextArea } from './TextArea';
+export { default as TimerAlert } from './TimerAlert';

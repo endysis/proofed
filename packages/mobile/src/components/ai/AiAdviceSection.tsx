@@ -94,7 +94,7 @@ export function AiAdviceSection({
           onPress={handleRequestAdvice}
           disabled={!canRequest}
         >
-          <Icon name="auto_awesome" size="sm" color={canRequest ? colors.white : colors.dustyMauve} />
+          <Icon name="auto_awesome" size="md" color={colors.white} />
           <Text style={[styles.requestButtonText, !canRequest && styles.requestButtonTextDisabled]}>
             Show Crumb
           </Text>
@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
     gap: spacing[2],
   },
   requestButtonDisabled: {
-    backgroundColor: colors.dustyMauve,
+    backgroundColor: colors.pastelPink,
   },
   requestButtonText: {
     fontFamily: fontFamily.bold,

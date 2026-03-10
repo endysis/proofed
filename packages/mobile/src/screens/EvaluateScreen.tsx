@@ -500,6 +500,18 @@ export default function EvaluateScreen() {
             itemUsageDetails={itemUsageDetails}
             alreadyRequested={!!attempt.aiAdvice}
           />
+
+          {/* Rating */}
+          <View style={styles.ratingSection}>
+            <Text style={styles.ratingLabel}>Rate this bake</Text>
+            <StarRating
+              rating={attempt.rating || 0}
+              onRate={(rating) => {
+                updateAttempt.mutate({ attemptId, data: { rating } });
+              }}
+              disabled={updateAttempt.isPending}
+            />
+          </View>
         </View>
 
             <View style={{ height: 160 }} />
@@ -901,6 +913,36 @@ function FeaturedPhoto({
         )}
       </View>
     </TouchableOpacity>
+  );
+}
+
+function StarRating({
+  rating,
+  onRate,
+  disabled,
+}: {
+  rating: number;
+  onRate: (rating: number) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <View style={styles.starContainer}>
+      {[1, 2, 3, 4, 5].map((star) => (
+        <TouchableOpacity
+          key={star}
+          onPress={() => onRate(star)}
+          disabled={disabled}
+          style={styles.starButton}
+          activeOpacity={0.7}
+        >
+          <Icon
+            name={star <= rating ? 'star' : 'star_border'}
+            size="lg"
+            color={star <= rating ? colors.primary : colors.dustyMauve}
+          />
+        </TouchableOpacity>
+      ))}
+    </View>
   );
 }
 
@@ -1363,5 +1405,23 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     color: colors.dustyMauve,
     marginTop: 2,
+  },
+  ratingSection: {
+    marginTop: spacing[4],
+    alignItems: 'center',
+  },
+  ratingLabel: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: colors.text,
+    marginBottom: spacing[2],
+  },
+  starContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: spacing[1],
+  },
+  starButton: {
+    padding: spacing[1],
   },
 });
