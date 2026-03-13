@@ -1,5 +1,7 @@
 export type ItemType = 'batter' | 'frosting' | 'filling' | 'dough' | 'glaze' | 'other';
 
+export type MeasurementSystem = 'metric' | 'imperial';
+
 export type ContainerType = 'round_cake_tin' | 'square_cake_tin' | 'loaf_tin' | 'bundt_tin' | 'sheet_pan' | 'muffin_tin' | 'other';
 
 export type MuffinCupSize = 'mini' | 'standard' | 'jumbo';
@@ -55,6 +57,8 @@ export interface Recipe {
   customScales?: number[];  // custom scale factors (e.g., [0.75, 1.25, 3])
   container?: ContainerInfo; // container type, size, and count
   supplierId?: string;      // key from SUPPLIERS map (e.g., 'cupcake-jemma')
+  customSourceName?: string;  // custom source name if not in predefined list
+  customSourceUrl?: string;   // custom source URL for favicon (e.g., 'example.com')
   // Store-bought recipe fields
   isStoreBought?: boolean;      // true if this is a purchased product, not homemade
   brand?: string;               // e.g., "Bonne Maman"
@@ -109,6 +113,7 @@ export interface Attempt {
   mainPhotoKey?: string;  // Key of the photo to display on home screen
   status?: AttemptStatus;  // 'planning' | 'baking' | 'done'
   starred?: boolean;       // Whether this attempt is starred/favorited
+  rating?: number;         // User rating (1-5 stars)
   aiAdvice?: AiAdviceResponse;  // Saved Crumb advice (persisted, one request per bake)
   nutrition?: NutritionInfo;    // Saved nutrition info (calories, sugar per slice)
   createdAt: string;
@@ -147,6 +152,8 @@ export interface CreateRecipeRequest {
   customScales?: number[];
   container?: ContainerInfo;
   supplierId?: string | null;
+  customSourceName?: string | null;
+  customSourceUrl?: string | null;
   // Store-bought recipe fields
   isStoreBought?: boolean;
   brand?: string;
@@ -167,6 +174,8 @@ export interface UpdateRecipeRequest {
   customScales?: number[];
   container?: ContainerInfo;
   supplierId?: string | null;
+  customSourceName?: string | null;
+  customSourceUrl?: string | null;
   // Store-bought recipe fields
   isStoreBought?: boolean;
   brand?: string | null;
@@ -213,6 +222,7 @@ export interface UpdateAttemptRequest {
   mainPhotoKey?: string;
   status?: AttemptStatus;
   starred?: boolean;
+  rating?: number;
   nutrition?: NutritionInfo;
 }
 
@@ -358,10 +368,7 @@ export interface UserPreferences {
   userId: string;
   name?: string;
   temperatureUnit: 'F' | 'C';
-  // Future fields (add as needed):
-  // language?: string;
-  // measurementSystem?: 'metric' | 'imperial';
-  // theme?: 'light' | 'dark' | 'system';
+  measurementSystem?: MeasurementSystem;
   createdAt: string;
   updatedAt: string;
 }
@@ -369,7 +376,7 @@ export interface UserPreferences {
 export interface UpdatePreferencesRequest {
   name?: string;
   temperatureUnit?: 'F' | 'C';
-  // Future: add new preference fields here
+  measurementSystem?: MeasurementSystem;
 }
 
 // Ingredient Suggestions types
@@ -428,4 +435,24 @@ export interface CalorieEstimateRequest {
 
 export interface CalorieEstimateResponse {
   totalCalories: number;
+}
+
+// AI Ingredient Parsing types
+export interface AiParseIngredientsRequest {
+  rawText: string;
+  measurementSystem: MeasurementSystem;
+}
+
+export interface ParsedIngredientResult {
+  name: string;
+  quantity: number;
+  unit: string;
+  originalLine: string;
+  confidence: 'high' | 'medium' | 'low';
+  wasConverted: boolean;
+}
+
+export interface AiParseIngredientsResponse {
+  ingredients: ParsedIngredientResult[];
+  warnings?: string[];
 }

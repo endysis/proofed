@@ -52,6 +52,8 @@ export default function RecipeForm({
   );
   const [showPasteModal, setShowPasteModal] = useState(false);
   const [supplierId, setSupplierId] = useState<string | null>(recipe?.supplierId ?? null);
+  const [customSourceName, setCustomSourceName] = useState<string | null>(recipe?.customSourceName ?? null);
+  const [customSourceUrl, setCustomSourceUrl] = useState<string | null>(recipe?.customSourceUrl ?? null);
   const [hasContainer, setHasContainer] = useState(!!recipe?.container);
   const [containerType, setContainerType] = useState<ContainerType>(
     recipe?.container?.type ?? 'round_cake_tin'
@@ -128,6 +130,8 @@ export default function RecipeForm({
             }
           : (recipe ? null : undefined),
         supplierId: supplierId || (recipe ? null : undefined),
+        customSourceName: customSourceName || (recipe ? null : undefined),
+        customSourceUrl: customSourceUrl || (recipe ? null : undefined),
         isStoreBought: false,
         // Clear store-bought fields when switching to homemade
         brand: recipe?.isStoreBought ? null : undefined,
@@ -330,7 +334,15 @@ export default function RecipeForm({
             <Text style={styles.label}>
               Recipe Source <Text style={styles.optional}>(optional)</Text>
             </Text>
-            <SupplierPicker value={supplierId} onChange={setSupplierId} />
+            <SupplierPicker
+              value={supplierId}
+              customSource={customSourceName ? { name: customSourceName, url: customSourceUrl || undefined } : null}
+              onChange={(newSupplierId, newCustomSource) => {
+                setSupplierId(newSupplierId);
+                setCustomSourceName(newCustomSource?.name || null);
+                setCustomSourceUrl(newCustomSource?.url || null);
+              }}
+            />
           </View>
 
           <View style={styles.field}>
@@ -347,7 +359,7 @@ export default function RecipeForm({
             </View>
             <TextInput
               style={[styles.input, styles.qtyInput]}
-              value={ingredient.quantity ? String(ingredient.quantity) : ''}
+              value={ingredient.quantity != null ? String(ingredient.quantity) : ''}
               onChangeText={(text) =>
                 updateIngredient(index, 'quantity', parseFloat(text) || 0)
               }

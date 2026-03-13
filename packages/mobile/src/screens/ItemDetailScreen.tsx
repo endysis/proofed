@@ -244,9 +244,13 @@ export default function ItemDetailScreen() {
                     <View style={styles.storeBoughtBadge}>
                       <Icon name="shopping_cart" size="sm" color={colors.white} />
                     </View>
-                  ) : (
-                    <SupplierFavicon supplierId={selectedRecipe.supplierId} size={24} />
-                  )}
+                  ) : (selectedRecipe.supplierId || selectedRecipe.customSourceName) ? (
+                    <SupplierFavicon
+                      supplierId={selectedRecipe.supplierId}
+                      customUrl={selectedRecipe.customSourceUrl}
+                      size={24}
+                    />
+                  ) : null}
                   <Text style={styles.recipeName}>{selectedRecipe.name}</Text>
                 </View>
                 <TouchableOpacity

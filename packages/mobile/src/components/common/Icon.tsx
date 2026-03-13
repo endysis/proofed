@@ -43,6 +43,7 @@ const iconNameMap: Record<string, keyof typeof MaterialIcons.glyphMap> = {
   favorite: 'favorite',
   favorite_border: 'favorite-border',
   auto_awesome: 'auto-awesome',
+  link: 'link',
 };
 
 interface IconProps {
