@@ -7,6 +7,8 @@ export interface ProductSearchResult {
   productName: string;
   quantity: string;
   imageUrl?: string;
+  energyKcal100g?: number;
+  sugars100g?: number;
 }
 
 interface ApiProduct {
@@ -15,6 +17,8 @@ interface ApiProduct {
   product_name: string;
   quantity: string;
   image_url: string;
+  energy_kcal_100g?: number;
+  sugars_100g?: number;
 }
 
 interface ProductSearchResponse {
@@ -59,6 +63,8 @@ async function searchProducts(
         productName: p.product_name || '',
         quantity: p.quantity || '',
         imageUrl: p.image_url || undefined,
+        energyKcal100g: p.energy_kcal_100g,
+        sugars100g: p.sugars_100g,
       }));
   } catch (error) {
     clearTimeout(timeoutId);

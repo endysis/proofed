@@ -49,7 +49,7 @@ interface LuxuryPhotoGalleryProps {
 }
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const IMAGE_HEIGHT = SCREEN_HEIGHT * 0.7;
+const IMAGE_HEIGHT = SCREEN_HEIGHT * 0.64;
 
 function formatBakeDate(dateString: string): string {
   const date = new Date(dateString);
@@ -294,10 +294,20 @@ export default function LuxuryPhotoGallery({
           {bakeParamsDisplay && (
             <Text style={styles.bakeParamsLabel}>{bakeParamsDisplay}</Text>
           )}
-          {nutritionInfo ? (
-            <Text style={styles.nutritionLabel}>
-              &#127856; {nutritionInfo.caloriesPerServing} cal/slice  •  &#128202; {nutritionInfo.sugarPerServing}g sugar
-            </Text>
+          {nutritionInfo?.caloriesPerServing != null && nutritionInfo?.sugarPerServing != null ? (
+            <View style={styles.nutritionBox}>
+              <View style={styles.nutritionColumn}>
+                <Text style={styles.nutritionLabel}>CALORIES</Text>
+                <Text style={styles.nutritionValue}>{nutritionInfo.caloriesPerServing}</Text>
+                <Text style={styles.nutritionUnit}>per slice</Text>
+              </View>
+              <View style={styles.nutritionDivider} />
+              <View style={styles.nutritionColumn}>
+                <Text style={styles.nutritionLabel}>SUGAR</Text>
+                <Text style={styles.nutritionValue}>{nutritionInfo.sugarPerServing}g</Text>
+                <Text style={styles.nutritionUnit}>per slice</Text>
+              </View>
+            </View>
           ) : onCalculateNutrition ? (
             <TouchableOpacity onPress={onCalculateNutrition}>
               <Text style={styles.nutritionLink}>Tap for nutrition info</Text>
@@ -403,6 +413,7 @@ const styles = StyleSheet.create({
   contentSection: {
     paddingHorizontal: spacing[6],
     marginTop: -30,
+    paddingBottom: 120,
   },
   title: {
     fontFamily: fontFamily.bold,
@@ -423,12 +434,39 @@ const styles = StyleSheet.create({
     letterSpacing: 1.4,
     marginTop: spacing[1],
   },
+  nutritionBox: {
+    flexDirection: 'row',
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+    borderRadius: borderRadius.xl,
+    marginTop: spacing[3],
+    paddingVertical: spacing[3],
+  },
+  nutritionColumn: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  nutritionDivider: {
+    width: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+  },
   nutritionLabel: {
     fontFamily: fontFamily.medium,
     fontSize: fontSize.xs,
     color: colors.dustyMauve,
     letterSpacing: 1,
+  },
+  nutritionValue: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.lg,
+    color: colors.text,
     marginTop: spacing[1],
+  },
+  nutritionUnit: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: colors.dustyMauve,
   },
   nutritionLink: {
     fontFamily: fontFamily.medium,
