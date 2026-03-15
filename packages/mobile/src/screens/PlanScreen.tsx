@@ -630,6 +630,32 @@ function PlanItemTile({
         </View>
       </View>
 
+      {/* Store-bought checkbox row */}
+      {isStoreBought && shoppingListEnabled && (
+        <View style={styles.ingredientsList}>
+          <TouchableOpacity
+            style={styles.ingredientRowCheckable}
+            onPress={() => onToggleIngredient('__store_bought__')}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.checkbox, stockedIngredients.includes('__store_bought__') && styles.checkboxChecked]}>
+              {stockedIngredients.includes('__store_bought__') && (
+                <Icon name="close" size="sm" color={colors.white} />
+              )}
+            </View>
+            <Text style={[styles.ingredientName, stockedIngredients.includes('__store_bought__') && styles.ingredientNameStocked]}>
+              {storeBoughtDisplayName || recipeName}
+            </Text>
+            <Text style={[styles.ingredientQuantity, stockedIngredients.includes('__store_bought__') && styles.ingredientQuantityStocked]}>
+              {usageAmount || packageSize || ''}
+            </Text>
+            {stockedIngredients.includes('__store_bought__') && (
+              <Text style={styles.stockedLabel}>Stocked</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Ingredients List - only show for homemade recipes */}
       {!isStoreBought && ingredients.length > 0 && (
         <View style={styles.ingredientsList}>

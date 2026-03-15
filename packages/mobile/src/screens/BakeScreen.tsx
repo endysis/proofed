@@ -321,6 +321,12 @@ function BakingChecklist({
 
   const ingredients = mergeIngredients(recipe, variant);
 
+  // Check if this is a store-bought recipe
+  const isStoreBought = recipe.isStoreBought ?? false;
+  const storeBoughtDisplayName = isStoreBought
+    ? [recipe.brand, recipe.productName].filter(Boolean).join(' ') || recipe.name
+    : '';
+
   const handleTimerPress = () => {
     swipeableRef.current?.close();
     if (bakeTime && item) {
@@ -386,14 +392,23 @@ function BakingChecklist({
       {/* Header with icon */}
       <View style={styles.checklistHeader}>
         <View style={styles.checklistIconRow}>
-          <View style={styles.checklistIcon}>
-            <Icon name="cake" size="sm" color={colors.primary} />
+          <View style={[styles.checklistIcon, isStoreBought && styles.checklistIconStoreBought]}>
+            <Icon name={isStoreBought ? 'shopping_cart' : 'cake'} size="sm" color={isStoreBought ? colors.white : colors.primary} />
           </View>
           <View style={styles.checklistTitleContent}>
             <Text style={styles.checklistTitle}>{item?.name || 'Loading...'}</Text>
-            <Text style={scaleFactor !== 1 ? styles.scaledLabel : styles.standardBatchLabel}>
-              {scaleFactor !== 1 ? `Scaled ×${scaleFactor}` : 'STANDARD BATCH'}
-            </Text>
+            {isStoreBought ? (
+              <>
+                <Text style={styles.storeBoughtSubtitle}>{storeBoughtDisplayName}</Text>
+                <View style={styles.storeBoughtTag}>
+                  <Text style={styles.storeBoughtTagText}>STORE-BOUGHT</Text>
+                </View>
+              </>
+            ) : (
+              <Text style={scaleFactor !== 1 ? styles.scaledLabel : styles.standardBatchLabel}>
+                {scaleFactor !== 1 ? `Scaled ×${scaleFactor}` : 'STANDARD BATCH'}
+              </Text>
+            )}
             {/* Bake temp and time */}
             {(bakeTemp || bakeTime) && (
               <View style={styles.bakeInfoRow}>
@@ -421,58 +436,95 @@ function BakingChecklist({
         </View>
       </View>
 
-      {/* Ingredients list */}
-      <View style={styles.ingredientsList}>
-        {ingredients.map((ing) => {
-          const scaledQuantity = Math.round(ing.quantity * scaleFactor * 100) / 100;
-          const isMeasured = measuredIngredients.includes(ing.name);
-
-          if (measurementEnabled) {
-            return (
-              <TouchableOpacity
-                key={ing.name}
-                style={styles.ingredientRowCheckable}
-                onPress={() => onToggleIngredient(ing.name)}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.checkbox, isMeasured && styles.checkboxChecked]}>
-                  {isMeasured && (
-                    <Icon name="check" size="sm" color={colors.white} />
-                  )}
-                </View>
-                <Text
-                  style={[
-                    styles.ingredientName,
-                    isMeasured && styles.ingredientNameMeasured,
-                  ]}
-                >
-                  {ing.name}
-                </Text>
-                <Text
-                  style={[
-                    styles.ingredientQuantity,
-                    isMeasured && styles.ingredientQuantityMeasured,
-                  ]}
-                >
-                  {scaledQuantity}{ing.unit}
-                </Text>
-                {isMeasured && (
-                  <Text style={styles.measuredLabel}>Measured</Text>
+      {/* Store-bought item checkbox */}
+      {isStoreBought ? (
+        <View style={styles.ingredientsList}>
+          {measurementEnabled ? (
+            <TouchableOpacity
+              style={styles.ingredientRowCheckable}
+              onPress={() => onToggleIngredient('__store_bought__')}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.checkbox, measuredIngredients.includes('__store_bought__') && styles.checkboxChecked]}>
+                {measuredIngredients.includes('__store_bought__') && (
+                  <Icon name="check" size="sm" color={colors.white} />
                 )}
-              </TouchableOpacity>
-            );
-          }
-
-          return (
-            <View key={ing.name} style={styles.ingredientRow}>
-              <Text style={styles.ingredientName}>{ing.name}</Text>
+              </View>
+              <Text style={[styles.ingredientName, measuredIngredients.includes('__store_bought__') && styles.ingredientNameMeasured]}>
+                {storeBoughtDisplayName}
+              </Text>
+              <Text style={[styles.ingredientQuantity, measuredIngredients.includes('__store_bought__') && styles.ingredientQuantityMeasured]}>
+                {usage.usageQuantity}{usage.usageUnit || ''}
+              </Text>
+              {measuredIngredients.includes('__store_bought__') && (
+                <Text style={styles.measuredLabel}>Measured</Text>
+              )}
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.ingredientRow}>
+              <Text style={styles.ingredientName}>
+                {storeBoughtDisplayName}
+              </Text>
               <Text style={styles.ingredientQuantity}>
-                {scaledQuantity}{ing.unit}
+                {usage.usageQuantity}{usage.usageUnit || ''}
               </Text>
             </View>
-          );
-        })}
-      </View>
+          )}
+        </View>
+      ) : (
+        /* Ingredients list for homemade recipes */
+        <View style={styles.ingredientsList}>
+          {ingredients.map((ing) => {
+            const scaledQuantity = Math.round(ing.quantity * scaleFactor * 100) / 100;
+            const isMeasured = measuredIngredients.includes(ing.name);
+
+            if (measurementEnabled) {
+              return (
+                <TouchableOpacity
+                  key={ing.name}
+                  style={styles.ingredientRowCheckable}
+                  onPress={() => onToggleIngredient(ing.name)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.checkbox, isMeasured && styles.checkboxChecked]}>
+                    {isMeasured && (
+                      <Icon name="check" size="sm" color={colors.white} />
+                    )}
+                  </View>
+                  <Text
+                    style={[
+                      styles.ingredientName,
+                      isMeasured && styles.ingredientNameMeasured,
+                    ]}
+                  >
+                    {ing.name}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.ingredientQuantity,
+                      isMeasured && styles.ingredientQuantityMeasured,
+                    ]}
+                  >
+                    {scaledQuantity}{ing.unit}
+                  </Text>
+                  {isMeasured && (
+                    <Text style={styles.measuredLabel}>Measured</Text>
+                  )}
+                </TouchableOpacity>
+              );
+            }
+
+            return (
+              <View key={ing.name} style={styles.ingredientRow}>
+                <Text style={styles.ingredientName}>{ing.name}</Text>
+                <Text style={styles.ingredientQuantity}>
+                  {scaledQuantity}{ing.unit}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+      )}
 
       {/* Collapsible Notes Section */}
       {usage.notes && (
@@ -665,6 +717,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: spacing[3],
   },
+  checklistIconStoreBought: {
+    backgroundColor: colors.primary,
+  },
   checklistTitleContent: {
     flex: 1,
   },
@@ -693,6 +748,26 @@ const styles = StyleSheet.create({
     color: colors.dustyMauve,
     marginTop: spacing[1],
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  storeBoughtSubtitle: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.dustyMauve,
+    marginTop: spacing[1],
+  },
+  storeBoughtTag: {
+    alignSelf: 'flex-start',
+    marginTop: spacing[1],
+    paddingHorizontal: spacing[2],
+    paddingVertical: spacing[1],
+    backgroundColor: 'rgba(229, 52, 78, 0.1)',
+    borderRadius: borderRadius.sm,
+  },
+  storeBoughtTagText: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.xs,
+    color: colors.primary,
     letterSpacing: 0.5,
   },
   ingredientsList: {
