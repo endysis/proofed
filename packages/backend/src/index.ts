@@ -41,6 +41,7 @@ import { getAiContainerScale } from './handlers/ai-container-scale';
 import { deleteAccount } from './handlers/account';
 import { getPreferences, updatePreferences } from './handlers/preferences';
 import { getIngredients, submitIngredient } from './handlers/ingredients';
+import { parseIngredients } from './handlers/ai-parse-ingredients';
 import { searchProducts, getProductByBarcode } from './handlers/product-search';
 import { estimateCalories } from './handlers/nutrition';
 import { getUserId } from './lib/auth';
@@ -112,6 +113,11 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer): P
     if (path === '/ingredients/submit' && method === 'POST') {
       const submission = await submitIngredient(userId, parseBody(event));
       return response(201, submission);
+    }
+
+    if (path === '/ingredients/parse' && method === 'POST') {
+      const result = await parseIngredients(parseBody(event));
+      return response(200, result);
     }
 
     // Items routes

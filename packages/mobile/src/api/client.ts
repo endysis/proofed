@@ -29,6 +29,8 @@ import type {
   SubmitIngredientRequest,
   CalorieEstimateRequest,
   CalorieEstimateResponse,
+  AiParseIngredientsRequest,
+  AiParseIngredientsResponse,
 } from '@proofed/shared';
 import { API_BASE, USE_MOCK } from './config';
 
@@ -229,6 +231,11 @@ export const ingredientsApi = {
   list: () => request<IngredientsData>('/ingredients'),
   submit: (data: SubmitIngredientRequest) =>
     request<IngredientSubmission>('/ingredients/submit', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  parse: (data: AiParseIngredientsRequest) =>
+    request<AiParseIngredientsResponse>('/ingredients/parse', {
       method: 'POST',
       body: JSON.stringify(data),
     }),

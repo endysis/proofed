@@ -6,17 +6,28 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { Modal, Icon } from '../common';
-import { parseIngredients, ParsedIngredient } from '../../utils/ingredientParser';
-import { UNIT_PRESETS } from '../../constants/units';
+import { parseIngredients as parseIngredientsLocal } from '../../utils/ingredientParser';
+import { useParseIngredients } from '../../hooks/useParseIngredients';
+import { usePreferences } from '../../contexts/PreferencesContext';
 import { colors, spacing, borderRadius, fontFamily, fontSize } from '../../theme';
-import type { Ingredient } from '@proofed/shared';
+import type { Ingredient, ParsedIngredientResult } from '@proofed/shared';
 
 interface PasteIngredientsModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAdd: (ingredients: Ingredient[]) => void;
+}
+
+interface DisplayIngredient {
+  name: string;
+  quantity: number;
+  unit: string;
+  originalLine: string;
+  confidence?: 'high' | 'medium' | 'low';
+  wasConverted?: boolean;
 }
 
 export default function PasteIngredientsModal({
@@ -25,12 +36,45 @@ export default function PasteIngredientsModal({
   onAdd,
 }: PasteIngredientsModalProps) {
   const [rawText, setRawText] = useState('');
-  const [parsedIngredients, setParsedIngredients] = useState<ParsedIngredient[]>([]);
+  const [parsedIngredients, setParsedIngredients] = useState<DisplayIngredient[]>([]);
   const [showPreview, setShowPreview] = useState(false);
+  const [usedAiParsing, setUsedAiParsing] = useState(false);
 
-  const handleParse = () => {
-    const parsed = parseIngredients(rawText);
-    setParsedIngredients(parsed);
+  const { measurementSystem } = usePreferences();
+  const parseIngredientsMutation = useParseIngredients();
+
+  const handleParse = async () => {
+    const trimmedText = rawText.trim();
+    if (!trimmedText) return;
+
+    // Try AI parsing first
+    try {
+      const result = await parseIngredientsMutation.mutateAsync({
+        rawText: trimmedText,
+        measurementSystem,
+      });
+
+      if (result.ingredients.length > 0) {
+        setParsedIngredients(result.ingredients);
+        setUsedAiParsing(true);
+        setShowPreview(true);
+        return;
+      }
+    } catch (error) {
+      console.log('AI parsing failed, falling back to local parser:', error);
+    }
+
+    // Fall back to local parser
+    const localParsed = parseIngredientsLocal(trimmedText);
+    setParsedIngredients(
+      localParsed.map((p) => ({
+        name: p.name,
+        quantity: p.quantity,
+        unit: p.unit,
+        originalLine: p.originalLine,
+      }))
+    );
+    setUsedAiParsing(false);
     setShowPreview(true);
   };
 
@@ -48,12 +92,14 @@ export default function PasteIngredientsModal({
     setRawText('');
     setParsedIngredients([]);
     setShowPreview(false);
+    setUsedAiParsing(false);
+    parseIngredientsMutation.reset();
     onClose();
   };
 
   const updateParsedIngredient = (
     index: number,
-    field: keyof ParsedIngredient,
+    field: keyof DisplayIngredient,
     value: string | number
   ) => {
     setParsedIngredients((prev) => {
@@ -67,7 +113,20 @@ export default function PasteIngredientsModal({
     setParsedIngredients((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const isPresetUnit = (unit: string) => UNIT_PRESETS.some((p) => p.value === unit);
+  const getConfidenceColor = (confidence?: 'high' | 'medium' | 'low') => {
+    switch (confidence) {
+      case 'high':
+        return colors.success;
+      case 'medium':
+        return colors.warning;
+      case 'low':
+        return colors.error;
+      default:
+        return colors.dustyMauve;
+    }
+  };
+
+  const isParsing = parseIngredientsMutation.isPending;
 
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title="Paste Ingredients">
@@ -93,7 +152,14 @@ export default function PasteIngredientsModal({
               numberOfLines={10}
               textAlignVertical="top"
               autoFocus
+              editable={!isParsing}
             />
+            {isParsing && (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={styles.loadingText}>Parsing ingredients...</Text>
+              </View>
+            )}
           </>
         ) : (
           <>
@@ -102,9 +168,26 @@ export default function PasteIngredientsModal({
             </Text>
             {parsedIngredients.map((ingredient, index) => (
               <View key={index} style={styles.ingredientCard}>
-                <Text style={styles.originalLine} numberOfLines={1}>
-                  {ingredient.originalLine}
-                </Text>
+                <View style={styles.originalLineRow}>
+                  <Text style={styles.originalLine} numberOfLines={1}>
+                    {ingredient.originalLine}
+                  </Text>
+                  <View style={styles.badges}>
+                    {ingredient.wasConverted && (
+                      <View style={styles.convertedBadge}>
+                        <Text style={styles.convertedBadgeText}>converted</Text>
+                      </View>
+                    )}
+                    {usedAiParsing && ingredient.confidence && (
+                      <View
+                        style={[
+                          styles.confidenceDot,
+                          { backgroundColor: getConfidenceColor(ingredient.confidence) },
+                        ]}
+                      />
+                    )}
+                  </View>
+                </View>
                 <View style={styles.ingredientRow}>
                   <TextInput
                     style={[styles.input, styles.nameInput]}
@@ -155,19 +238,24 @@ export default function PasteIngredientsModal({
               style={styles.cancelButton}
               onPress={handleClose}
               activeOpacity={0.7}
+              disabled={isParsing}
             >
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[
                 styles.submitButton,
-                !rawText.trim() && styles.buttonDisabled,
+                (!rawText.trim() || isParsing) && styles.buttonDisabled,
               ]}
               onPress={handleParse}
-              disabled={!rawText.trim()}
+              disabled={!rawText.trim() || isParsing}
               activeOpacity={0.7}
             >
-              <Text style={styles.submitButtonText}>Parse</Text>
+              {isParsing ? (
+                <ActivityIndicator size="small" color={colors.white} />
+              ) : (
+                <Text style={styles.submitButtonText}>Parse</Text>
+              )}
             </TouchableOpacity>
           </>
         ) : (
@@ -221,17 +309,56 @@ const styles = StyleSheet.create({
     color: colors.text,
     minHeight: 200,
   },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing[3],
+    gap: spacing[2],
+  },
+  loadingText: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.dustyMauve,
+  },
   ingredientCard: {
     backgroundColor: colors.bgLight,
     borderRadius: borderRadius.xl,
     padding: spacing[3],
     marginBottom: spacing[2],
   },
+  originalLineRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing[2],
+  },
   originalLine: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.xs,
     color: colors.dustyMauve,
-    marginBottom: spacing[2],
+    flex: 1,
+  },
+  badges: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+  },
+  convertedBadge: {
+    backgroundColor: colors.primary + '20',
+    paddingHorizontal: spacing[2],
+    paddingVertical: 2,
+    borderRadius: borderRadius.sm,
+  },
+  convertedBadgeText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.xs,
+    color: colors.primary,
+  },
+  confidenceDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   ingredientRow: {
     flexDirection: 'row',
@@ -293,6 +420,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.xl,
     backgroundColor: colors.primary,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   buttonDisabled: {
     opacity: 0.5,

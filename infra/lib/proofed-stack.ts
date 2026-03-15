@@ -444,6 +444,12 @@ export class ProofedStack extends cdk.Stack {
       integration,
       authorizer,
     });
+    httpApi.addRoutes({
+      path: '/ingredients/parse',
+      methods: [apigateway.HttpMethod.POST],
+      integration,
+      authorizer,
+    });
 
     // Nutrition routes
     httpApi.addRoutes({
@@ -453,18 +459,18 @@ export class ProofedStack extends cdk.Stack {
       authorizer,
     });
 
-    // Product search routes (no auth required - public data)
+    // Product search routes
     httpApi.addRoutes({
       path: '/products/search',
       methods: [apigateway.HttpMethod.GET],
       integration,
-      // No authorizer - public endpoint
+      authorizer,
     });
     httpApi.addRoutes({
       path: '/products/barcode/{barcode}',
       methods: [apigateway.HttpMethod.GET],
       integration,
-      // No authorizer - public endpoint
+      authorizer,
     });
 
     // Outputs
