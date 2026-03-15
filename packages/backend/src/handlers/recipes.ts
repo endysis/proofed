@@ -35,6 +35,9 @@ export async function createRecipe(
     bakeTempUnit: request.bakeTempUnit,
     customScales: request.customScales,
     container: request.container,
+    supplierId: request.supplierId,
+    customSourceName: request.customSourceName,
+    customSourceUrl: request.customSourceUrl,
     // Store-bought fields
     isStoreBought: request.isStoreBought,
     brand: request.brand,
