@@ -7,6 +7,8 @@ export interface ProductSearchResult {
   product_name: string;
   quantity: string;
   image_url: string;
+  energy_kcal_100g?: number;
+  sugars_100g?: number;
 }
 
 interface ProductIndex {
@@ -47,7 +49,8 @@ function loadProductIndex(): ProductIndex {
   }
 
   // In Lambda, the products.json file is bundled with the deployment package
-  const productsPath = path.join(__dirname, '../products.json');
+  // With esbuild bundling, __dirname points to the dist/ directory where index.js is
+  const productsPath = path.join(__dirname, 'products.json');
 
   try {
     const data = fs.readFileSync(productsPath, 'utf-8');

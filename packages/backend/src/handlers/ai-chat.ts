@@ -81,7 +81,7 @@ Style notes:
     const completion = await openai.chat.completions.create({
       model: 'gpt-5-mini',
       messages,
-      max_completion_tokens: 300,
+      max_completion_tokens: 5000,
     });
 
     const responseContent = completion.choices[0]?.message?.content;

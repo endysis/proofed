@@ -68,13 +68,14 @@ Return ONLY a JSON object with the total calories (rounded to nearest 10):
         },
       ],
       response_format: { type: 'json_object' },
-      max_completion_tokens: 200,
+      max_completion_tokens: 5000,
     });
 
     console.log('OpenAI response received:', JSON.stringify(completion, null, 2));
 
     const responseContent = completion.choices[0]?.message?.content;
     if (!responseContent) {
+      console.error('Empty response content. Choices:', JSON.stringify(completion.choices, null, 2));
       throw new Error('No response from AI');
     }
 

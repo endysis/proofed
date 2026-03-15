@@ -205,7 +205,7 @@ Guidelines:
         },
       ],
       response_format: { type: 'json_object' },
-      max_completion_tokens: 2000,
+      max_completion_tokens: 10000,
     });
 
     console.log('OpenAI response received:', JSON.stringify(completion, null, 2));
