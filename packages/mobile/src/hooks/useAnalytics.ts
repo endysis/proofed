@@ -13,26 +13,15 @@ export interface CategoryBreakdownItem {
   type: ItemType;
   label: string;
   count: number;
+  recipeCount: number;
   color: string;
-}
-
-export interface TopRecipeItem {
-  itemId: string;
-  itemName: string;
-  recipeId: string;
-  recipeName: string;
-  bakeCount: number;
-  averageRating: number | null;
-  photoKey?: string;
 }
 
 export interface AnalyticsData {
   totalBakes: number;
   currentStreak: number;
-  averageRating: number | null;
   monthlyActivity: MonthlyActivity[];
   categoryBreakdown: CategoryBreakdownItem[];
-  topRecipes: TopRecipeItem[];
   isLoading: boolean;
 }
 
@@ -47,43 +36,64 @@ const categoryDisplayNames: Record<ItemType, string> = {
 
 const chartColors = ['#e5344e', '#f4acb7', '#9d8189', '#ffccd5', '#fbb1bd', '#c9ada7'];
 
-function getDateString(date: Date): string {
-  return date.toISOString().split('T')[0];
+function getWeekKey(date: Date): string {
+  // Use ISO week: Monday-based weeks identified by year + week number
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  // Set to nearest Thursday (ISO week date algorithm)
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
 }
 
 function calculateStreak(attempts: Attempt[]): number {
   if (attempts.length === 0) return 0;
 
-  // Only count completed bakes
   const completedAttempts = attempts.filter((a) => a.status === 'done');
   if (completedAttempts.length === 0) return 0;
 
-  // Get unique dates with bakes, sorted descending
-  const bakeDates = new Set(
-    completedAttempts.map((a) => getDateString(new Date(a.date)))
+  // Get unique weeks with bakes, sorted descending
+  const bakeWeeks = new Set(
+    completedAttempts.map((a) => getWeekKey(new Date(a.date)))
   );
-  const sortedDates = Array.from(bakeDates).sort().reverse();
+  const sortedWeeks = Array.from(bakeWeeks).sort().reverse();
 
-  if (sortedDates.length === 0) return 0;
+  if (sortedWeeks.length === 0) return 0;
 
-  const today = getDateString(new Date());
-  const yesterday = getDateString(new Date(Date.now() - 24 * 60 * 60 * 1000));
+  const currentWeek = getWeekKey(new Date());
+  const lastWeekDate = new Date();
+  lastWeekDate.setDate(lastWeekDate.getDate() - 7);
+  const lastWeek = getWeekKey(lastWeekDate);
 
-  // Streak must include today or yesterday to be active
-  if (sortedDates[0] !== today && sortedDates[0] !== yesterday) {
+  // Streak must include current or last week to be active
+  if (sortedWeeks[0] !== currentWeek && sortedWeeks[0] !== lastWeek) {
     return 0;
   }
 
+  // Count consecutive weeks going backwards
   let streak = 1;
-  let currentDate = new Date(sortedDates[0]);
 
-  for (let i = 1; i < sortedDates.length; i++) {
-    const prevDate = new Date(currentDate.getTime() - 24 * 60 * 60 * 1000);
-    const prevDateStr = getDateString(prevDate);
+  for (let i = 1; i < sortedWeeks.length; i++) {
+    // Check if the previous week in sorted order is exactly the prior calendar week
+    // Week keys are "YYYY-Wnn" and sort lexicographically correctly within a year
+    // For cross-year boundaries, we compute the expected previous week
+    const currentWk = sortedWeeks[i - 1];
+    const year = parseInt(currentWk.split('-W')[0]);
+    const week = parseInt(currentWk.split('-W')[1]);
 
-    if (sortedDates[i] === prevDateStr) {
+    let expectedPrevWeek: string;
+    if (week === 1) {
+      // Previous week is the last week of the prior year
+      // Find the last ISO week of the previous year
+      const dec28 = new Date(Date.UTC(year - 1, 11, 28));
+      const lastWeekKey = getWeekKey(dec28);
+      expectedPrevWeek = lastWeekKey;
+    } else {
+      expectedPrevWeek = `${year}-W${String(week - 1).padStart(2, '0')}`;
+    }
+
+    if (sortedWeeks[i] === expectedPrevWeek) {
       streak++;
-      currentDate = prevDate;
     } else {
       break;
     }
@@ -133,6 +143,7 @@ function getCategoryBreakdown(
   const completedAttempts = attempts.filter((a) => a.status === 'done');
   const itemMap = new Map(items.map((item) => [item.itemId, item]));
   const countByType = new Map<ItemType, number>();
+  const recipesByType = new Map<ItemType, Set<string>>();
 
   completedAttempts.forEach((attempt) => {
     attempt.itemUsages.forEach((usage) => {
@@ -140,98 +151,32 @@ function getCategoryBreakdown(
       if (item) {
         const type = item.type;
         countByType.set(type, (countByType.get(type) || 0) + 1);
+        if (!recipesByType.has(type)) {
+          recipesByType.set(type, new Set());
+        }
+        recipesByType.get(type)!.add(`${usage.itemId}:${usage.recipeId}`);
       }
     });
   });
 
-  // Convert to array and sort by count
+  // Convert to array and sort by recipe count
   const breakdown: CategoryBreakdownItem[] = [];
   let colorIndex = 0;
 
   (Object.keys(categoryDisplayNames) as ItemType[]).forEach((type) => {
     const count = countByType.get(type) || 0;
-    if (count > 0) {
-      breakdown.push({
-        type,
-        label: categoryDisplayNames[type],
-        count,
-        color: chartColors[colorIndex % chartColors.length],
-      });
-      colorIndex++;
-    }
-  });
-
-  return breakdown.sort((a, b) => b.count - a.count);
-}
-
-function getTopRecipes(
-  attempts: Attempt[],
-  items: Item[]
-): TopRecipeItem[] {
-  const completedAttempts = attempts.filter((a) => a.status === 'done');
-  const itemMap = new Map(items.map((item) => [item.itemId, item]));
-
-  // Group by itemId + recipeId
-  const recipeStats = new Map<
-    string,
-    {
-      itemId: string;
-      recipeId: string;
-      bakeCount: number;
-      ratings: number[];
-      photoKey?: string;
-    }
-  >();
-
-  completedAttempts.forEach((attempt) => {
-    attempt.itemUsages.forEach((usage) => {
-      const key = `${usage.itemId}:${usage.recipeId}`;
-      const existing = recipeStats.get(key);
-
-      if (existing) {
-        existing.bakeCount++;
-        if (attempt.rating) {
-          existing.ratings.push(attempt.rating);
-        }
-        if (!existing.photoKey && attempt.mainPhotoKey) {
-          existing.photoKey = attempt.mainPhotoKey;
-        }
-      } else {
-        recipeStats.set(key, {
-          itemId: usage.itemId,
-          recipeId: usage.recipeId,
-          bakeCount: 1,
-          ratings: attempt.rating ? [attempt.rating] : [],
-          photoKey: attempt.mainPhotoKey,
-        });
-      }
+    const recipeCount = recipesByType.get(type)?.size || 0;
+    breakdown.push({
+      type,
+      label: categoryDisplayNames[type],
+      count,
+      recipeCount,
+      color: chartColors[colorIndex % chartColors.length],
     });
+    colorIndex++;
   });
 
-  // Convert to array and sort by bake count
-  const topRecipes: TopRecipeItem[] = [];
-
-  recipeStats.forEach((stats) => {
-    const item = itemMap.get(stats.itemId);
-    if (item) {
-      const avgRating =
-        stats.ratings.length > 0
-          ? stats.ratings.reduce((a, b) => a + b, 0) / stats.ratings.length
-          : null;
-
-      topRecipes.push({
-        itemId: stats.itemId,
-        itemName: item.name,
-        recipeId: stats.recipeId,
-        recipeName: '', // Will be filled by component
-        bakeCount: stats.bakeCount,
-        averageRating: avgRating,
-        photoKey: stats.photoKey,
-      });
-    }
-  });
-
-  return topRecipes.sort((a, b) => b.bakeCount - a.bakeCount).slice(0, 5);
+  return breakdown.sort((a, b) => b.recipeCount - a.recipeCount);
 }
 
 export function useAnalytics(): AnalyticsData {
@@ -245,29 +190,18 @@ export function useAnalytics(): AnalyticsData {
       return {
         totalBakes: 0,
         currentStreak: 0,
-        averageRating: null,
         monthlyActivity: [],
         categoryBreakdown: [],
-        topRecipes: [],
       };
     }
 
     const completedAttempts = attempts.filter((a) => a.status === 'done');
-    const ratingsArray = completedAttempts
-      .filter((a) => a.rating)
-      .map((a) => a.rating as number);
-    const avgRating =
-      ratingsArray.length > 0
-        ? ratingsArray.reduce((a, b) => a + b, 0) / ratingsArray.length
-        : null;
 
     return {
       totalBakes: completedAttempts.length,
       currentStreak: calculateStreak(attempts),
-      averageRating: avgRating,
       monthlyActivity: getLast6MonthsActivity(attempts),
       categoryBreakdown: getCategoryBreakdown(attempts, items),
-      topRecipes: getTopRecipes(attempts, items),
     };
   }, [attempts, items, isLoading]);
 

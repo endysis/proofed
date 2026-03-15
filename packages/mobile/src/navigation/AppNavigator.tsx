@@ -24,6 +24,7 @@ import ProofedItemDetailScreen from '../screens/ProofedItemDetailScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import PreferencesScreen from '../screens/PreferencesScreen';
 import TimerScreen from '../screens/TimerScreen';
+import AnalyticsScreen from '../screens/AnalyticsScreen';
 
 // Auth Screens
 import {
@@ -141,6 +142,7 @@ function MainNavigator() {
         options={{ animation: 'slide_from_left' }}
       />
       <Stack.Screen name="Preferences" component={PreferencesScreen} />
+      <Stack.Screen name="Analytics" component={AnalyticsScreen} />
       <Stack.Screen name="TimerScreen" component={TimerScreen} />
     </Stack.Navigator>
   );

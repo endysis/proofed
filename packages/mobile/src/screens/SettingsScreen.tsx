@@ -142,6 +142,15 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>APP</Text>
           <View style={styles.card}>
+            <TouchableOpacity
+              style={styles.row}
+              onPress={() => navigation.navigate('Analytics')}
+            >
+              <Icon name="bar_chart" size="sm" color={colors.dustyMauve} />
+              <Text style={styles.rowText}>Analytics</Text>
+              <Icon name="chevron_right" size="sm" color={colors.dustyMauve} />
+            </TouchableOpacity>
+            <View style={styles.divider} />
             <TouchableOpacity style={styles.row} onPress={openPrivacyPolicy}>
               <Icon name="policy" size="sm" color={colors.dustyMauve} />
               <Text style={styles.rowText}>Privacy Policy</Text>

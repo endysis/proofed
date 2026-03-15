@@ -31,6 +31,7 @@ export type RootStackParamList = {
   ProofedItemDetail: { proofedItemId: string };
   Settings: undefined;
   Preferences: undefined;
+  Analytics: undefined;
   TimerScreen: {
     itemName: string;
     bakeTimeMinutes: number;

@@ -7,7 +7,6 @@ import {
   SummaryCards,
   BakeActivityChart,
   CategoryBreakdown,
-  TopRecipes,
 } from '../components/analytics';
 import { useAnalytics } from '../hooks/useAnalytics';
 import { colors, spacing, fontFamily, fontSize, borderRadius } from '../theme';
@@ -40,7 +39,6 @@ export default function AnalyticsScreen() {
               <SummaryCards
                 totalBakes={analytics.totalBakes}
                 currentStreak={analytics.currentStreak}
-                averageRating={analytics.averageRating}
               />
             </View>
 
@@ -50,10 +48,6 @@ export default function AnalyticsScreen() {
 
             <View style={styles.section}>
               <CategoryBreakdown data={analytics.categoryBreakdown} />
-            </View>
-
-            <View style={styles.section}>
-              <TopRecipes data={analytics.topRecipes} />
             </View>
           </>
         )}
@@ -102,23 +96,6 @@ function AnalyticsSkeleton() {
         </View>
       </View>
 
-      {/* Top Recipes Skeleton */}
-      <View style={styles.section}>
-        <View style={styles.skeletonCard}>
-          <Skeleton width={100} height={18} />
-          {[1, 2, 3].map((i) => (
-            <View key={i} style={styles.skeletonRow}>
-              <Skeleton width={28} height={18} />
-              <Skeleton width={44} height={44} borderRadius={borderRadius.lg} />
-              <View style={{ flex: 1 }}>
-                <Skeleton width="70%" height={14} />
-                <Skeleton width="50%" height={12} style={{ marginTop: spacing[1] }} />
-              </View>
-              <Skeleton width={32} height={18} />
-            </View>
-          ))}
-        </View>
-      </View>
     </>
   );
 }
@@ -176,14 +153,5 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: spacing[4],
     gap: spacing[2],
-  },
-  skeletonRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[3],
-    paddingVertical: spacing[3],
-    borderTopWidth: 1,
-    borderTopColor: colors.cardBorder,
-    marginTop: spacing[2],
   },
 });
