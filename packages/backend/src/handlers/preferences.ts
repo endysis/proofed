@@ -6,7 +6,7 @@ const TABLE_NAME = process.env.PREFERENCES_TABLE!;
 // Default preferences for new users
 const DEFAULT_PREFERENCES = {
   temperatureUnit: 'F' as const,
-  // Future defaults go here
+  measurementSystem: 'metric' as const,
 };
 
 export async function getPreferences(userId: string): Promise<UserPreferences> {

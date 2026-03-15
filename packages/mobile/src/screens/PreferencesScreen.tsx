@@ -11,18 +11,21 @@ import { useNavigation } from '@react-navigation/native';
 import { Icon, Loading } from '../components/common';
 import { colors, spacing, fontFamily, fontSize, borderRadius } from '../theme';
 import { usePreferences } from '../contexts/PreferencesContext';
+import type { MeasurementSystem } from '@proofed/shared';
 
 export default function PreferencesScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const { preferences, isLoading, isUpdating, updatePreferences, temperatureUnit } = usePreferences();
+  const { preferences, isLoading, isUpdating, updatePreferences, temperatureUnit, measurementSystem } = usePreferences();
 
   const [selectedTempUnit, setSelectedTempUnit] = useState<'F' | 'C'>(temperatureUnit);
+  const [selectedMeasurementSystem, setSelectedMeasurementSystem] = useState<MeasurementSystem>(measurementSystem);
 
   // Sync local state when preferences load
   useEffect(() => {
     if (preferences) {
       setSelectedTempUnit(preferences.temperatureUnit);
+      setSelectedMeasurementSystem(preferences.measurementSystem ?? 'metric');
     }
   }, [preferences]);
 
@@ -36,6 +39,19 @@ export default function PreferencesScreen() {
       // Revert on error
       setSelectedTempUnit(selectedTempUnit);
       console.error('Failed to update temperature unit:', error);
+    }
+  };
+
+  const handleMeasurementSystemChange = async (system: MeasurementSystem) => {
+    if (system === selectedMeasurementSystem) return;
+
+    setSelectedMeasurementSystem(system);
+    try {
+      await updatePreferences({ measurementSystem: system });
+    } catch (error) {
+      // Revert on error
+      setSelectedMeasurementSystem(selectedMeasurementSystem);
+      console.error('Failed to update measurement system:', error);
     }
   };
 
@@ -121,23 +137,52 @@ export default function PreferencesScreen() {
           </View>
         </View>
 
-        {/* Future sections placeholder */}
-        {/*
+        {/* Measurements Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>MEASUREMENTS</Text>
           <View style={styles.card}>
             <Text style={styles.settingLabel}>Measurement system</Text>
             <View style={styles.segmentedControl}>
-              <TouchableOpacity style={[styles.segment, styles.segmentActive]}>
-                <Text style={[styles.segmentText, styles.segmentTextActive]}>Imperial</Text>
+              <TouchableOpacity
+                style={[
+                  styles.segment,
+                  selectedMeasurementSystem === 'metric' && styles.segmentActive,
+                ]}
+                onPress={() => handleMeasurementSystemChange('metric')}
+                disabled={isUpdating}
+              >
+                <Text
+                  style={[
+                    styles.segmentText,
+                    selectedMeasurementSystem === 'metric' && styles.segmentTextActive,
+                  ]}
+                >
+                  Metric (g, ml)
+                </Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.segment}>
-                <Text style={styles.segmentText}>Metric</Text>
+              <TouchableOpacity
+                style={[
+                  styles.segment,
+                  selectedMeasurementSystem === 'imperial' && styles.segmentActive,
+                ]}
+                onPress={() => handleMeasurementSystemChange('imperial')}
+                disabled={isUpdating}
+              >
+                <Text
+                  style={[
+                    styles.segmentText,
+                    selectedMeasurementSystem === 'imperial' && styles.segmentTextActive,
+                  ]}
+                >
+                  Imperial (cups, oz)
+                </Text>
               </TouchableOpacity>
             </View>
+            <Text style={styles.settingHint}>
+              When pasting ingredients, measurements will be converted to your preferred system.
+            </Text>
           </View>
         </View>
-        */}
       </ScrollView>
     </View>
   );

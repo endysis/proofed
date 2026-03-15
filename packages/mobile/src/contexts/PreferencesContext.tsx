@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { UserPreferences, UpdatePreferencesRequest } from '@proofed/shared';
+import type { UserPreferences, UpdatePreferencesRequest, MeasurementSystem } from '@proofed/shared';
 import { preferencesApi, setPreferencesAuthTokenGetter } from '../api/preferences';
 import { useAuth } from './AuthContext';
 
@@ -11,8 +11,7 @@ const PENDING_NAME_KEY = 'proofed_pending_name';
 // Extensible defaults - add new preferences here
 const DEFAULT_PREFERENCES: Omit<UserPreferences, 'userId' | 'createdAt' | 'updatedAt'> = {
   temperatureUnit: 'F',
-  // language: 'en',
-  // measurementSystem: 'imperial',
+  measurementSystem: 'metric',
 };
 
 interface PreferencesContextType {
@@ -24,6 +23,7 @@ interface PreferencesContextType {
   refreshPreferences: () => Promise<void>;
   // Convenience getters for common preferences
   temperatureUnit: 'F' | 'C';
+  measurementSystem: MeasurementSystem;
   name: string | undefined;
 }
 
@@ -118,6 +118,8 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
 
   // Get temperature unit with fallback to default
   const temperatureUnit = preferences?.temperatureUnit ?? DEFAULT_PREFERENCES.temperatureUnit;
+  // Get measurement system with fallback to default
+  const measurementSystem: MeasurementSystem = preferences?.measurementSystem ?? DEFAULT_PREFERENCES.measurementSystem ?? 'metric';
   // Get name (no default - will be undefined if not set)
   const name = preferences?.name;
 
@@ -129,6 +131,7 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
     updatePreferences,
     refreshPreferences,
     temperatureUnit,
+    measurementSystem,
     name,
   };
 
