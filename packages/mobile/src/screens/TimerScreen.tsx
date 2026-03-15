@@ -7,7 +7,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { Icon, Modal } from '../components/common';
+import { Icon, Modal, StopwatchModal } from '../components/common';
 import { useTimer } from '../contexts/TimerContext';
 import { colors, fontFamily, fontSize, spacing, borderRadius } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
@@ -27,6 +27,7 @@ export default function TimerScreen() {
   const { itemName, bakeTimeMinutes, bakeTemp, bakeTempUnit = 'C' } = route.params;
 
   const [showReminderModal, setShowReminderModal] = useState(false);
+  const [showStopwatchModal, setShowStopwatchModal] = useState(false);
 
   const {
     activeTimer,
@@ -277,7 +278,22 @@ export default function TimerScreen() {
             </Text>
           </TouchableOpacity>
         )}
+
+        {/* Stopwatch Button */}
+        <TouchableOpacity
+          style={styles.stopwatchButton}
+          onPress={() => setShowStopwatchModal(true)}
+        >
+          <Icon name="timer" size="sm" color={colors.info} />
+          <Text style={styles.stopwatchButtonText}>Stopwatch</Text>
+        </TouchableOpacity>
       </View>
+
+      {/* Stopwatch Modal */}
+      <StopwatchModal
+        isOpen={showStopwatchModal}
+        onClose={() => setShowStopwatchModal(false)}
+      />
 
       {/* Reminder Modal */}
       <Modal
@@ -557,6 +573,23 @@ const styles = StyleSheet.create({
   },
   reminderButtonTextDisabled: {
     color: colors.dustyMauve,
+  },
+  stopwatchButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+    marginTop: spacing[4],
+    paddingVertical: spacing[3],
+    paddingHorizontal: spacing[4],
+    borderRadius: borderRadius.xl,
+    borderWidth: 1,
+    borderColor: colors.info,
+    borderStyle: 'dashed',
+  },
+  stopwatchButtonText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: colors.info,
   },
   modalSubtitle: {
     fontFamily: fontFamily.regular,
