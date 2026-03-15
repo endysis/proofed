@@ -209,7 +209,7 @@ export default function VariantForm({
                 </Text>
                 <TextInput
                   style={[styles.input, styles.qtyInput]}
-                  value={override.quantity ? String(override.quantity) : ''}
+                  value={override.quantity != null ? String(override.quantity) : ''}
                   onChangeText={(text) =>
                     updateOverride(index, 'quantity', parseFloat(text) || 0)
                   }
