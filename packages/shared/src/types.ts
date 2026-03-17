@@ -369,6 +369,7 @@ export interface UserPreferences {
   name?: string;
   temperatureUnit: 'F' | 'C';
   measurementSystem?: MeasurementSystem;
+  seenBadgeIds?: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -377,6 +378,7 @@ export interface UpdatePreferencesRequest {
   name?: string;
   temperatureUnit?: 'F' | 'C';
   measurementSystem?: MeasurementSystem;
+  seenBadgeIds?: string[];
 }
 
 // Ingredient Suggestions types

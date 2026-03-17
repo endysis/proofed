@@ -25,6 +25,7 @@ interface RecipeFormProps {
   onSubmit: (data: CreateRecipeRequest) => void;
   onCancel: () => void;
   isLoading?: boolean;
+  itemName?: string;
 }
 
 export default function RecipeForm({
@@ -32,6 +33,7 @@ export default function RecipeForm({
   onSubmit,
   onCancel,
   isLoading,
+  itemName,
 }: RecipeFormProps) {
   const preferredTempUnit = useTemperatureUnit();
 
@@ -39,7 +41,7 @@ export default function RecipeForm({
   const initialMode: RecipeMode = recipe?.isStoreBought ? 'store-bought' : 'homemade';
   const [mode, setMode] = useState<RecipeMode>(initialMode);
 
-  const [name, setName] = useState(recipe?.name || '');
+  const [name, setName] = useState(recipe?.name || itemName || '');
   const [ingredients, setIngredients] = useState<Ingredient[]>(
     recipe?.ingredients || [{ name: '', quantity: 0, unit: '' }]
   );

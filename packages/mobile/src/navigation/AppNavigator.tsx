@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { createStackNavigator, CardStyleInterpolators } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -25,6 +25,7 @@ import SettingsScreen from '../screens/SettingsScreen';
 import PreferencesScreen from '../screens/PreferencesScreen';
 import TimerScreen from '../screens/TimerScreen';
 import AnalyticsScreen from '../screens/AnalyticsScreen';
+import MilestonesScreen from '../screens/MilestonesScreen';
 
 // Auth Screens
 import {
@@ -35,8 +36,8 @@ import {
   WelcomeScreen,
 } from '../screens/auth';
 
-const Stack = createNativeStackNavigator<RootStackParamList>();
-const AuthStack = createNativeStackNavigator<AuthStackParamList>();
+const Stack = createStackNavigator<RootStackParamList>();
+const AuthStack = createStackNavigator<AuthStackParamList>();
 const Tab = createBottomTabNavigator<TabParamList>();
 
 function AuthNavigator() {
@@ -44,7 +45,7 @@ function AuthNavigator() {
     <AuthStack.Navigator
       screenOptions={{
         headerShown: false,
-        contentStyle: { backgroundColor: colors.bgLight },
+        cardStyle: { backgroundColor: colors.bgLight },
       }}
     >
       <AuthStack.Screen name="SignIn" component={SignInScreen} />
@@ -125,7 +126,7 @@ function MainNavigator() {
     <Stack.Navigator
       screenOptions={{
         headerShown: false,
-        contentStyle: { backgroundColor: colors.bgLight },
+        cardStyle: { backgroundColor: colors.bgLight },
       }}
     >
       <Stack.Screen name="Tabs" component={TabNavigator} />
@@ -139,10 +140,11 @@ function MainNavigator() {
       <Stack.Screen
         name="Settings"
         component={SettingsScreen}
-        options={{ animation: 'slide_from_left' }}
+        options={{ cardStyleInterpolator: CardStyleInterpolators.forRevealFromBottomAndroid }}
       />
       <Stack.Screen name="Preferences" component={PreferencesScreen} />
       <Stack.Screen name="Analytics" component={AnalyticsScreen} />
+      <Stack.Screen name="Milestones" component={MilestonesScreen} />
       <Stack.Screen name="TimerScreen" component={TimerScreen} />
     </Stack.Navigator>
   );

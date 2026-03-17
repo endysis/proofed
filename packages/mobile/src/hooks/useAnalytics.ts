@@ -46,7 +46,7 @@ function getWeekKey(date: Date): string {
   return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
 }
 
-function calculateStreak(attempts: Attempt[]): number {
+export function calculateStreak(attempts: Attempt[]): number {
   if (attempts.length === 0) return 0;
 
   const completedAttempts = attempts.filter((a) => a.status === 'done');

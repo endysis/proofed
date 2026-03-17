@@ -151,6 +151,15 @@ export default function SettingsScreen() {
               <Icon name="chevron_right" size="sm" color={colors.dustyMauve} />
             </TouchableOpacity>
             <View style={styles.divider} />
+            <TouchableOpacity
+              style={styles.row}
+              onPress={() => navigation.navigate('Milestones')}
+            >
+              <Icon name="emoji_events" size="sm" color={colors.dustyMauve} />
+              <Text style={styles.rowText}>Milestones</Text>
+              <Icon name="chevron_right" size="sm" color={colors.dustyMauve} />
+            </TouchableOpacity>
+            <View style={styles.divider} />
             <TouchableOpacity style={styles.row} onPress={openPrivacyPolicy}>
               <Icon name="policy" size="sm" color={colors.dustyMauve} />
               <Text style={styles.rowText}>Privacy Policy</Text>

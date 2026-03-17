@@ -1,4 +1,4 @@
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { StackScreenProps } from '@react-navigation/stack';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { CompositeScreenProps, NavigatorScreenParams } from '@react-navigation/native';
 
@@ -32,6 +32,7 @@ export type RootStackParamList = {
   Settings: undefined;
   Preferences: undefined;
   Analytics: undefined;
+  Milestones: undefined;
   TimerScreen: {
     itemName: string;
     bakeTimeMinutes: number;
@@ -42,14 +43,14 @@ export type RootStackParamList = {
 
 // Screen props types
 export type AuthStackScreenProps<T extends keyof AuthStackParamList> =
-  NativeStackScreenProps<AuthStackParamList, T>;
+  StackScreenProps<AuthStackParamList, T>;
 
 export type RootStackScreenProps<T extends keyof RootStackParamList> =
-  NativeStackScreenProps<RootStackParamList, T>;
+  StackScreenProps<RootStackParamList, T>;
 
 export type TabScreenProps<T extends keyof TabParamList> = CompositeScreenProps<
   BottomTabScreenProps<TabParamList, T>,
-  NativeStackScreenProps<RootStackParamList>
+  StackScreenProps<RootStackParamList>
 >;
 
 // Declare global for useNavigation hook

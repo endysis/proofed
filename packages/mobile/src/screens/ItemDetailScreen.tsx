@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -20,6 +20,7 @@ import { useRecipes, useCreateRecipe, useUpdateRecipe, useDeleteRecipe } from '.
 import { useVariants, useCreateVariant, useUpdateVariant, useDeleteVariant } from '../hooks/useVariants';
 import { scaleIngredients, getScaleOptions, formatScaleFactor, calculateScaleFromIngredient } from '../utils/scaleRecipe';
 import { formatContainer } from '../constants/containers';
+import { getSupplierById } from '../constants/suppliers';
 import { colors, fontFamily, fontSize, spacing, borderRadius } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 import type { Recipe, Variant, Ingredient, CreateItemRequest, CreateRecipeRequest, CreateVariantRequest, ItemType } from '@proofed/shared';
@@ -74,11 +75,110 @@ export default function ItemDetailScreen() {
   const [ingredientAmount, setIngredientAmount] = useState('');
   const [showContainerScale, setShowContainerScale] = useState(false);
 
+  const [selectedSourceKey, setSelectedSourceKey] = useState<string | null>(null);
+
+  // Group recipes by source for filtering
+  const sourceGroups = useMemo(() => {
+    if (!recipes || recipes.length === 0) return [];
+
+    const groupMap = new Map<string, { key: string; label: string; supplierId?: string; customUrl?: string; isStoreBought?: boolean; recipes: Recipe[] }>();
+
+    for (const recipe of recipes) {
+      let key: string;
+      let label: string;
+      let supplierId: string | undefined;
+      let customUrl: string | undefined;
+      let isStoreBought: boolean | undefined;
+
+      if (recipe.isStoreBought) {
+        key = 'store-bought';
+        label = 'Store-Bought';
+        isStoreBought = true;
+      } else if (recipe.supplierId) {
+        key = recipe.supplierId;
+        label = getSupplierById(recipe.supplierId)?.name ?? recipe.supplierId;
+        supplierId = recipe.supplierId;
+      } else if (recipe.customSourceName) {
+        key = `custom:${recipe.customSourceName}`;
+        label = recipe.customSourceName;
+        customUrl = recipe.customSourceUrl ?? undefined;
+      } else {
+        key = 'my-recipes';
+        label = 'My Recipes';
+      }
+
+      const existing = groupMap.get(key);
+      if (existing) {
+        existing.recipes.push(recipe);
+      } else {
+        groupMap.set(key, { key, label, supplierId, customUrl, isStoreBought, recipes: [recipe] });
+      }
+    }
+
+    // Sort: predefined suppliers alpha, custom sources alpha, "My Recipes", "Store-Bought" last
+    return Array.from(groupMap.values()).sort((a, b) => {
+      const order = (g: typeof a) => {
+        if (g.supplierId) return 0;
+        if (g.key.startsWith('custom:')) return 1;
+        if (g.key === 'my-recipes') return 2;
+        return 3; // store-bought
+      };
+      const oa = order(a), ob = order(b);
+      if (oa !== ob) return oa - ob;
+      return a.label.localeCompare(b.label);
+    });
+  }, [recipes]);
+
+  const filteredRecipes = useMemo(() => {
+    if (!recipes) return [];
+    if (!selectedSourceKey) return recipes;
+    const group = sourceGroups.find((g) => g.key === selectedSourceKey);
+    return group ? group.recipes : recipes;
+  }, [recipes, sourceGroups, selectedSourceKey]);
+
+  // Reset source filter if selected source group no longer exists
+  useEffect(() => {
+    if (selectedSourceKey && !sourceGroups.find((g) => g.key === selectedSourceKey)) {
+      setSelectedSourceKey(null);
+    }
+  }, [sourceGroups, selectedSourceKey]);
+
   useEffect(() => {
     if (recipes && recipes.length > 0 && !selectedRecipeId) {
       setSelectedRecipeId(recipes[0].recipeId);
     }
   }, [recipes, selectedRecipeId]);
+
+  // When filtered recipes change and current selection isn't in the list, auto-select first
+  useEffect(() => {
+    if (filteredRecipes.length > 0 && selectedRecipeId && !filteredRecipes.find((r) => r.recipeId === selectedRecipeId)) {
+      setSelectedRecipeId(filteredRecipes[0].recipeId);
+    }
+  }, [filteredRecipes, selectedRecipeId]);
+
+  const sourceKey = (r: Recipe) => {
+    if (r.supplierId) return `supplier:${r.supplierId}`;
+    if (r.customSourceName) return `custom:${r.customSourceName}`;
+    if (r.isStoreBought) return 'store-bought';
+    return 'personal';
+  };
+
+  const uniqueSourceChips = useMemo(() => {
+    if (!filteredRecipes || filteredRecipes.length === 0) return [];
+    const seen = new Set<string>();
+    return filteredRecipes.filter((r) => {
+      const key = sourceKey(r);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [filteredRecipes]);
+
+  const selectedSourceRecipes = useMemo(() => {
+    const selected = recipes?.find((r) => r.recipeId === selectedRecipeId) || recipes?.[0];
+    if (!selected || !filteredRecipes || filteredRecipes.length <= 1) return [];
+    return filteredRecipes.filter((r) => sourceKey(r) === sourceKey(selected));
+  }, [recipes, selectedRecipeId, filteredRecipes]);
 
   const handleUpdateItem = (data: CreateItemRequest) => {
     updateItem.mutate({ itemId, data }, { onSuccess: () => setEditItemModal(false) });
@@ -205,33 +305,120 @@ export default function ItemDetailScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Recipe Chips */}
-          {recipes && recipes.length > 0 && (
+          {/* Source Filter Chips */}
+          {sourceGroups.length >= 2 && (recipes?.length ?? 0) >= 5 && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.sourceChipsScroll}
+              contentContainerStyle={styles.chipsContainer}
+            >
+              <TouchableOpacity
+                style={[styles.sourceChip, !selectedSourceKey && styles.sourceChipActive]}
+                onPress={() => setSelectedSourceKey(null)}
+              >
+                <Text style={[styles.sourceChipText, !selectedSourceKey && styles.sourceChipTextActive]}>
+                  All ({recipes?.length ?? 0})
+                </Text>
+              </TouchableOpacity>
+              {sourceGroups.map((group) => (
+                <TouchableOpacity
+                  key={group.key}
+                  style={[styles.sourceChip, selectedSourceKey === group.key && styles.sourceChipActive]}
+                  onPress={() => setSelectedSourceKey(group.key)}
+                >
+                  <View style={styles.sourceChipContent}>
+                    {group.isStoreBought ? (
+                      <Icon name="shopping_cart" size="sm" color={selectedSourceKey === group.key ? colors.white : colors.dustyMauve} />
+                    ) : group.supplierId || group.customUrl ? (
+                      <SupplierFavicon supplierId={group.supplierId} customUrl={group.customUrl} size={16} />
+                    ) : group.key === 'my-recipes' ? (
+                      <Icon name="person" size="sm" color={selectedSourceKey === group.key ? colors.white : colors.dustyMauve} />
+                    ) : null}
+                    <Text style={[styles.sourceChipText, selectedSourceKey === group.key && styles.sourceChipTextActive]}>
+                      {group.label} ({group.recipes.length})
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
+
+          {/* Recipe Chips (deduplicated by source) */}
+          {uniqueSourceChips.length > 0 && (
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               style={styles.chipsScroll}
               contentContainerStyle={styles.chipsContainer}
             >
-              {recipes.map((recipe) => (
-                <TouchableOpacity
-                  key={recipe.recipeId}
-                  style={[
-                    styles.chip,
-                    selectedRecipe?.recipeId === recipe.recipeId && styles.chipActive,
-                  ]}
-                  onPress={() => setSelectedRecipeId(recipe.recipeId)}
-                >
-                  <Text
+              {uniqueSourceChips.map((recipe) => {
+                const isActive = selectedRecipe && sourceKey(selectedRecipe) === sourceKey(recipe);
+                const showSourceIcon = sourceGroups.length >= 2;
+                const iconColor = isActive ? colors.white : colors.dustyMauve;
+                return (
+                  <TouchableOpacity
+                    key={sourceKey(recipe)}
                     style={[
-                      styles.chipText,
-                      selectedRecipe?.recipeId === recipe.recipeId && styles.chipTextActive,
+                      styles.chip,
+                      isActive && styles.chipActive,
                     ]}
+                    onPress={() => setSelectedRecipeId(recipe.recipeId)}
                   >
-                    {recipe.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+                    <View style={styles.chipInner}>
+                      {showSourceIcon && (
+                        recipe.isStoreBought ? (
+                          <Icon name="shopping_cart" size="sm" color={iconColor} />
+                        ) : recipe.supplierId ? (
+                          <SupplierFavicon supplierId={recipe.supplierId} size={16} />
+                        ) : recipe.customSourceName ? (
+                          <SupplierFavicon customUrl={recipe.customSourceUrl ?? undefined} size={16} />
+                        ) : (
+                          <Icon name="person" size="sm" color={iconColor} />
+                        )
+                      )}
+                      <Text
+                        style={[
+                          styles.chipText,
+                          isActive && styles.chipTextActive,
+                        ]}
+                      >
+                        {recipe.supplierId
+                          ? getSupplierById(recipe.supplierId)?.name ?? recipe.name
+                          : recipe.customSourceName
+                            ? recipe.customSourceName
+                            : recipe.isStoreBought && recipe.brand
+                              ? recipe.brand
+                              : recipe.name}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          )}
+
+          {selectedSourceRecipes.length > 1 && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.chipsScroll}
+              contentContainerStyle={styles.chipsContainer}
+            >
+              {selectedSourceRecipes.map((recipe) => {
+                const isActive = selectedRecipe?.recipeId === recipe.recipeId;
+                return (
+                  <TouchableOpacity
+                    key={recipe.recipeId}
+                    style={[styles.subChip, isActive && styles.subChipActive]}
+                    onPress={() => setSelectedRecipeId(recipe.recipeId)}
+                  >
+                    <Text style={[styles.subChipText, isActive && styles.subChipTextActive]}>
+                      {recipe.name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
           )}
 
@@ -239,19 +426,32 @@ export default function ItemDetailScreen() {
           {selectedRecipe ? (
             <View style={styles.recipeCard}>
               <View style={styles.recipeHeader}>
-                <View style={styles.recipeNameRow}>
-                  {selectedRecipe.isStoreBought ? (
-                    <View style={styles.storeBoughtBadge}>
-                      <Icon name="shopping_cart" size="sm" color={colors.white} />
-                    </View>
-                  ) : (selectedRecipe.supplierId || selectedRecipe.customSourceName) ? (
-                    <SupplierFavicon
-                      supplierId={selectedRecipe.supplierId}
-                      customUrl={selectedRecipe.customSourceUrl}
-                      size={24}
-                    />
+                <View style={styles.recipeNameColumn}>
+                  <View style={styles.recipeNameRow}>
+                    {selectedRecipe.isStoreBought ? (
+                      <View style={styles.storeBoughtBadge}>
+                        <Icon name="shopping_cart" size="sm" color={colors.white} />
+                      </View>
+                    ) : (selectedRecipe.supplierId || selectedRecipe.customSourceName) ? (
+                      <SupplierFavicon
+                        supplierId={selectedRecipe.supplierId}
+                        customUrl={selectedRecipe.customSourceUrl}
+                        size={24}
+                      />
+                    ) : null}
+                    <Text style={styles.recipeSource}>
+                      {selectedRecipe.supplierId
+                        ? getSupplierById(selectedRecipe.supplierId)?.name ?? selectedRecipe.name
+                        : selectedRecipe.customSourceName
+                          ? selectedRecipe.customSourceName
+                          : selectedRecipe.isStoreBought && selectedRecipe.brand
+                            ? selectedRecipe.brand
+                            : selectedRecipe.name}
+                    </Text>
+                  </View>
+                  {(selectedRecipe.supplierId || selectedRecipe.customSourceName || (selectedRecipe.isStoreBought && selectedRecipe.brand)) && item?.name ? (
+                    <Text style={styles.recipeName}>{item.name}</Text>
                   ) : null}
-                  <Text style={styles.recipeName}>{selectedRecipe.name}</Text>
                 </View>
                 <TouchableOpacity
                   onPress={() => setRecipeModal({ isOpen: true, recipe: selectedRecipe })}
@@ -522,6 +722,7 @@ export default function ItemDetailScreen() {
           onSubmit={recipeModal.recipe ? handleUpdateRecipe : handleCreateRecipe}
           onCancel={() => setRecipeModal({ isOpen: false })}
           isLoading={createRecipe.isPending || updateRecipe.isPending}
+          itemName={item?.name}
         />
       </Modal>
 
@@ -976,6 +1177,37 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.primary,
   },
+  sourceChipsScroll: {
+    marginBottom: spacing[2],
+  },
+  sourceChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[1.5],
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.bgLight,
+    borderWidth: 1,
+    borderColor: colors.dustyMauve,
+    marginRight: spacing[2],
+  },
+  sourceChipActive: {
+    backgroundColor: colors.dustyMauve,
+    borderColor: colors.dustyMauve,
+  },
+  sourceChipContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[1.5],
+  },
+  sourceChipText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.xs,
+    color: colors.dustyMauve,
+  },
+  sourceChipTextActive: {
+    color: colors.white,
+  },
   chipsScroll: {
     marginBottom: spacing[4],
   },
@@ -996,6 +1228,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     borderColor: colors.primary,
   },
+  chipInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[1],
+  },
   chipText: {
     fontFamily: fontFamily.medium,
     fontSize: fontSize.sm,
@@ -1003,6 +1240,27 @@ const styles = StyleSheet.create({
   },
   chipTextActive: {
     color: colors.white,
+  },
+  subChip: {
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[1],
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.bgLight,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  subChipActive: {
+    backgroundColor: colors.cardBg,
+    borderColor: colors.dustyMauve,
+  },
+  subChipText: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: colors.dustyMauve,
+  },
+  subChipTextActive: {
+    fontFamily: fontFamily.medium,
+    color: colors.text,
   },
   recipeCard: {
     marginHorizontal: spacing[4],
@@ -1019,11 +1277,19 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: spacing[2],
   },
+  recipeNameColumn: {
+    flex: 1,
+    gap: spacing[1],
+  },
   recipeNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing[2],
-    flex: 1,
+  },
+  recipeSource: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: colors.dustyMauve,
   },
   recipeName: {
     fontFamily: fontFamily.bold,
