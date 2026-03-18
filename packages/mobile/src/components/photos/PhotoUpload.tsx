@@ -45,45 +45,55 @@ export default function PhotoUpload({ onUpload, isLoading }: PhotoUploadProps) {
 
   const handleTakePhoto = async () => {
     setShowOptions(false);
-    const hasPermission = await requestPermission('camera');
-    if (!hasPermission) return;
+    try {
+      const hasPermission = await requestPermission('camera');
+      if (!hasPermission) return;
 
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      const asset = result.assets[0];
-      onUpload({
-        uri: asset.uri,
-        type: asset.mimeType || 'image/jpeg',
-        fileName: asset.fileName || `photo_${Date.now()}.jpg`,
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
       });
+
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        onUpload({
+          uri: asset.uri,
+          type: asset.mimeType || 'image/jpeg',
+          fileName: asset.fileName || `photo_${Date.now()}.jpg`,
+        });
+      }
+    } catch (error) {
+      console.error('Camera error:', error);
+      Alert.alert('Error', 'Something went wrong opening the camera.');
     }
   };
 
   const handleChoosePhoto = async () => {
     setShowOptions(false);
-    const hasPermission = await requestPermission('library');
-    if (!hasPermission) return;
+    try {
+      const hasPermission = await requestPermission('library');
+      if (!hasPermission) return;
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      const asset = result.assets[0];
-      onUpload({
-        uri: asset.uri,
-        type: asset.mimeType || 'image/jpeg',
-        fileName: asset.fileName || `photo_${Date.now()}.jpg`,
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
       });
+
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        onUpload({
+          uri: asset.uri,
+          type: asset.mimeType || 'image/jpeg',
+          fileName: asset.fileName || `photo_${Date.now()}.jpg`,
+        });
+      }
+    } catch (error) {
+      console.error('Photo library error:', error);
+      Alert.alert('Error', 'Something went wrong opening the photo library.');
     }
   };
 
