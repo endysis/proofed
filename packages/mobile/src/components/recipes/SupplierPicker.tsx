@@ -13,10 +13,11 @@ interface CustomSource {
 interface SupplierPickerProps {
   value?: string | null;
   customSource?: CustomSource | null;
+  customSources?: CustomSource[];
   onChange: (supplierId: string | null, customSource?: CustomSource | null) => void;
 }
 
-export default function SupplierPicker({ value, customSource, onChange }: SupplierPickerProps) {
+export default function SupplierPicker({ value, customSource, customSources, onChange }: SupplierPickerProps) {
   const [showPicker, setShowPicker] = useState(false);
   const [showCustomModal, setShowCustomModal] = useState(false);
   const [customName, setCustomName] = useState('');
@@ -107,6 +108,30 @@ export default function SupplierPicker({ value, customSource, onChange }: Suppli
                 </Text>
               </TouchableOpacity>
             ))}
+            {customSources && customSources.filter(
+              (s) => s.name !== customSource?.name
+            ).length > 0 && (
+              <>
+                <View style={styles.sectionDivider}>
+                  <Text style={styles.sectionLabel}>Previously Used</Text>
+                </View>
+                {customSources
+                  .filter((s) => s.name !== customSource?.name)
+                  .map((source) => (
+                    <TouchableOpacity
+                      key={source.name}
+                      style={styles.option}
+                      onPress={() => {
+                        onChange(null, { name: source.name, url: source.url });
+                        setShowPicker(false);
+                      }}
+                    >
+                      <SupplierFavicon customUrl={source.url} size={18} />
+                      <Text style={styles.optionText}>{source.name}</Text>
+                    </TouchableOpacity>
+                  ))}
+              </>
+            )}
             <TouchableOpacity
               style={[styles.option, styles.addCustomOption]}
               onPress={handleAddCustom}
@@ -244,6 +269,20 @@ const styles = StyleSheet.create({
   optionTextActive: {
     fontFamily: fontFamily.medium,
     color: colors.primary,
+  },
+  sectionDivider: {
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0, 0, 0, 0.05)',
+    marginTop: spacing[1],
+    paddingTop: spacing[2],
+    paddingHorizontal: spacing[4],
+  },
+  sectionLabel: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.xs,
+    color: colors.dustyMauve,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   addCustomOption: {
     borderTopWidth: 1,

@@ -12,6 +12,7 @@ import {
   createRecipe,
   updateRecipeById,
   deleteRecipeById,
+  listCustomSources,
 } from './handlers/recipes';
 import {
   listVariants,
@@ -118,6 +119,12 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer): P
     if (path === '/ingredients/parse' && method === 'POST') {
       const result = await parseIngredients(parseBody(event));
       return response(200, result);
+    }
+
+    // Sources routes
+    if (path === '/sources' && method === 'GET') {
+      const sources = await listCustomSources(userId);
+      return response(200, { items: sources });
     }
 
     // Items routes

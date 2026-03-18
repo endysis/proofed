@@ -423,6 +423,14 @@ export class ProofedStack extends cdk.Stack {
       authorizer,
     });
 
+    // Sources routes
+    httpApi.addRoutes({
+      path: '/sources',
+      methods: [apigateway.HttpMethod.GET],
+      integration,
+      authorizer,
+    });
+
     // Preferences routes
     httpApi.addRoutes({
       path: '/preferences',

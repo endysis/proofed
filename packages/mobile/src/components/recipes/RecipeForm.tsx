@@ -16,6 +16,7 @@ import { UNIT_PRESETS } from '../../constants/units';
 import { CONTAINER_TYPES, CONTAINER_SIZES } from '../../constants/containers';
 import { colors, spacing, borderRadius, fontFamily, fontSize } from '../../theme';
 import { useTemperatureUnit } from '../../hooks/usePreferences';
+import { useCustomSources } from '../../hooks/useSources';
 import type { Recipe, Ingredient, CreateRecipeRequest, ContainerType } from '@proofed/shared';
 
 type RecipeMode = 'homemade' | 'store-bought';
@@ -36,6 +37,7 @@ export default function RecipeForm({
   itemName,
 }: RecipeFormProps) {
   const preferredTempUnit = useTemperatureUnit();
+  const { data: customSources } = useCustomSources();
 
   // Determine initial mode based on existing recipe
   const initialMode: RecipeMode = recipe?.isStoreBought ? 'store-bought' : 'homemade';
@@ -339,6 +341,7 @@ export default function RecipeForm({
             <SupplierPicker
               value={supplierId}
               customSource={customSourceName ? { name: customSourceName, url: customSourceUrl || undefined } : null}
+              customSources={customSources}
               onChange={(newSupplierId, newCustomSource) => {
                 setSupplierId(newSupplierId);
                 setCustomSourceName(newCustomSource?.name || null);

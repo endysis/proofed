@@ -241,6 +241,12 @@ export const ingredientsApi = {
     }),
 };
 
+// Sources
+export const sourcesApi = {
+  listCustom: () =>
+    request<{ items: { name: string; url?: string }[] }>('/sources').then((r) => r.items),
+};
+
 // Nutrition
 export const nutritionApi = {
   estimateCalories: (data: CalorieEstimateRequest) =>

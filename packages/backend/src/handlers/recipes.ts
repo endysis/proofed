@@ -1,5 +1,5 @@
 import { ulid } from 'ulid';
-import { putItem, getItem, queryItemsWithFilter, deleteItem, updateItem } from '../lib/dynamo';
+import { putItem, getItem, queryItems, queryItemsWithFilter, deleteItem, updateItem } from '../lib/dynamo';
 import type { Recipe, CreateRecipeRequest, UpdateRecipeRequest } from '@proofed/shared';
 
 const TABLE_NAME = process.env.RECIPES_TABLE!;
@@ -66,4 +66,15 @@ export async function updateRecipeById(
 
 export async function deleteRecipeById(userId: string, recipeId: string): Promise<void> {
   return deleteItem(TABLE_NAME, { userId, recipeId });
+}
+
+export async function listCustomSources(userId: string): Promise<{ name: string; url?: string }[]> {
+  const allRecipes = await queryItems<Recipe>(TABLE_NAME, userId);
+  const sourceMap = new Map<string, string | undefined>();
+  for (const r of allRecipes) {
+    if (r.customSourceName && !sourceMap.has(r.customSourceName)) {
+      sourceMap.set(r.customSourceName, r.customSourceUrl ?? undefined);
+    }
+  }
+  return Array.from(sourceMap.entries()).map(([name, url]) => ({ name, url }));
 }
