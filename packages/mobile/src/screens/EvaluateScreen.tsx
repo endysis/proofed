@@ -501,17 +501,19 @@ export default function EvaluateScreen() {
             alreadyRequested={!!attempt.aiAdvice}
           />
 
-          {/* Rating */}
-          <View style={styles.ratingSection}>
-            <Text style={styles.ratingLabel}>Rate this bake</Text>
-            <StarRating
-              rating={attempt.rating || 0}
-              onRate={(rating) => {
-                updateAttempt.mutate({ attemptId, data: { rating } });
-              }}
-              disabled={updateAttempt.isPending}
-            />
-          </View>
+          {/* Rating - only show once outcome notes are written */}
+          {!!attempt.outcomeNotes?.trim() && (
+            <View style={styles.ratingSection}>
+              <Text style={styles.ratingLabel}>Rate this bake</Text>
+              <StarRating
+                rating={attempt.rating || 0}
+                onRate={(rating) => {
+                  updateAttempt.mutate({ attemptId, data: { rating } });
+                }}
+                disabled={updateAttempt.isPending}
+              />
+            </View>
+          )}
         </View>
 
             <View style={{ height: 160 }} />
@@ -542,16 +544,18 @@ export default function EvaluateScreen() {
 
       {/* Action Sheet */}
       <Modal isOpen={showActions} onClose={() => setShowActions(false)} title="Actions">
-        <TouchableOpacity
-          style={styles.actionOption}
-          onPress={() => {
-            setShowActions(false);
-            handleResumeSession();
-          }}
-        >
-          <Icon name="play_arrow" color={colors.text} size="md" />
-          <Text style={styles.actionOptionText}>Resume Session</Text>
-        </TouchableOpacity>
+        {attempt?.flowType !== 'direct' && (
+          <TouchableOpacity
+            style={styles.actionOption}
+            onPress={() => {
+              setShowActions(false);
+              handleResumeSession();
+            }}
+          >
+            <Icon name="play_arrow" color={colors.text} size="md" />
+            <Text style={styles.actionOptionText}>Resume Session</Text>
+          </TouchableOpacity>
+        )}
         <TouchableOpacity
           style={styles.actionOption}
           onPress={() => {

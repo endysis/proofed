@@ -32,6 +32,7 @@ export async function createAttempt(userId: string, request: CreateAttemptReques
     itemUsages: request.itemUsages,
     notes: request.notes,
     status: request.status || 'planning',
+    flowType: request.flowType,
     createdAt: now,
   };
   return putItem(ATTEMPTS_TABLE, attempt);

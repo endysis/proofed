@@ -36,7 +36,7 @@ export default function NewAttemptScreen() {
   const tempDateRef = useRef(new Date());
 
   const handleSubmit = () => {
-    const status: AttemptStatus = flowType === 'direct' ? 'done' : 'planning';
+    const status: AttemptStatus = 'planning';
     const dateString = dateValue.toISOString().split('T')[0];
 
     createAttempt.mutate(
@@ -46,6 +46,7 @@ export default function NewAttemptScreen() {
         itemUsages: [],
         notes: notes || undefined,
         status,
+        flowType: flowType as 'guided' | 'direct',
       },
       {
         onSuccess: (attempt) =>

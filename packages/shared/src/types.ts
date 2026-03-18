@@ -112,6 +112,7 @@ export interface Attempt {
   photoKeys?: string[];
   mainPhotoKey?: string;  // Key of the photo to display on home screen
   status?: AttemptStatus;  // 'planning' | 'baking' | 'done'
+  flowType?: 'guided' | 'direct';  // 'direct' = past bake (skip BakeScreen)
   starred?: boolean;       // Whether this attempt is starred/favorited
   rating?: number;         // User rating (1-5 stars)
   aiAdvice?: AiAdviceResponse;  // Saved Crumb advice (persisted, one request per bake)
@@ -210,6 +211,7 @@ export interface CreateAttemptRequest {
   itemUsages: ItemUsage[];
   notes?: string;
   status?: AttemptStatus;  // defaults to 'planning'
+  flowType?: 'guided' | 'direct';
 }
 
 export interface UpdateAttemptRequest {

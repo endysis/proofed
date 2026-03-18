@@ -16,7 +16,8 @@ import * as Haptics from 'expo-haptics';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { Icon, Modal, Loading } from '../components/common';
+import { Icon, Modal, Loading, SupplierFavicon } from '../components/common';
+import { getSupplierById } from '../constants/suppliers';
 import { useAttempt, useUpdateAttempt, useDeleteAttempt } from '../hooks/useAttempts';
 import { useItems } from '../hooks/useItems';
 import { useRecipes } from '../hooks/useRecipes';
@@ -203,6 +204,8 @@ export default function PlanScreen() {
       .filter((u) => u.itemId && u.recipeId)
       .map(({ _key, ...usage }) => usage);
 
+    const isPastBake = attempt?.flowType === 'direct';
+
     updateAttempt.mutate(
       {
         attemptId,
@@ -210,12 +213,16 @@ export default function PlanScreen() {
           itemUsages: validUsages,
           name,
           date: date.toISOString(),
-          status: 'baking',
+          status: isPastBake ? 'done' : 'baking',
         },
       },
       {
         onSuccess: () => {
-          navigation.replace('BakeScreen', { attemptId });
+          if (isPastBake) {
+            navigation.replace('EvaluateScreen', { attemptId });
+          } else {
+            navigation.replace('BakeScreen', { attemptId });
+          }
         },
       }
     );
@@ -309,7 +316,7 @@ export default function PlanScreen() {
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <Icon name="arrow_back_ios" color={colors.text} size="md" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Planning Your Bake</Text>
+        <Text style={styles.headerTitle}>{attempt?.flowType === 'direct' ? 'Log Past Bake' : 'Planning Your Bake'}</Text>
         <TouchableOpacity style={styles.menuButton} onPress={() => setShowActions(true)}>
           <Icon name="more_vert" color={colors.text} size="md" />
         </TouchableOpacity>
@@ -387,21 +394,23 @@ export default function PlanScreen() {
 
       {/* Bottom Action Area */}
       <View style={[styles.bottomAction, { paddingBottom: insets.bottom + spacing[4] }]}>
+        {attempt?.flowType !== 'direct' && (
+          <TouchableOpacity
+            style={styles.secondaryButton}
+            onPress={handleSaveForLater}
+            disabled={updateAttempt.isPending}
+          >
+            <Icon name="save" color={colors.primary} size="md" />
+            <Text style={styles.secondaryButtonText}>Save for Later</Text>
+          </TouchableOpacity>
+        )}
         <TouchableOpacity
-          style={styles.secondaryButton}
-          onPress={handleSaveForLater}
-          disabled={updateAttempt.isPending}
-        >
-          <Icon name="save" color={colors.primary} size="md" />
-          <Text style={styles.secondaryButtonText}>Save for Later</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.primaryButton}
+          style={[styles.primaryButton, attempt?.flowType === 'direct' && { flex: 1 }]}
           onPress={handleStartBaking}
           disabled={updateAttempt.isPending}
         >
-          <Icon name="play_arrow" color={colors.white} size="md" />
-          <Text style={styles.primaryButtonText}>Start Baking</Text>
+          <Icon name={attempt?.flowType === 'direct' ? 'check' : 'play_arrow'} color={colors.white} size="md" />
+          <Text style={styles.primaryButtonText}>{attempt?.flowType === 'direct' ? 'Save & Log Bake' : 'Start Baking'}</Text>
         </TouchableOpacity>
       </View>
 
@@ -904,9 +913,24 @@ function AddItemModal({
         <View style={styles.modalField}>
           <Text style={styles.modalLabel}>Recipe</Text>
           <TouchableOpacity style={styles.modalPicker} onPress={() => setShowRecipePicker(true)}>
-            <Text style={[styles.modalPickerText, !selectedRecipe && styles.modalPickerPlaceholder]}>
-              {selectedRecipe?.name || 'Select recipe...'}
-            </Text>
+            {selectedRecipe ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: spacing[2] }}>
+                <SupplierFavicon
+                  supplierId={selectedRecipe.supplierId}
+                  customUrl={selectedRecipe.customSourceUrl}
+                  size={18}
+                />
+                <Text style={styles.modalPickerText} numberOfLines={1}>
+                  {selectedRecipe.supplierId
+                    ? getSupplierById(selectedRecipe.supplierId)?.name || selectedRecipe.name
+                    : selectedRecipe.customSourceName || selectedRecipe.name}
+                </Text>
+              </View>
+            ) : (
+              <Text style={[styles.modalPickerText, styles.modalPickerPlaceholder]}>
+                Select recipe...
+              </Text>
+            )}
             <Icon name="expand_more" size="sm" color={colors.dustyMauve} />
           </TouchableOpacity>
         </View>
@@ -1136,26 +1160,15 @@ function AddItemModal({
       </Modal>
 
       {/* Recipe Picker Sub-Modal */}
-      <Modal
+      <RecipePickerModal
         isOpen={showRecipePicker}
         onClose={() => setShowRecipePicker(false)}
-        title="Select Recipe"
-      >
-        <ScrollView style={styles.pickerList}>
-          {(recipes || []).map((recipe) => (
-            <TouchableOpacity
-              key={recipe.recipeId}
-              style={styles.pickerOption}
-              onPress={() => {
-                setRecipeId(recipe.recipeId);
-                setShowRecipePicker(false);
-              }}
-            >
-              <Text style={styles.pickerOptionText}>{recipe.name}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </Modal>
+        recipes={recipes || []}
+        onSelect={(id) => {
+          setRecipeId(id);
+          setShowRecipePicker(false);
+        }}
+      />
 
       {/* Variant Picker Sub-Modal */}
       <Modal
@@ -1302,6 +1315,133 @@ function AddItemModal({
           }}
         />
       )}
+    </Modal>
+  );
+}
+
+// ============================================================================
+// Recipe Picker by Source
+// ============================================================================
+
+interface SourceGroup {
+  key: string;
+  label: string;
+  supplierId?: string;
+  customSourceUrl?: string;
+  recipes: Recipe[];
+}
+
+function groupRecipesBySource(recipes: Recipe[]): SourceGroup[] {
+  const groups = new Map<string, SourceGroup>();
+
+  recipes.forEach((recipe) => {
+    let key: string;
+    let label: string;
+    let supplierId: string | undefined;
+    let customSourceUrl: string | undefined;
+
+    if (recipe.supplierId) {
+      const supplier = getSupplierById(recipe.supplierId);
+      key = `supplier:${recipe.supplierId}`;
+      label = supplier?.name || recipe.supplierId;
+      supplierId = recipe.supplierId;
+    } else if (recipe.customSourceName) {
+      key = `custom:${recipe.customSourceName}`;
+      label = recipe.customSourceName;
+      customSourceUrl = recipe.customSourceUrl;
+    } else if (recipe.isStoreBought && recipe.brand) {
+      key = `brand:${recipe.brand}`;
+      label = recipe.brand;
+    } else {
+      key = `own:${recipe.recipeId}`;
+      label = recipe.name;
+    }
+
+    const existing = groups.get(key);
+    if (existing) {
+      existing.recipes.push(recipe);
+    } else {
+      groups.set(key, { key, label, supplierId, customSourceUrl, recipes: [recipe] });
+    }
+  });
+
+  return Array.from(groups.values());
+}
+
+function RecipePickerModal({
+  isOpen,
+  onClose,
+  recipes,
+  onSelect,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  recipes: Recipe[];
+  onSelect: (recipeId: string) => void;
+}) {
+  const [expandedSource, setExpandedSource] = useState<string | null>(null);
+  const sourceGroups = groupRecipesBySource(recipes);
+
+  // Reset expanded state when modal opens
+  useEffect(() => {
+    if (isOpen) setExpandedSource(null);
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Select Recipe">
+      <ScrollView style={styles.pickerList}>
+        {sourceGroups.map((group) => {
+          const isSingle = group.recipes.length === 1;
+          const isExpanded = expandedSource === group.key;
+
+          return (
+            <View key={group.key}>
+              <TouchableOpacity
+                style={styles.sourceOption}
+                onPress={() => {
+                  if (isSingle) {
+                    onSelect(group.recipes[0].recipeId);
+                  } else {
+                    setExpandedSource(isExpanded ? null : group.key);
+                  }
+                }}
+              >
+                <SupplierFavicon
+                  supplierId={group.supplierId}
+                  customUrl={group.customSourceUrl}
+                  size={20}
+                />
+                <Text style={styles.sourceOptionText} numberOfLines={1}>
+                  {group.label}
+                </Text>
+                {!isSingle && (
+                  <View style={styles.sourceCountRow}>
+                    <Text style={styles.sourceCount}>{group.recipes.length}</Text>
+                    <Icon
+                      name={isExpanded ? 'expand_less' : 'expand_more'}
+                      size="sm"
+                      color={colors.dustyMauve}
+                    />
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              {!isSingle && isExpanded &&
+                group.recipes.map((recipe) => (
+                  <TouchableOpacity
+                    key={recipe.recipeId}
+                    style={styles.sourceSubOption}
+                    onPress={() => onSelect(recipe.recipeId)}
+                  >
+                    <Text style={styles.sourceSubOptionText}>{recipe.name}</Text>
+                  </TouchableOpacity>
+                ))}
+            </View>
+          );
+        })}
+      </ScrollView>
     </Modal>
   );
 }
@@ -1844,6 +1984,44 @@ const styles = StyleSheet.create({
   pickerOptionText: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.base,
+    color: colors.text,
+  },
+  sourceOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[3],
+    paddingVertical: spacing[3],
+    paddingHorizontal: spacing[4],
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
+  },
+  sourceOptionText: {
+    flex: 1,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.base,
+    color: colors.text,
+  },
+  sourceCountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[1],
+  },
+  sourceCount: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.xs,
+    color: colors.dustyMauve,
+  },
+  sourceSubOption: {
+    paddingVertical: spacing[3],
+    paddingLeft: spacing[4] + 28 + spacing[3],
+    paddingRight: spacing[4],
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
+    backgroundColor: colors.bgLight,
+  },
+  sourceSubOptionText: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
     color: colors.text,
   },
   // Scale by Ingredient Styles
