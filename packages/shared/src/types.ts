@@ -372,6 +372,8 @@ export interface UserPreferences {
   temperatureUnit: 'F' | 'C';
   measurementSystem?: MeasurementSystem;
   seenBadgeIds?: string[];
+  shoppingReminderEnabled?: boolean;
+  shoppingReminderDaysBefore?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -381,6 +383,8 @@ export interface UpdatePreferencesRequest {
   temperatureUnit?: 'F' | 'C';
   measurementSystem?: MeasurementSystem;
   seenBadgeIds?: string[];
+  shoppingReminderEnabled?: boolean;
+  shoppingReminderDaysBefore?: number;
 }
 
 // Ingredient Suggestions types

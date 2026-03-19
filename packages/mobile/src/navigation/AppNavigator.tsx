@@ -26,6 +26,7 @@ import PreferencesScreen from '../screens/PreferencesScreen';
 import TimerScreen from '../screens/TimerScreen';
 import AnalyticsScreen from '../screens/AnalyticsScreen';
 import MilestonesScreen from '../screens/MilestonesScreen';
+import NotificationsScreen from '../screens/NotificationsScreen';
 
 // Auth Screens
 import {
@@ -143,6 +144,7 @@ function MainNavigator() {
         options={{ cardStyleInterpolator: CardStyleInterpolators.forRevealFromBottomAndroid }}
       />
       <Stack.Screen name="Preferences" component={PreferencesScreen} />
+      <Stack.Screen name="Notifications" component={NotificationsScreen} />
       <Stack.Screen name="Analytics" component={AnalyticsScreen} />
       <Stack.Screen name="Milestones" component={MilestonesScreen} />
       <Stack.Screen name="TimerScreen" component={TimerScreen} />

@@ -19,9 +19,15 @@ import { colors } from './src/theme';
 import { AuthProvider } from './src/contexts/AuthContext';
 import { PreferencesProvider } from './src/contexts/PreferencesContext';
 import { TimerProvider } from './src/contexts/TimerContext';
+import { useShoppingReminders } from './src/hooks/useShoppingReminders';
 
 // Keep the splash screen visible while we fetch fonts
 SplashScreen.preventAutoHideAsync();
+
+function ShoppingReminderScheduler() {
+  useShoppingReminders();
+  return null;
+}
 
 // Create a client
 export const queryClient = new QueryClient({
@@ -62,6 +68,7 @@ export default function App() {
           <PreferencesProvider>
             <QueryClientProvider client={queryClient}>
               <TimerProvider>
+                <ShoppingReminderScheduler />
                 <StatusBar style="dark" />
                 <AppNavigator />
               </TimerProvider>

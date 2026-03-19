@@ -12,6 +12,8 @@ const PENDING_NAME_KEY = 'proofed_pending_name';
 const DEFAULT_PREFERENCES: Omit<UserPreferences, 'userId' | 'createdAt' | 'updatedAt'> = {
   temperatureUnit: 'F',
   measurementSystem: 'metric',
+  shoppingReminderEnabled: true,
+  shoppingReminderDaysBefore: 2,
 };
 
 interface PreferencesContextType {
@@ -25,6 +27,8 @@ interface PreferencesContextType {
   temperatureUnit: 'F' | 'C';
   measurementSystem: MeasurementSystem;
   name: string | undefined;
+  shoppingReminderEnabled: boolean;
+  shoppingReminderDaysBefore: number;
 }
 
 const PreferencesContext = createContext<PreferencesContextType | undefined>(undefined);
@@ -122,6 +126,9 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
   const measurementSystem: MeasurementSystem = preferences?.measurementSystem ?? DEFAULT_PREFERENCES.measurementSystem ?? 'metric';
   // Get name (no default - will be undefined if not set)
   const name = preferences?.name;
+  // Shopping reminder preferences with defaults
+  const shoppingReminderEnabled = preferences?.shoppingReminderEnabled ?? DEFAULT_PREFERENCES.shoppingReminderEnabled!;
+  const shoppingReminderDaysBefore = preferences?.shoppingReminderDaysBefore ?? DEFAULT_PREFERENCES.shoppingReminderDaysBefore!;
 
   const value: PreferencesContextType = {
     preferences,
@@ -133,6 +140,8 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
     temperatureUnit,
     measurementSystem,
     name,
+    shoppingReminderEnabled,
+    shoppingReminderDaysBefore,
   };
 
   return (

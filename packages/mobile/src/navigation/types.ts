@@ -31,6 +31,7 @@ export type RootStackParamList = {
   ProofedItemDetail: { proofedItemId: string };
   Settings: undefined;
   Preferences: undefined;
+  Notifications: undefined;
   Analytics: undefined;
   Milestones: undefined;
   TimerScreen: {

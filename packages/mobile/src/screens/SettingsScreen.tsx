@@ -135,6 +135,15 @@ export default function SettingsScreen() {
               <Text style={styles.rowText}>Temperature & Units</Text>
               <Icon name="chevron_right" size="sm" color={colors.dustyMauve} />
             </TouchableOpacity>
+            <View style={styles.divider} />
+            <TouchableOpacity
+              style={styles.row}
+              onPress={() => navigation.navigate('Notifications')}
+            >
+              <Icon name="notifications" size="sm" color={colors.dustyMauve} />
+              <Text style={styles.rowText}>Notifications</Text>
+              <Icon name="chevron_right" size="sm" color={colors.dustyMauve} />
+            </TouchableOpacity>
           </View>
         </View>
 
