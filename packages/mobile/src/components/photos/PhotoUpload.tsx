@@ -13,11 +13,12 @@ import { colors, spacing, borderRadius, fontFamily, fontSize } from '../../theme
 import type { ImageAsset } from '../../api/client';
 
 interface PhotoUploadProps {
-  onUpload: (image: ImageAsset) => void;
+  onUpload: (images: ImageAsset[]) => void;
   isLoading?: boolean;
+  uploadProgress?: string;
 }
 
-export default function PhotoUpload({ onUpload, isLoading }: PhotoUploadProps) {
+export default function PhotoUpload({ onUpload, isLoading, uploadProgress }: PhotoUploadProps) {
   const [showOptions, setShowOptions] = useState(false);
 
   const requestPermission = async (type: 'camera' | 'library') => {
@@ -58,11 +59,11 @@ export default function PhotoUpload({ onUpload, isLoading }: PhotoUploadProps) {
 
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
-        onUpload({
+        onUpload([{
           uri: asset.uri,
           type: asset.mimeType || 'image/jpeg',
           fileName: asset.fileName || `photo_${Date.now()}.jpg`,
-        });
+        }]);
       }
     } catch (error) {
       console.error('Camera error:', error);
@@ -78,18 +79,18 @@ export default function PhotoUpload({ onUpload, isLoading }: PhotoUploadProps) {
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [4, 3],
+        allowsMultipleSelection: true,
+        selectionLimit: 10,
         quality: 0.8,
       });
 
-      if (!result.canceled && result.assets[0]) {
-        const asset = result.assets[0];
-        onUpload({
+      if (!result.canceled && result.assets.length > 0) {
+        const images: ImageAsset[] = result.assets.map((asset) => ({
           uri: asset.uri,
           type: asset.mimeType || 'image/jpeg',
           fileName: asset.fileName || `photo_${Date.now()}.jpg`,
-        });
+        }));
+        onUpload(images);
       }
     } catch (error) {
       console.error('Photo library error:', error);
@@ -108,7 +109,7 @@ export default function PhotoUpload({ onUpload, isLoading }: PhotoUploadProps) {
         {isLoading ? (
           <>
             <ActivityIndicator size="small" color={colors.primary} />
-            <Text style={styles.buttonText}>Uploading...</Text>
+            <Text style={styles.buttonText}>Uploading{uploadProgress ? ` ${uploadProgress}` : ''}...</Text>
           </>
         ) : (
           <>

@@ -10,6 +10,7 @@ import {
   getNextLevel,
   getNibsToNextLevel,
   getLevelProgress,
+  getStoneFloor,
   type BadgeDefinition,
   type BadgeContext,
   type BadgeProgress,
@@ -100,18 +101,34 @@ function estimateEarnedDate(
 function calculateTotalNibs(
   completedAttempts: Attempt[],
   earnedBadgeCount: number,
-  proofedItemCount: number
 ): number {
   let nibs = 0;
 
   completedAttempts.forEach((a) => {
-    nibs += NIBS.completeBake;
-    if (a.rating != null) nibs += NIBS.rateBake;
+    // Tiered bake reward based on flow type
+    nibs += a.flowType === 'guided' ? NIBS.guidedBake : NIBS.directBake;
     if (a.photoKeys && a.photoKeys.length > 0) nibs += NIBS.addPhoto;
+    if (a.outcomeNotes && a.outcomeNotes.trim().length > 0) nibs += NIBS.outcomeNotes;
   });
 
   nibs += earnedBadgeCount * NIBS.earnBadge;
-  nibs += proofedItemCount * NIBS.proofRecipe;
+
+  // Nib decay for inactivity (180+ days since last bake)
+  if (completedAttempts.length > 0) {
+    const mostRecentDate = completedAttempts.reduce((latest, a) => {
+      const d = new Date(a.date).getTime();
+      return d > latest ? d : latest;
+    }, 0);
+    const daysSinceLastBake = Math.floor((Date.now() - mostRecentDate) / (1000 * 60 * 60 * 24));
+
+    if (daysSinceLastBake > 180) {
+      const decayMonths = Math.floor((daysSinceLastBake - 180) / 30);
+      const decay = decayMonths * 20;
+      const preDecayLevel = getLevelForNibs(nibs);
+      const floor = getStoneFloor(preDecayLevel);
+      nibs = Math.max(nibs - decay, floor);
+    }
+  }
 
   return nibs;
 }
@@ -127,7 +144,7 @@ export function useMilestones(): MilestonesData {
     if (isLoading) {
       return {
         totalNibs: 0,
-        currentLevel: { level: 1, nibsRequired: 0, title: 'Novice Baker', heroIcon: 'cookie' } as LevelDefinition,
+        currentLevel: { level: 1, nibsRequired: 0, title: 'Quartz', degree: 1, heroIcon: 'cookie', color: '#9E9E9E' } as LevelDefinition,
         nextLevel: null,
         nibsToNextLevel: null,
         levelProgress: 0,
@@ -171,7 +188,7 @@ export function useMilestones(): MilestonesData {
     });
 
     // Calculate nibs
-    const totalNibs = calculateTotalNibs(completedAttempts, earnedBadges.length, proofedItems.length);
+    const totalNibs = calculateTotalNibs(completedAttempts, earnedBadges.length);
     const currentLevel = getLevelForNibs(totalNibs);
     const nextLevel = getNextLevel(totalNibs);
     const nibsToNextLevel = getNibsToNextLevel(totalNibs);

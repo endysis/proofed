@@ -250,42 +250,52 @@ export const BADGES: BadgeDefinition[] = [
 export interface LevelDefinition {
   level: number;
   nibsRequired: number;
-  title: string;
+  title: string;      // Stone name, e.g. "Quartz"
+  degree: number;     // 1-4
   heroIcon: string;
+  color: string;      // Gem color for UI
 }
 
-export const LEVELS: LevelDefinition[] = [
-  { level: 1, nibsRequired: 0, title: 'Novice Baker', heroIcon: 'cookie' },
-  { level: 2, nibsRequired: 30, title: 'Kitchen Helper', heroIcon: 'cookie' },
-  { level: 3, nibsRequired: 70, title: 'Mixing Bowl', heroIcon: 'blender' },
-  { level: 4, nibsRequired: 120, title: 'Dough Starter', heroIcon: 'blender' },
-  { level: 5, nibsRequired: 200, title: 'Apprentice Baker', heroIcon: 'bakery_dining' },
-  { level: 6, nibsRequired: 300, title: 'Rising Star', heroIcon: 'bakery_dining' },
-  { level: 7, nibsRequired: 420, title: 'Pastry Student', heroIcon: 'cake' },
-  { level: 8, nibsRequired: 560, title: 'Oven Tender', heroIcon: 'cake' },
-  { level: 9, nibsRequired: 720, title: 'Bread Winner', heroIcon: 'lunch_dining' },
-  { level: 10, nibsRequired: 900, title: 'Journeyman Baker', heroIcon: 'lunch_dining' },
-  { level: 11, nibsRequired: 1100, title: 'Crust Crafter', heroIcon: 'restaurant' },
-  { level: 12, nibsRequired: 1350, title: 'Master Baker', heroIcon: 'restaurant' },
-  { level: 13, nibsRequired: 1650, title: 'Head Baker', heroIcon: 'emoji_events' },
-  { level: 14, nibsRequired: 2000, title: 'Pastry Chef', heroIcon: 'emoji_events' },
-  { level: 15, nibsRequired: 2400, title: 'Artisan Baker', heroIcon: 'workspace_premium' },
-  { level: 16, nibsRequired: 2850, title: 'Sourdough Sage', heroIcon: 'workspace_premium' },
-  { level: 17, nibsRequired: 3350, title: 'Baking Virtuoso', heroIcon: 'military_tech' },
-  { level: 18, nibsRequired: 3900, title: 'Grand Baker', heroIcon: 'military_tech' },
-  { level: 19, nibsRequired: 4500, title: 'Legendary Baker', heroIcon: 'military_tech' },
-  { level: 20, nibsRequired: 5200, title: 'Baking Legend', heroIcon: 'military_tech' },
+// 9 stones × 4 degrees = 36 levels
+const STONES: Array<{ title: string; color: string; heroIcon: string; nibs: [number, number, number, number] }> = [
+  { title: 'Quartz',   color: '#9E9E9E', heroIcon: 'cookie',           nibs: [0, 80, 165, 255] },
+  { title: 'Amber',    color: '#FF8F00', heroIcon: 'blender',          nibs: [350, 455, 565, 685] },
+  { title: 'Amethyst', color: '#7B1FA2', heroIcon: 'bakery_dining',    nibs: [815, 955, 1105, 1270] },
+  { title: 'Topaz',    color: '#F9A825', heroIcon: 'cake',             nibs: [1450, 1645, 1860, 2095] },
+  { title: 'Sapphire', color: '#1565C0', heroIcon: 'lunch_dining',     nibs: [2355, 2640, 2955, 3300] },
+  { title: 'Emerald',  color: '#2E7D32', heroIcon: 'restaurant',       nibs: [3680, 4100, 4560, 5070] },
+  { title: 'Ruby',     color: '#C62828', heroIcon: 'emoji_events',     nibs: [5630, 6250, 6935, 7690] },
+  { title: 'Diamond',  color: '#00BCD4', heroIcon: 'workspace_premium', nibs: [8525, 9445, 10460, 11580] },
+  { title: 'Opal',     color: '#E91E63', heroIcon: 'military_tech',    nibs: [12820, 14190, 15710, 17400] },
 ];
+
+export const LEVELS: LevelDefinition[] = STONES.flatMap((stone, stoneIdx) =>
+  stone.nibs.map((nibsRequired, degreeIdx) => ({
+    level: stoneIdx * 4 + degreeIdx + 1,
+    nibsRequired,
+    title: stone.title,
+    degree: degreeIdx + 1,
+    heroIcon: stone.heroIcon,
+    color: stone.color,
+  }))
+);
 
 // ─── Nib Rewards ──────────────────────────────────────────────────
 
 export const NIBS = {
-  completeBake: 10,
-  rateBake: 5,
-  addPhoto: 3,
-  earnBadge: 25,
-  proofRecipe: 15,
+  guidedBake: 20,     // Active bake (guided flow)
+  directBake: 3,      // Past bake log (direct flow)
+  addPhoto: 1,        // Bonus for photo
+  outcomeNotes: 5,    // Bonus for writing outcome notes
+  earnBadge: 25,      // Per badge
 } as const;
+
+/** Get the nib floor for a stone — degree I of the stone the given level belongs to */
+export function getStoneFloor(level: LevelDefinition): number {
+  // degree I is the first level in the same stone group
+  const stoneIndex = Math.floor((level.level - 1) / 4);
+  return LEVELS[stoneIndex * 4].nibsRequired;
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────
 

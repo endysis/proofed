@@ -12,6 +12,8 @@ import { useNavigation } from '@react-navigation/native';
 import { useAttempts } from '../hooks/useAttempts';
 import { usePhotoUrl } from '../hooks/usePhotos';
 import { usePreferences } from '../contexts/PreferencesContext';
+import { useMilestones } from '../hooks/useMilestones';
+import GemStone from '../components/milestones/GemStone';
 import { Icon, SkeletonCard, SkeletonThumbnail } from '../components/common';
 import { formatRelativeDate } from '../utils/formatDate';
 import { colors, spacing, borderRadius, fontFamily, fontSize } from '../theme';
@@ -74,8 +76,9 @@ export default function HomeScreen() {
   const navigation = useNavigation();
   const { data: attempts, isLoading } = useAttempts();
   const { name } = usePreferences();
+  const { currentLevel } = useMilestones();
 
-  // Sort by date (most recent first), filter to done status only
+// Sort by date (most recent first), filter to done status only
   const recentAttempts =
     attempts
       ?.filter((a) => a.status === 'done')
@@ -114,8 +117,14 @@ export default function HomeScreen() {
           <Text style={styles.welcomeText}>{getGreeting(name)}</Text>
           <Text style={styles.headerTitle}>Happy Baking!</Text>
         </View>
-        <TouchableOpacity style={styles.searchButton}>
-          <Icon name="search" color={colors.text} />
+        <TouchableOpacity
+          style={styles.searchButton}
+          onPress={() => navigation.navigate('Milestones')}
+        >
+          <GemStone
+            size={28}
+            color={currentLevel.color}
+          />
         </TouchableOpacity>
       </View>
 

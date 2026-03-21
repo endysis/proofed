@@ -1,8 +1,8 @@
-import React from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
-import { Icon } from '../common';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Dimensions, TouchableOpacity } from 'react-native';
+import { Icon, Modal } from '../common';
 import { colors, spacing, fontFamily, fontSize, borderRadius } from '../../theme';
-import type { BadgeDefinition, BadgeProgress, EarnedBadge } from '../../constants/milestones';
+import type { EarnedBadge } from '../../constants/milestones';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CARD_GAP = spacing[3];
@@ -11,7 +11,6 @@ const CARD_WIDTH = (SCREEN_WIDTH - HORIZONTAL_PAD * 2 - CARD_GAP * 2) / 3;
 
 interface Props {
   earnedBadges: EarnedBadge[];
-  lockedBadges: Array<{ badge: BadgeDefinition; progress: BadgeProgress }>;
 }
 
 function formatDate(dateStr: string): string {
@@ -19,46 +18,71 @@ function formatDate(dateStr: string): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-export default function BadgeGrid({ earnedBadges, lockedBadges }: Props) {
+export default function BadgeGrid({ earnedBadges }: Props) {
+  const [selectedBadge, setSelectedBadge] = useState<EarnedBadge | null>(null);
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.sectionTitle}>Your Badges</Text>
-        <Text style={styles.countBadge}>{earnedBadges.length} UNLOCKED</Text>
+        <Text style={styles.sectionTitle}>Acquired Badges</Text>
+        <Text style={styles.countBadge}>{earnedBadges.length}</Text>
       </View>
 
-      <View style={styles.grid}>
-        {earnedBadges.map((eb) => (
-          <View key={eb.badge.id} style={styles.badgeCard}>
-            {eb.isNew && (
-              <View style={styles.newIndicator}>
-                <Text style={styles.newText}>NEW</Text>
+      {earnedBadges.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Icon name="emoji_events" size="lg" color={colors.dustyMauve} />
+          <Text style={styles.emptyText}>Complete bakes to earn your first badge!</Text>
+        </View>
+      ) : (
+        <View style={styles.grid}>
+          {earnedBadges.map((eb) => (
+            <TouchableOpacity
+              key={eb.badge.id}
+              style={styles.badgeCard}
+              activeOpacity={0.7}
+              onPress={() => setSelectedBadge(eb)}
+            >
+              {eb.isNew && (
+                <View style={styles.newIndicator}>
+                  <Text style={styles.newText}>NEW</Text>
+                </View>
+              )}
+              <View style={styles.earnedIconCircle}>
+                <Icon name={eb.badge.icon} size="md" color={colors.primary} />
               </View>
-            )}
-            <View style={styles.earnedIconCircle}>
-              <Icon name={eb.badge.icon} size="md" color={colors.primary} />
-            </View>
-            <Text style={styles.badgeName} numberOfLines={1}>
-              {eb.badge.name}
-            </Text>
-            <Text style={styles.badgeDate}>{formatDate(eb.earnedAt)}</Text>
-          </View>
-        ))}
+              <Text style={styles.badgeName} numberOfLines={1}>
+                {eb.badge.name}
+              </Text>
+              <Text style={styles.badgeDate}>{formatDate(eb.earnedAt)}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
 
-        {lockedBadges.map(({ badge, progress }) => (
-          <View key={badge.id} style={styles.badgeCard}>
-            <View style={styles.lockedIconCircle}>
-              <Icon name={badge.icon} size="md" color={colors.dustyMauve} />
+      <Modal
+        isOpen={selectedBadge !== null}
+        onClose={() => setSelectedBadge(null)}
+        title={selectedBadge?.badge.name ?? ''}
+      >
+        {selectedBadge && (
+          <View style={styles.modalContent}>
+            <View style={styles.modalIconCircle}>
+              <Icon name={selectedBadge.badge.icon} size="lg" color={colors.primary} />
             </View>
-            <Text style={[styles.badgeName, styles.lockedText]} numberOfLines={1}>
-              {badge.name}
+            <Text style={styles.modalDescription}>
+              {selectedBadge.badge.description}
             </Text>
-            <Text style={styles.badgeProgress}>
-              {progress.current}/{progress.target}
+            <View style={styles.modalCategoryTag}>
+              <Text style={styles.modalCategoryText}>
+                {selectedBadge.badge.category.toUpperCase()}
+              </Text>
+            </View>
+            <Text style={styles.modalEarnedDate}>
+              Earned {formatDate(selectedBadge.earnedAt)}
             </Text>
           </View>
-        ))}
-      </View>
+        )}
+      </Modal>
     </View>
   );
 }
@@ -83,6 +107,17 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     color: colors.primary,
     letterSpacing: 1,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: spacing[6],
+    gap: spacing[3],
+  },
+  emptyText: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.dustyMauve,
+    textAlign: 'center',
   },
   grid: {
     flexDirection: 'row',
@@ -123,24 +158,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: spacing[2],
   },
-  lockedIconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.bgLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing[2],
-    opacity: 0.5,
-  },
   badgeName: {
     fontFamily: fontFamily.medium,
     fontSize: fontSize.xs,
     color: colors.text,
     textAlign: 'center',
-  },
-  lockedText: {
-    color: colors.dustyMauve,
   },
   badgeDate: {
     fontFamily: fontFamily.regular,
@@ -148,10 +170,43 @@ const styles = StyleSheet.create({
     color: colors.dustyMauve,
     marginTop: 2,
   },
-  badgeProgress: {
+  modalContent: {
+    alignItems: 'center',
+    paddingBottom: spacing[4],
+  },
+  modalIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#fef2f2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing[4],
+  },
+  modalDescription: {
     fontFamily: fontFamily.regular,
-    fontSize: 10,
+    fontSize: fontSize.base,
+    color: colors.text,
+    textAlign: 'center',
+    marginBottom: spacing[4],
+    lineHeight: 22,
+  },
+  modalCategoryTag: {
+    backgroundColor: colors.bgLight,
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[1],
+    borderRadius: borderRadius.full,
+    marginBottom: spacing[3],
+  },
+  modalCategoryText: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.xs,
     color: colors.dustyMauve,
-    marginTop: 2,
+    letterSpacing: 1,
+  },
+  modalEarnedDate: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.dustyMauve,
   },
 });

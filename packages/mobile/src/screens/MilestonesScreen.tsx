@@ -60,6 +60,7 @@ export default function MilestonesScreen() {
         ) : (
           <>
             <View style={styles.section}>
+              <Text style={styles.sectionLabel}>Your Baker Class</Text>
               <ProfileHero
                 currentLevel={milestones.currentLevel}
                 totalNibs={milestones.totalNibs}
@@ -68,52 +69,8 @@ export default function MilestonesScreen() {
               />
             </View>
 
-            {milestones.nextGoal && (
-              <View style={styles.section}>
-                <View style={styles.nextGoalCard}>
-                  <Text style={styles.nextGoalLabel}>NEXT GOAL</Text>
-                  <View style={styles.nextGoalRow}>
-                    <Icon
-                      name={milestones.nextGoal.badge.icon}
-                      size="md"
-                      color={colors.primary}
-                    />
-                    <View style={styles.nextGoalInfo}>
-                      <Text style={styles.nextGoalName}>
-                        {milestones.nextGoal.badge.name}
-                      </Text>
-                      <Text style={styles.nextGoalProgress}>
-                        {milestones.nextGoal.progress.current}/
-                        {milestones.nextGoal.progress.target}
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={styles.nextGoalBarOuter}>
-                    <View
-                      style={[
-                        styles.nextGoalBarInner,
-                        {
-                          width: `${Math.round(
-                            (milestones.nextGoal.progress.current /
-                              milestones.nextGoal.progress.target) *
-                              100
-                          )}%`,
-                        },
-                      ]}
-                    />
-                  </View>
-                  <Text style={styles.nextGoalMotivation}>
-                    {milestones.nextGoal.motivationalText}
-                  </Text>
-                </View>
-              </View>
-            )}
-
             <View style={styles.section}>
-              <BadgeGrid
-                earnedBadges={earnedBadgesWithNew}
-                lockedBadges={milestones.lockedBadges}
-              />
+              <BadgeGrid earnedBadges={earnedBadgesWithNew} />
             </View>
 
             <View style={styles.section}>
@@ -141,22 +98,8 @@ function MilestonesSkeleton() {
         </View>
       </View>
 
-      {/* Next Goal Skeleton */}
-      <View style={styles.section}>
-        <View style={styles.skeletonCard}>
-          <Skeleton width={80} height={12} />
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: spacing[3], gap: spacing[3] }}>
-            <Skeleton width={40} height={40} borderRadius={20} />
-            <View style={{ flex: 1 }}>
-              <Skeleton width={100} height={16} />
-              <Skeleton width={60} height={12} style={{ marginTop: spacing[1] }} />
-            </View>
-          </View>
-          <Skeleton width="100%" height={8} style={{ marginTop: spacing[3] }} />
-        </View>
-      </View>
 
-      {/* Badge Grid Skeleton */}
+{/* Badge Grid Skeleton */}
       <View style={styles.section}>
         <View style={{ paddingHorizontal: spacing[4] }}>
           <Skeleton width={120} height={20} />
@@ -203,59 +146,14 @@ const styles = StyleSheet.create({
   section: {
     marginTop: spacing[5],
   },
-  nextGoalCard: {
-    backgroundColor: colors.white,
-    marginHorizontal: spacing[4],
-    borderRadius: borderRadius.xl,
-    padding: spacing[4],
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-  },
-  nextGoalLabel: {
+  sectionLabel: {
     fontFamily: fontFamily.bold,
-    fontSize: fontSize.xs,
-    color: colors.primary,
-    letterSpacing: 1.5,
-    marginBottom: spacing[3],
-  },
-  nextGoalRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[3],
-    marginBottom: spacing[3],
-  },
-  nextGoalInfo: {
-    flex: 1,
-  },
-  nextGoalName: {
-    fontFamily: fontFamily.bold,
-    fontSize: fontSize.base,
+    fontSize: fontSize.lg,
     color: colors.text,
+    paddingHorizontal: spacing[4],
+    marginBottom: spacing[3],
   },
-  nextGoalProgress: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.sm,
-    color: colors.dustyMauve,
-    marginTop: 2,
-  },
-  nextGoalBarOuter: {
-    height: 6,
-    backgroundColor: colors.bgLight,
-    borderRadius: 3,
-    overflow: 'hidden',
-    marginBottom: spacing[2],
-  },
-  nextGoalBarInner: {
-    height: '100%',
-    backgroundColor: colors.primary,
-    borderRadius: 3,
-  },
-  nextGoalMotivation: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.xs,
-    color: colors.dustyMauve,
-  },
-  skeletonCard: {
+skeletonCard: {
     backgroundColor: colors.white,
     borderRadius: borderRadius.xl,
     padding: spacing[4],

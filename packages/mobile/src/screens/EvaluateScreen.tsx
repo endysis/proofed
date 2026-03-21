@@ -24,6 +24,9 @@ import { useVariant, useCreateVariant } from '../hooks/useVariants';
 import VariantForm from '../components/variants/VariantForm';
 import { usePhotoUpload, usePhotoUrl } from '../hooks/usePhotos';
 import { useItemUsageDetails } from '../hooks/useItemUsageDetails';
+import { useMilestones } from '../hooks/useMilestones';
+import { usePreferences } from '../contexts/PreferencesContext';
+import { NibsSummary } from '../components/milestones';
 import { formatScaleFactor } from '../utils/scaleRecipe';
 import { colors, fontFamily, fontSize, spacing, borderRadius } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
@@ -57,6 +60,11 @@ export default function EvaluateScreen() {
   const createVariantMutation = useCreateVariant();
   const { data: mainPhotoUrl } = usePhotoUrl(attempt?.mainPhotoKey);
   const { details: itemUsageDetails, isLoading: detailsLoading } = useItemUsageDetails(attempt?.itemUsages || []);
+  const { earnedBadges } = useMilestones();
+  const { preferences } = usePreferences();
+
+  const seenBadgeIds = preferences?.seenBadgeIds || [];
+  const newBadges = earnedBadges.filter((eb) => !seenBadgeIds.includes(eb.badge.id));
 
   const [showActions, setShowActions] = useState(false);
   const [outcomeModal, setOutcomeModal] = useState(false);
@@ -148,13 +156,25 @@ export default function EvaluateScreen() {
     );
   };
 
-  const handlePhotoUpload = async (image: ImageAsset) => {
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState('');
+
+  const handlePhotoUpload = async (images: ImageAsset[]) => {
+    setIsUploading(true);
     try {
-      const key = await photoUpload.mutateAsync({ attemptId, image });
-      const photoKeys = [...(attempt?.photoKeys || []), key];
+      const newKeys: string[] = [];
+      for (let i = 0; i < images.length; i++) {
+        setUploadProgress(`${i + 1}/${images.length}`);
+        const key = await photoUpload.mutateAsync({ attemptId, image: images[i] });
+        newKeys.push(key);
+      }
+      const photoKeys = [...(attempt?.photoKeys || []), ...newKeys];
       updateAttempt.mutate({ attemptId, data: { photoKeys } });
     } catch (error) {
       Alert.alert('Error', 'Failed to upload photo');
+    } finally {
+      setIsUploading(false);
+      setUploadProgress('');
     }
   };
 
@@ -427,7 +447,7 @@ export default function EvaluateScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Photos</Text>
-            <PhotoUpload onUpload={handlePhotoUpload} isLoading={photoUpload.isPending} />
+            <PhotoUpload onUpload={handlePhotoUpload} isLoading={isUploading} uploadProgress={uploadProgress} />
           </View>
           <FeaturedPhotoGrid
             photoKeys={allPhotoKeys}
@@ -511,6 +531,17 @@ export default function EvaluateScreen() {
                   updateAttempt.mutate({ attemptId, data: { rating } });
                 }}
                 disabled={updateAttempt.isPending}
+              />
+            </View>
+          )}
+
+          {/* Nibs Earned Summary - only for completed bakes */}
+          {attempt.status === 'done' && (
+            <View style={{ marginTop: spacing[4] }}>
+              <NibsSummary
+                attempt={attempt}
+                newBadges={newBadges}
+                onViewMilestones={() => navigation.navigate('Milestones')}
               />
             </View>
           )}
