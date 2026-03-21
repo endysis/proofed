@@ -79,6 +79,28 @@ export default function BakesScreen() {
     .filter((a) => a.status === 'done' || !a.status)
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
+  // Milestone bakes — matches badge definitions from milestones.ts
+  const MILESTONES: { n: number; label: string; icon: string; color: string }[] = [
+    { n: 1,   label: '1st bake',   icon: 'bakery_dining',        color: '#CD7F32' },
+    { n: 5,   label: '5th bake',   icon: 'cake',                 color: '#2E7D32' },
+    { n: 10,  label: '10th bake',  icon: 'emoji_events',         color: '#DAA520' },
+    { n: 25,  label: '25th bake',  icon: 'local_fire_department', color: '#E65100' },
+    { n: 50,  label: '50th bake',  icon: 'workspace_premium',    color: '#7B1FA2' },
+    { n: 100, label: '100th bake', icon: 'military_tech',        color: '#C62828' },
+  ];
+  const milestoneMap = React.useMemo(() => {
+    const completed = [...(attempts || [])]
+      .filter((a) => a.status === 'done' || !a.status)
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const map = new Map<string, { label: string; icon: string; color: string }>();
+    MILESTONES.forEach(({ n, label, icon, color }) => {
+      if (completed[n - 1]) {
+        map.set(completed[n - 1].attemptId, { label, icon, color });
+      }
+    });
+    return map;
+  }, [attempts]);
+
   const hasAttempts = upcomingAttempts.length > 0 || pastAttempts.length > 0;
 
   return (
@@ -178,6 +200,7 @@ export default function BakesScreen() {
                       attempt={attempt}
                       index={index}
                       isFirstInSection={index === 0}
+                      milestone={milestoneMap.get(attempt.attemptId)}
                       onPress={() =>
                         navigation.navigate('AttemptDetail', {
                           attemptId: attempt.attemptId,
@@ -209,17 +232,20 @@ function SwipeableAttemptRow({
   attempt,
   index,
   isFirstInSection,
+  milestone,
   onPress,
   onDelete,
 }: {
   attempt: Attempt;
   index: number;
   isFirstInSection: boolean;
+  milestone?: { label: string; icon: string; color: string };
   onPress: () => void;
   onDelete: () => void;
 }) {
   const statusStyle = getStatusBadgeStyle(attempt.status);
   const swipeableRef = useRef<Swipeable>(null);
+  const isMilestone = !!milestone;
 
   const renderRightActions = (
     progress: Animated.AnimatedInterpolation<number>,
@@ -272,6 +298,11 @@ function SwipeableAttemptRow({
             style={[
               styles.attemptCard,
               !isFirstInSection && styles.attemptCardFaded,
+              isMilestone && {
+                ...styles.milestoneCard,
+                borderColor: milestone!.color,
+                shadowColor: milestone!.color,
+              },
             ]}
             onPress={onPress}
             activeOpacity={0.8}
@@ -291,6 +322,14 @@ function SwipeableAttemptRow({
               </View>
             </View>
             <Text style={styles.attemptName}>{attempt.name}</Text>
+            {milestone && (
+              <View style={styles.milestoneBadge}>
+                <Icon name={milestone.icon} size="sm" color={milestone.color} />
+                <Text style={[styles.milestoneText, { color: milestone.color }]}>
+                  {milestone.label}
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
         </Swipeable>
       </View>
@@ -450,6 +489,26 @@ const styles = StyleSheet.create({
   },
   attemptCardFaded: {
     opacity: 0.8,
+  },
+  milestoneCard: {
+    borderWidth: 1.5,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 4,
+    opacity: 1,
+  },
+  milestoneBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: spacing[2],
+  },
+  milestoneText: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.xs,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   attemptHeader: {
     flexDirection: 'row',
