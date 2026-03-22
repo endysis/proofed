@@ -77,7 +77,7 @@ export default function NutritionSection({
     return (
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Nutrition Estimate</Text>
+          <Text style={styles.sectionTitle}>Calorie Estimate</Text>
         </View>
         <View style={styles.card}>
           <View style={styles.loadingContainer}>
@@ -125,7 +125,7 @@ export default function NutritionSection({
     return (
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Nutrition Estimate</Text>
+          <Text style={styles.sectionTitle}>Calorie Estimate</Text>
         </View>
         <View style={styles.inputCard}>
           <View style={styles.totalCaloriesRow}>
@@ -137,7 +137,7 @@ export default function NutritionSection({
 
           <View style={styles.sliceInputSection}>
             <Text style={styles.sliceInputLabel}>
-              How many slices will you cut?
+              How many portions will you cut?
             </Text>
             <View style={styles.sliceInputRow}>
               <TouchableOpacity
@@ -171,7 +171,7 @@ export default function NutritionSection({
 
           <TouchableOpacity style={styles.calculateButton} onPress={handleCalculate}>
             <Icon name="calculate" size="sm" color={colors.white} />
-            <Text style={styles.calculateButtonText}>Calculate Per Slice</Text>
+            <Text style={styles.calculateButtonText}>Calculate Per Portion</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -182,7 +182,7 @@ export default function NutritionSection({
   return (
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Nutrition Estimate</Text>
+        <Text style={styles.sectionTitle}>Calorie Estimate</Text>
         <TouchableOpacity onPress={handleRecalculate}>
           <Text style={styles.editLink}>Edit</Text>
         </TouchableOpacity>
@@ -196,7 +196,7 @@ export default function NutritionSection({
                 {nutrition.caloriesPerServing}
               </Text>
               <Text style={styles.nutritionLabel}>calories</Text>
-              <Text style={styles.nutritionUnit}>per slice</Text>
+              <Text style={styles.nutritionUnit}>per portion</Text>
             </View>
           </View>
           <View style={styles.nutritionDivider} />
@@ -205,13 +205,13 @@ export default function NutritionSection({
             <View>
               <Text style={styles.nutritionValue}>{nutrition.sugarPerServing}g</Text>
               <Text style={styles.nutritionLabel}>sugar</Text>
-              <Text style={styles.nutritionUnit}>per slice</Text>
+              <Text style={styles.nutritionUnit}>per portion</Text>
             </View>
           </View>
         </View>
         <View style={styles.servingsRow}>
           <Text style={styles.servingsText}>
-            Based on {nutrition.totalServings} slices • {nutrition.totalCalories.toLocaleString()} cal total
+            Based on {nutrition.totalServings} portions • {nutrition.totalCalories.toLocaleString()} cal total
           </Text>
         </View>
       </View>
