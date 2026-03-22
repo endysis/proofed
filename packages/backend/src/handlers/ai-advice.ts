@@ -105,7 +105,7 @@ export async function getAiAdvice(
   attemptId: string,
   request: AiAdviceRequest
 ): Promise<AiAdviceResponse> {
-  const { outcomeNotes, photoUrl, context } = request;
+  const { outcomeNotes, photoUrl, context, milestoneContext } = request;
 
   console.log('AI Advice Request:', JSON.stringify(request, null, 2));
   console.log('Photo URL provided:', !!photoUrl);
@@ -155,19 +155,35 @@ export async function getAiAdvice(
       ? '\n\nI have also attached a photo of my bake. Check it out!'
       : '';
 
+    const milestoneInstruction = milestoneContext
+      ? `\n\nMilestone context: The baker currently has ${milestoneContext.currentTotalNibs} nibs and needs ${milestoneContext.nibsToNextLevel} more to reach "${milestoneContext.nextLevelTitle}". If your nib award would push them past this threshold, mention the level up naturally and with excitement (e.g. "and that takes you to ${milestoneContext.nextLevelTitle}!").`
+      : '';
+
     const prompt = `You are "Crumb", a warm and encouraging baker with the personality of Mary Berry - that lovely, slightly posh British warmth combined with decades of baking wisdom. You're supportive but honest, using phrases like "scrummy," "lovely," "delightful," and "rather good." You have a gentle, grandmotherly charm and genuinely want to help bakers improve.
 
 A baker just completed a baking session called "${context.attemptName}" with the following components:
 ${itemContexts.map((ctx, i) => `- ${ctx}`).join('\n')}
 
 They noted the following outcome:
-"${outcomeNotes}"${photoInstruction}
+"${outcomeNotes}"${photoInstruction}${milestoneInstruction}
 
 Give a warm, encouraging reaction to their bake in Mary Berry's style (3-4 sentences). Be genuinely supportive but honest - if something needs work, say so kindly.${photoUrl ? ' Comment on the appearance - the colour, the rise, the texture you can see.' : ''} Use British English spellings and Mary Berry's characteristic warmth. If they mention specific issues, offer a gentle suggestion for next time.
 
+You must also award the baker between 5 and 50 "nibs" based on the quality of their bake. Weave the nib award naturally into your overview (e.g. "I'm awarding you 32 nibs for this lovely bake!"). NEVER state an explicit star rating or score, only nibs.
+
+Nib awarding rubric:
+- 5 to 15: Needs significant improvement
+- 16 to 25: Solid effort, good fundamentals
+- 26 to 35: Very good bake, showing real skill
+- 36 to 45: Excellent, near professional quality
+- 46 to 50: Truly outstanding, a masterpiece
+
+Consider: photo appearance (if provided), ingredient quality, technique, AND the thoughtfulness of the baker's outcome notes. If they reflect on what worked, what didn't, and ideas for improvement, award higher. Self reflection and a growth mindset should be rewarded.
+
 Respond with a JSON object in this exact format:
 {
-  "overview": "Your warm, Mary Berry-style reaction (3-4 sentences)"
+  "overview": "Your warm, Mary Berry-style reaction including the nib award (3-4 sentences)",
+  "nibsAwarded": 28
 }
 
 Guidelines:
@@ -176,7 +192,8 @@ Guidelines:
 - Use phrases like "scrummy," "lovely," "delightful," "rather good," "well done"
 - If there's a photo, comment on the colour, rise, and overall appearance
 - Keep it conversational and warm, like a gentle mentor
-- NEVER use dashes or hyphens in your response. Write in natural flowing sentences instead`;
+- NEVER use dashes or hyphens in your response. Write in natural flowing sentences instead
+- NEVER state an explicit star or score, only award nibs`;
 
     console.log('Calling OpenAI API...');
 
@@ -215,10 +232,15 @@ Guidelines:
       throw new Error('No response from AI');
     }
 
-    const parsed = JSON.parse(responseContent) as { overview: string };
+    const parsed = JSON.parse(responseContent) as { overview: string; nibsAwarded?: number };
+
+    // Clamp nibsAwarded to [5, 50] for safety
+    const rawNibs = typeof parsed.nibsAwarded === 'number' ? parsed.nibsAwarded : 20;
+    const nibsAwarded = Math.max(5, Math.min(50, Math.round(rawNibs)));
 
     const adviceResponse: AiAdviceResponse = {
       overview: parsed.overview,
+      nibsAwarded,
       tips: [],  // Tips feature disabled for now - see docs/crumb-tips-prompt.md to re-enable
       generatedAt: new Date().toISOString(),
     };

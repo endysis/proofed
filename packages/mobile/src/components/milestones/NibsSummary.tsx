@@ -15,13 +15,15 @@ export default function NibsSummary({ attempt, newBadges, onViewMilestones }: Ni
   const bakeNibs = attempt.flowType === 'guided' ? NIBS.guidedBake : NIBS.directBake;
   const photoNibs = attempt.photoKeys && attempt.photoKeys.length > 0 ? NIBS.addPhoto : 0;
   const notesNibs = attempt.outcomeNotes?.trim() ? NIBS.outcomeNotes : 0;
-  const total = bakeNibs + photoNibs + notesNibs;
+  const crumbNibs = attempt.aiAdvice?.nibsAwarded || 0;
+  const total = bakeNibs + photoNibs + notesNibs + crumbNibs;
 
   const rows: Array<{ label: string; nibs: number }> = [
     { label: 'Bake completed', nibs: bakeNibs },
   ];
   if (photoNibs > 0) rows.push({ label: 'Added photo', nibs: photoNibs });
   if (notesNibs > 0) rows.push({ label: 'Outcome notes', nibs: notesNibs });
+  if (crumbNibs > 0) rows.push({ label: 'Crumb award', nibs: crumbNibs });
 
   return (
     <View style={styles.card}>

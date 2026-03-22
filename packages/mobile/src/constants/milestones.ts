@@ -37,8 +37,10 @@ function countBakes(ctx: BadgeContext): number {
   return ctx.completedAttempts.length;
 }
 
-function countFiveStars(ctx: BadgeContext): number {
-  return ctx.completedAttempts.filter((a) => a.rating === 5).length;
+function countHighNibBakes(ctx: BadgeContext): number {
+  return ctx.completedAttempts.filter(
+    (a) => a.aiAdvice?.nibsAwarded && a.aiAdvice.nibsAwarded >= 40
+  ).length;
 }
 
 function countPhotoBakes(ctx: BadgeContext): number {
@@ -150,20 +152,20 @@ export const BADGES: BadgeDefinition[] = [
 
   // Quality badges
   {
-    id: 'first-five-star',
-    name: 'Crust King',
-    icon: 'star',
+    id: 'crumb-favourite',
+    name: "Crumb's Favourite",
+    icon: 'auto_awesome',
     category: 'quality',
-    description: 'Get your first 5-star rating',
-    check: (ctx) => ({ earned: countFiveStars(ctx) >= 1, current: countFiveStars(ctx), target: 1 }),
+    description: 'Earn 40+ nibs from Crumb on a single bake',
+    check: (ctx) => ({ earned: countHighNibBakes(ctx) >= 1, current: countHighNibBakes(ctx), target: 1 }),
   },
   {
-    id: 'five-five-stars',
-    name: 'Perfectionist',
+    id: 'consistently-brilliant',
+    name: 'Consistently Brilliant',
     icon: 'verified',
     category: 'quality',
-    description: 'Get 5 five-star ratings',
-    check: (ctx) => ({ earned: countFiveStars(ctx) >= 5, current: Math.min(countFiveStars(ctx), 5), target: 5 }),
+    description: 'Earn 40+ nibs from Crumb on 5 bakes',
+    check: (ctx) => ({ earned: countHighNibBakes(ctx) >= 5, current: Math.min(countHighNibBakes(ctx), 5), target: 5 }),
   },
 
   // Photo badge
@@ -288,6 +290,8 @@ export const NIBS = {
   addPhoto: 1,        // Bonus for photo
   outcomeNotes: 5,    // Bonus for writing outcome notes
   earnBadge: 25,      // Per badge
+  crumbMin: 5,        // Min nibs Crumb can award
+  crumbMax: 50,       // Max nibs Crumb can award
 } as const;
 
 /** Get the nib floor for a stone — degree I of the stone the given level belongs to */

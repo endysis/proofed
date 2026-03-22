@@ -60,7 +60,7 @@ export default function EvaluateScreen() {
   const createVariantMutation = useCreateVariant();
   const { data: mainPhotoUrl } = usePhotoUrl(attempt?.mainPhotoKey);
   const { details: itemUsageDetails, isLoading: detailsLoading } = useItemUsageDetails(attempt?.itemUsages || []);
-  const { earnedBadges } = useMilestones();
+  const { earnedBadges, totalNibs, nextLevel, nibsToNextLevel } = useMilestones();
   const { preferences } = usePreferences();
 
   const seenBadgeIds = preferences?.seenBadgeIds || [];
@@ -259,6 +259,11 @@ export default function EvaluateScreen() {
           bakeTemp: detail.bakeTemp,
           bakeTempUnit: detail.bakeTempUnit,
         })),
+      },
+      milestoneContext: {
+        currentTotalNibs: totalNibs,
+        nextLevelTitle: nextLevel ? `${nextLevel.title} Degree ${['I','II','III','IV'][nextLevel.degree-1]}` : 'Max Level',
+        nibsToNextLevel: nibsToNextLevel ?? 0,
       },
     };
 
@@ -477,7 +482,7 @@ export default function EvaluateScreen() {
           )}
         </View>
 
-        {/* Nutrition Estimate */}
+        {/* Calorie Estimate */}
         <NutritionSection
           itemUsageDetails={itemUsageDetails}
           isLoading={detailsLoading}
@@ -515,25 +520,11 @@ export default function EvaluateScreen() {
             error={aiAdviceMutation.error}
             onRequestAdvice={handleRequestAdvice}
             onCreateVariantFromTip={handleCreateVariantFromTip}
-            canRequest={!!attempt.outcomeNotes?.trim() && !attempt.aiAdvice}
+            canRequest={!!attempt.outcomeNotes?.trim() && !attempt.aiAdvice && !!attempt.mainPhotoKey}
             hasPhoto={!!attempt.mainPhotoKey}
             itemUsageDetails={itemUsageDetails}
             alreadyRequested={!!attempt.aiAdvice}
           />
-
-          {/* Rating - only show once outcome notes are written */}
-          {!!attempt.outcomeNotes?.trim() && (
-            <View style={styles.ratingSection}>
-              <Text style={styles.ratingLabel}>Rate this bake</Text>
-              <StarRating
-                rating={attempt.rating || 0}
-                onRate={(rating) => {
-                  updateAttempt.mutate({ attemptId, data: { rating } });
-                }}
-                disabled={updateAttempt.isPending}
-              />
-            </View>
-          )}
 
           {/* Nibs Earned Summary - only for completed bakes */}
           {attempt.status === 'done' && (
@@ -948,36 +939,6 @@ function FeaturedPhoto({
         )}
       </View>
     </TouchableOpacity>
-  );
-}
-
-function StarRating({
-  rating,
-  onRate,
-  disabled,
-}: {
-  rating: number;
-  onRate: (rating: number) => void;
-  disabled?: boolean;
-}) {
-  return (
-    <View style={styles.starContainer}>
-      {[1, 2, 3, 4, 5].map((star) => (
-        <TouchableOpacity
-          key={star}
-          onPress={() => onRate(star)}
-          disabled={disabled}
-          style={styles.starButton}
-          activeOpacity={0.7}
-        >
-          <Icon
-            name={star <= rating ? 'star' : 'star_border'}
-            size="lg"
-            color={star <= rating ? colors.primary : colors.dustyMauve}
-          />
-        </TouchableOpacity>
-      ))}
-    </View>
   );
 }
 
@@ -1440,23 +1401,5 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     color: colors.dustyMauve,
     marginTop: 2,
-  },
-  ratingSection: {
-    marginTop: spacing[4],
-    alignItems: 'center',
-  },
-  ratingLabel: {
-    fontFamily: fontFamily.medium,
-    fontSize: fontSize.sm,
-    color: colors.text,
-    marginBottom: spacing[2],
-  },
-  starContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: spacing[1],
-  },
-  starButton: {
-    padding: spacing[1],
   },
 });

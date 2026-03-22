@@ -42,7 +42,7 @@ export function AiAdviceSection({
       <View style={styles.container}>
         <View style={styles.loadingCard}>
           <ActivityIndicator size="small" color={colors.primary} />
-          <Text style={styles.loadingText}>Crumb is thinking...</Text>
+          <Text style={styles.loadingText}>Crumb is looking...</Text>
         </View>
       </View>
     );
@@ -75,6 +75,12 @@ export function AiAdviceSection({
         </View>
         <View style={styles.overviewCard}>
           <Text style={styles.overviewText}>{advice.overview}</Text>
+          {advice.nibsAwarded != null && advice.nibsAwarded > 0 && (
+            <View style={styles.nibsAwardRow}>
+              <Icon name="auto_awesome" size="sm" color={colors.primary} />
+              <Text style={styles.nibsAwardText}>+{advice.nibsAwarded} nibs</Text>
+            </View>
+          )}
         </View>
       </View>
     );
@@ -100,7 +106,13 @@ export function AiAdviceSection({
           </Text>
         </TouchableOpacity>
         {!canRequest && (
-          <Text style={styles.requestButtonHint}>Add outcome notes first</Text>
+          <Text style={styles.requestButtonHint}>
+            {!hasPhoto && !advice
+              ? 'Add a photo and outcome notes first'
+              : !hasPhoto
+                ? 'Add a photo first'
+                : 'Add outcome notes first'}
+          </Text>
         )}
       </View>
     </View>
@@ -142,6 +154,17 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.text,
     lineHeight: 22,
+  },
+  nibsAwardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+    marginTop: spacing[3],
+  },
+  nibsAwardText: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.base,
+    color: colors.primary,
   },
   tipsHeader: {
     fontFamily: fontFamily.bold,

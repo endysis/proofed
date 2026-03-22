@@ -114,7 +114,6 @@ export interface Attempt {
   status?: AttemptStatus;  // 'planning' | 'baking' | 'done'
   flowType?: 'guided' | 'direct';  // 'direct' = past bake (skip BakeScreen)
   starred?: boolean;       // Whether this attempt is starred/favorited
-  rating?: number;         // User rating (1-5 stars)
   aiAdvice?: AiAdviceResponse;  // Saved Crumb advice (persisted, one request per bake)
   nutrition?: NutritionInfo;    // Saved nutrition info (calories, sugar per slice)
   createdAt: string;
@@ -224,7 +223,6 @@ export interface UpdateAttemptRequest {
   mainPhotoKey?: string;
   status?: AttemptStatus;
   starred?: boolean;
-  rating?: number;
   nutrition?: NutritionInfo;
 }
 
@@ -284,10 +282,16 @@ export interface AiAdviceRequest {
       bakeTempUnit?: 'F' | 'C'; // Fahrenheit or Celsius
     }>;
   };
+  milestoneContext?: {
+    currentTotalNibs: number;
+    nextLevelTitle: string;    // e.g. "Amber Degree II"
+    nibsToNextLevel: number;
+  };
 }
 
 export interface AiAdviceResponse {
   overview: string;  // Friendly, informal reaction to the bake
+  nibsAwarded: number;  // 5-50 nibs awarded by Crumb based on bake quality
   tips: AiAdviceTip[];
   generatedAt: string;
 }

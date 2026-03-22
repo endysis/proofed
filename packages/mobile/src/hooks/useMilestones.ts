@@ -78,13 +78,13 @@ function estimateEarnedDate(
       return sorted[49]?.date || new Date().toISOString();
     case 'hundredth-bake':
       return sorted[99]?.date || new Date().toISOString();
-    case 'first-five-star': {
-      const first = sorted.find((a) => a.rating === 5);
+    case 'crumb-favourite': {
+      const first = sorted.find((a) => a.aiAdvice?.nibsAwarded && a.aiAdvice.nibsAwarded >= 40);
       return first?.date || new Date().toISOString();
     }
-    case 'five-five-stars': {
-      const fiveStars = sorted.filter((a) => a.rating === 5);
-      return fiveStars[4]?.date || new Date().toISOString();
+    case 'consistently-brilliant': {
+      const highNibBakes = sorted.filter((a) => a.aiAdvice?.nibsAwarded && a.aiAdvice.nibsAwarded >= 40);
+      return highNibBakes[4]?.date || new Date().toISOString();
     }
     case 'first-photo': {
       const first = sorted.find((a) => a.photoKeys && a.photoKeys.length > 0);
@@ -109,6 +109,7 @@ function calculateTotalNibs(
     nibs += a.flowType === 'guided' ? NIBS.guidedBake : NIBS.directBake;
     if (a.photoKeys && a.photoKeys.length > 0) nibs += NIBS.addPhoto;
     if (a.outcomeNotes && a.outcomeNotes.trim().length > 0) nibs += NIBS.outcomeNotes;
+    nibs += a.aiAdvice?.nibsAwarded || 0;
   });
 
   nibs += earnedBadgeCount * NIBS.earnBadge;
